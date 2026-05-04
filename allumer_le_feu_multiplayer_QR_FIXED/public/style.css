@@ -1,0 +1,26 @@
+*{box-sizing:border-box}
+body{margin:0;background:#080808;color:white;font-family:"Courier New",monospace;overflow:hidden}
+#topbar{height:70px;background:#d71920;border-bottom:8px solid #111;display:flex;align-items:center;justify-content:space-between;padding:0 18px}
+.brand{font-size:30px;font-weight:900;letter-spacing:1px;text-shadow:3px 3px #000}
+.tools{display:flex;align-items:center;gap:10px}
+button{font-family:"Courier New",monospace;font-weight:900;border:3px solid #fff;background:#111;color:#fff;padding:10px 14px;border-radius:8px;cursor:pointer}
+button:hover{background:#333}
+label{font-weight:900}
+input{vertical-align:middle}
+canvas{display:block;width:100vw;height:calc(100vh - 70px);image-rendering:pixelated;background:#6ec65f}
+.modal{position:fixed;inset:0;background:rgba(0,0,0,.82);display:flex;align-items:center;justify-content:center;z-index:10}
+.hidden{display:none}
+.modalCard{width:92vw;max-height:90vh;overflow:auto;background:#111;border:5px solid #fff;padding:20px;box-shadow:0 0 0 8px #d71920}
+.modalHeader{display:flex;align-items:center;justify-content:space-between;margin-bottom:15px}
+.modalHeader h2{margin:0;font-size:28px}
+#qrGrid{display:grid;grid-template-columns:repeat(5,1fr);gap:18px}
+.qrItem{background:#fff;color:#111;text-align:center;padding:10px;border:4px solid #d71920;font-weight:900}
+.qrItem img{width:100%;max-width:150px;image-rendering:auto}
+.controllerBody{height:100vh;background:#111;display:flex;flex-direction:column;align-items:center;justify-content:space-between;padding:18px;touch-action:none;overflow:hidden}
+.controllerTitle{font-size:26px;font-weight:900;text-align:center}
+.playerNumber{font-size:82px;font-weight:900;color:#fff;text-shadow:4px 4px #d71920}
+.status{font-size:16px;color:#ddd;text-align:center}
+.joystickWrap{position:relative;width:260px;height:260px;border:6px solid #fff;border-radius:50%;background:#222;box-shadow:0 0 0 8px #d71920;margin-bottom:20px;touch-action:none}
+.joystickBase{position:absolute;inset:38px;border:3px dashed #777;border-radius:50%}
+.joystickKnob{position:absolute;left:95px;top:95px;width:70px;height:70px;border-radius:50%;background:#d71920;border:5px solid #fff}
+.phoneHelp{font-size:14px;text-align:center;color:#aaa;max-width:320px}
