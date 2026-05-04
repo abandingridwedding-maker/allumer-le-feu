@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+<title>Allumer le FEU — Controller</title>
+<link rel="stylesheet" href="style.css" />
+</head>
+<body class="controllerBody">
+  <div>
+    <div class="controllerTitle">ALLUMER LE FEU</div>
+    <div class="status" id="status">Connecting...</div>
+  </div>
+
+  <div class="playerNumber" id="playerNumber">?</div>
+
+  <div class="joystickWrap" id="joy">
+    <div class="joystickBase"></div>
+    <div class="joystickKnob" id="knob"></div>
+  </div>
+
+  <div class="phoneHelp">Move your finger in the circle to move your player. Keep this page open.</div>
+
+<script src="/socket.io/socket.io.js"></script>
+<script src="controller.js"></script>
+</body>
+</html>
