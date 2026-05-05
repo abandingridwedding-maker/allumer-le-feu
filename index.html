@@ -72,6 +72,25 @@
     </div>
   </div>
 
+  <div id="paywallOverlay" class="paywall hidden">
+    <div class="paywallCard">
+      <h1>SESSION LIVE 🔴</h1>
+      <p>Your session is connected.</p>
+      <p>To keep players connected and continue managing your team:</p>
+
+      <div class="price">€9.99 / year</div>
+
+      <button id="unlockBtn">Unlock Access</button>
+
+      <div class="promoBox">
+        <label>Promo code:</label>
+        <input id="promoInput" type="text" placeholder="Enter code" />
+        <button id="promoBtn">Apply Promo Code</button>
+        <div id="promoMessage"></div>
+      </div>
+    </div>
+  </div>
+
 <script src="/socket.io/socket.io.js"></script>
 <script src="coach.js"></script>
 </body>
