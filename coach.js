@@ -503,39 +503,76 @@ function draw() {
   pixelText(modeText, W / 2, H - 44, 20, "center", "#ffd700");
   pixelText("Click field = place setup / move ball | Double click player = attach ball | QR Codes = phones", W / 2, H - 18, 18, "center", "#fff");
 }
+
+// ================================
+// SIMPLE PAYWALL — COACH SIDE ONLY
+// CHANGE WAIT TIME HERE
+// ================================
+
 const STRIPE_PAYMENT_LINK = "https://buy.stripe.com/YOUR_LINK_HERE";
-const TEN_MINUTES = 10 * 1000; // TEST = 10 seconds
+
+// TEST MODE: 10 seconds
+// Later, change this to: 10 * 60 * 1000
+const PAYWALL_WAIT_TIME = 10 * 1000;
 
 function hasValidAccess() {
-  if (localStorage.getItem("subscriptionActive") === "true") return true;
+  if (localStorage.getItem("subscriptionActive") === "true") {
+    return true;
+  }
+
   const promoExpiresAt = Number(localStorage.getItem("promoAccessExpiresAt") || 0);
   return Date.now() < promoExpiresAt;
 }
 
 function showPaywall() {
   if (hasValidAccess()) return;
-  document.getElementById("paywallOverlay")?.classList.remove("hidden");
+
+  const overlay = document.getElementById("paywallOverlay");
+  if (overlay) {
+    overlay.classList.remove("hidden");
+  }
+}
+
+function hidePaywall() {
+  const overlay = document.getElementById("paywallOverlay");
+  if (overlay) {
+    overlay.classList.add("hidden");
+  }
+}
+
+function unlockPromoForToday() {
+  const expiresAt = Date.now() + 24 * 60 * 60 * 1000;
+  localStorage.setItem("promoAccessExpiresAt", String(expiresAt));
+  hidePaywall();
 }
 
 window.addEventListener("load", () => {
   if (!hasValidAccess()) {
-    setTimeout(showPaywall, TEN_MINUTES);
+    setTimeout(showPaywall, PAYWALL_WAIT_TIME);
   }
 
-  document.getElementById("unlockBtn")?.addEventListener("click", () => {
-    window.location.href = STRIPE_PAYMENT_LINK;
-  });
+  const unlockBtn = document.getElementById("unlockBtn");
+  if (unlockBtn) {
+    unlockBtn.onclick = () => {
+      window.location.href = STRIPE_PAYMENT_LINK;
+    };
+  }
 
-  document.getElementById("promoBtn")?.addEventListener("click", () => {
-    const code = document.getElementById("promoInput")?.value.trim().toUpperCase();
-    const msg = document.getElementById("promoMessage");
+  const promoBtn = document.getElementById("promoBtn");
+  if (promoBtn) {
+    promoBtn.onclick = () => {
+      const input = document.getElementById("promoInput");
+      const message = document.getElementById("promoMessage");
+      const code = (input?.value || "").trim().toUpperCase();
 
-    if (code === "AZRUGBY") {
-      localStorage.setItem("promoAccessExpiresAt", String(Date.now() + 24 * 60 * 60 * 1000));
-      document.getElementById("paywallOverlay")?.classList.add("hidden");
-    } else if (msg) {
-      msg.textContent = "Invalid promo code.";
-      msg.style.color = "#ff5555";
-    }
-  });
+      if (code === "AZRUGBY") {
+        unlockPromoForToday();
+      } else {
+        if (message) {
+          message.textContent = "Invalid promo code.";
+          message.style.color = "#ff5555";
+        }
+      }
+    };
+  }
 });
