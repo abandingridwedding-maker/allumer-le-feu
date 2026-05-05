@@ -147,9 +147,7 @@ function applyTranslations() {
 }
 
 function updateToolVisibility() {
-  const rugbyItems = document.querySelectorAll(".rugbyOnly");
-
-  rugbyItems.forEach(item => {
+  document.querySelectorAll(".rugbyOnly").forEach(item => {
     if (sportMode === "rugby") {
       item.classList.remove("hidden");
     } else {
@@ -270,17 +268,34 @@ canvas.addEventListener("mousedown", e => {
 
   if (sportMode === "rugby") {
     if (setupMode === "lineout-top") {
-      socket.emit("coach-setpiece", { type: "lineout", side: "top", x: p.x, y: p.y, direction: attackDirection });
+      socket.emit("coach-setpiece", {
+        type: "lineout",
+        side: "top",
+        x: p.x,
+        y: p.y,
+        direction: attackDirection
+      });
       return;
     }
 
     if (setupMode === "lineout-bottom") {
-      socket.emit("coach-setpiece", { type: "lineout", side: "bottom", x: p.x, y: p.y, direction: attackDirection });
+      socket.emit("coach-setpiece", {
+        type: "lineout",
+        side: "bottom",
+        x: p.x,
+        y: p.y,
+        direction: attackDirection
+      });
       return;
     }
 
     if (setupMode === "scrum") {
-      socket.emit("coach-setpiece", { type: "scrum", x: p.x, y: p.y, direction: attackDirection });
+      socket.emit("coach-setpiece", {
+        type: "scrum",
+        x: p.x,
+        y: p.y,
+        direction: attackDirection
+      });
       return;
     }
   }
@@ -719,13 +734,12 @@ function draw() {
 }
 
 // ================================
-// SIMPLE PAYWALL — COACH SIDE ONLY
-// CHANGE STRIPE LINK + WAIT TIME HERE
+// PAYWALL — COACH SIDE ONLY
 // ================================
 
 const STRIPE_PAYMENT_LINK = "https://buy.stripe.com/28EeVdesG4TgcBz7D06Vq00";
 
-// FINAL MODE: 5 minutes
+// Final wait time: 5 minutes
 const PAYWALL_WAIT_TIME = 5 * 60 * 1000;
 
 let promoUnlockedThisPageLoad = false;
