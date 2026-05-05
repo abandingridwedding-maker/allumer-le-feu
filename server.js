@@ -28,6 +28,7 @@ const BOTTOM_15M = FIELD_H - 220;
 const BOTTOM_5M = FIELD_H - 125;
 
 let currentTeamColor = "#d71920";
+let currentDirection = "rtl";
 
 function clamp(value, min, max) {
   return Math.max(min, Math.min(max, value));
@@ -39,14 +40,11 @@ function defaultPlayers() {
   const players = {};
 
   for (let i = 1; i <= 15; i++) {
-    const row = i <= 8 ? 0 : 1;
-    const index = row === 0 ? i - 1 : i - 9;
-
     players[i] = {
       id: i,
       number: i,
-      x: row === 0 ? 235 + index * 95 : 290 + index * 120,
-      y: row === 0 ? 335 : 500,
+      x: 700,
+      y: 410,
       vx: 0,
       vy: 0,
       connected: false,
@@ -72,6 +70,7 @@ let game = {
   speed: 4.2,
   showGrid: false,
   teamColor: currentTeamColor,
+  direction: currentDirection,
   message: "TEAM-CLARITY"
 };
 
@@ -79,7 +78,6 @@ app.get("/api/qrs", async (req, res) => {
   const host = req.get("host");
   const protocol = req.headers["x-forwarded-proto"] || req.protocol;
   const baseUrl = `${protocol}://${host}`;
-
   const qrs = {};
 
   for (let i = 1; i <= 15; i++) {
@@ -115,18 +113,28 @@ function applyTeamColor(color) {
   }
 }
 
-function setupLineout(side, rawX) {
-  stopAllPlayers();
+function setAttackDirection(direction) {
+  currentDirection = direction === "ltr" ? "ltr" : "rtl";
+  game.direction = currentDirection;
+}
 
-  const x = clamp(rawX, 520, FIELD_W - 120);
+function setupLineout(side, rawX, direction = currentDirection) {
+  stopAllPlayers();
+  setAttackDirection(direction);
+
+  const isRTL = currentDirection === "rtl";
   const isTop = side === "top";
+
+  const x = isRTL
+    ? clamp(rawX, 360, FIELD_W - 520)
+    : clamp(rawX, 520, FIELD_W - 360);
 
   const touchY = isTop ? TOP_TOUCH : BOTTOM_TOUCH;
   const lineoutYStart = isTop ? TOP_5M + 8 : BOTTOM_5M - 8;
   const lineoutStep = isTop ? 14 : -14;
 
   game.ball = {
-    x: x - 15,
+    x: x,
     y: touchY,
     carrier: null
   };
@@ -134,75 +142,119 @@ function setupLineout(side, rawX) {
   // 2 = thrower on touchline
   setPlayer(2, x, touchY);
 
-  // Forwards between 5m and 15m, aligned one behind another.
+  // Lineout forwards between 5m and 15m
   const forwards = [3, 1, 4, 5, 6, 7, 8];
 
   forwards.forEach((num, idx) => {
     setPlayer(num, x, lineoutYStart + idx * lineoutStep);
   });
 
-  // 9 inside / tail receiver
-  setPlayer(9, x - 80, isTop ? TOP_15M + 35 : BOTTOM_15M - 35);
+  // IMPORTANT:
+  // RTL = backs on RIGHT side of forwards
+  // LTR = backs on LEFT side of forwards
+  const dir = isRTL ? 1 : -1;
 
-  // Backline aligned to attack right to left
-  setPlayer(10, x - 180, isTop ? TOP_15M + 25 : BOTTOM_15M - 25);
-  setPlayer(12, x - 315, isTop ? TOP_15M + 95 : BOTTOM_15M - 95);
-  setPlayer(13, x - 455, isTop ? TOP_15M + 165 : BOTTOM_15M - 165);
-  setPlayer(15, x - 590, isTop ? TOP_15M + 235 : BOTTOM_15M - 235);
-  setPlayer(14, x - 720, isTop ? BOTTOM_5M - 15 : TOP_5M + 15);
+  setPlayer(9, x + dir * 90, isTop ? TOP_15M + 35 : BOTTOM_15M - 35);
+
+  setPlayer(10, x + dir * 185, isTop ? TOP_15M + 25 : BOTTOM_15M - 25);
+  setPlayer(12, x + dir * 320, isTop ? TOP_15M + 95 : BOTTOM_15M - 95);
+  setPlayer(13, x + dir * 455, isTop ? TOP_15M + 165 : BOTTOM_15M - 165);
+  setPlayer(15, x + dir * 590, isTop ? TOP_15M + 235 : BOTTOM_15M - 235);
+  setPlayer(14, x + dir * 720, isTop ? BOTTOM_5M - 15 : TOP_5M + 15);
 
   // Blind wing behind 10
-  setPlayer(11, x - 160, isTop ? TOP_5M + 25 : BOTTOM_5M - 25);
+  setPlayer(11, x + dir * 160, isTop ? TOP_5M + 25 : BOTTOM_5M - 25);
 
-  game.message = isTop ? "LINEOUT TOP RIGHT TO LEFT" : "LINEOUT BOTTOM RIGHT TO LEFT";
+  game.message = isRTL
+    ? "LINEOUT RIGHT TO LEFT"
+    : "LINEOUT LEFT TO RIGHT";
 
   io.emit("state", game);
 }
 
-function setupScrum(rawX, rawY) {
+function setupScrum(rawX, rawY, direction = currentDirection) {
   stopAllPlayers();
+  setAttackDirection(direction);
 
-  const x = clamp(rawX, 650, FIELD_W - 170);
-  const y = clamp(rawY, 240, FIELD_H - 240);
+  const isRTL = currentDirection === "rtl";
+
+  const x = isRTL
+    ? clamp(rawX, 360, FIELD_W - 520)
+    : clamp(rawX, 520, FIELD_W - 360);
+
+  const y = clamp(rawY, 235, FIELD_H - 235);
 
   game.ball = {
-    x: x - 95,
+    x: x,
     y: y,
     carrier: null
   };
 
-  // Scrum attack direction: right to left.
-  // Front row: 3, 2, 1 vertically stacked.
-  setPlayer(3, x, y - 45);
-  setPlayer(2, x, y);
-  setPlayer(1, x, y + 45);
+  if (isRTL) {
+    // Attack right to left.
+    // Backs on RIGHT side of forwards.
 
-  // Locks behind front row.
-  setPlayer(5, x + 45, y - 25);
-  setPlayer(4, x + 45, y + 25);
+    // Front row: 3,2,1 vertically stacked
+    setPlayer(3, x, y - 45);
+    setPlayer(2, x, y);
+    setPlayer(1, x, y + 45);
 
-  // Back row behind locks.
-  setPlayer(6, x + 90, y - 55);
-  setPlayer(7, x + 90, y + 55);
-  setPlayer(8, x + 115, y);
+    // Locks behind front row
+    setPlayer(5, x + 45, y - 25);
+    setPlayer(4, x + 45, y + 25);
 
-  // 9 behind 8.
-  setPlayer(9, x + 165, y + 35);
+    // Back row
+    setPlayer(6, x + 90, y - 55);
+    setPlayer(7, x + 90, y + 55);
+    setPlayer(8, x + 115, y);
 
-  // Backline set to attack right to left.
-  setPlayer(10, x - 150, y - 75);
-  setPlayer(12, x - 280, y - 130);
-  setPlayer(13, x - 420, y - 185);
+    // 9 behind 8
+    setPlayer(9, x + 165, y + 35);
 
-  // Back three / width.
-  setPlayer(15, x - 430, y + 95);
-  setPlayer(14, x - 560, BOTTOM_5M - 15);
-  setPlayer(11, x - 560, TOP_5M + 15);
+    // Backs on right side, ready to attack left
+    setPlayer(10, x + 245, y - 75);
+    setPlayer(12, x + 365, TOP_15M + 15);
+    setPlayer(13, x + 500, TOP_5M + 15);
+    setPlayer(15, x + 365, BOTTOM_15M - 15);
+    setPlayer(14, x + 500, BOTTOM_5M - 15);
+    setPlayer(11, x + 240, y + 100);
+  } else {
+    // Attack left to right.
+    // Backs on LEFT side of forwards.
 
-  game.message = "SCRUM RIGHT TO LEFT";
+    // Front row inverse: 1,2,3 vertically stacked
+    setPlayer(1, x, y - 45);
+    setPlayer(2, x, y);
+    setPlayer(3, x, y + 45);
+
+    // Locks behind front row
+    setPlayer(4, x - 45, y - 25);
+    setPlayer(5, x - 45, y + 25);
+
+    // Back row
+    setPlayer(6, x - 90, y - 55);
+    setPlayer(7, x - 90, y + 55);
+    setPlayer(8, x - 115, y);
+
+    // 9 behind 8
+    setPlayer(9, x - 165, y + 35);
+
+    // Backs on left side, ready to attack right
+    setPlayer(10, x - 245, y - 75);
+    setPlayer(12, x - 365, TOP_15M + 15);
+    setPlayer(13, x - 500, TOP_5M + 15);
+    setPlayer(15, x - 365, BOTTOM_15M - 15);
+    setPlayer(14, x - 500, BOTTOM_5M - 15);
+    setPlayer(11, x - 240, y + 100);
+  }
+
+  game.message = isRTL ? "SCRUM RIGHT TO LEFT" : "SCRUM LEFT TO RIGHT";
 
   io.emit("state", game);
 }
+
+// Starting screen = lineout top, right to left
+setupLineout("top", 620, "rtl");
 
 io.on("connection", socket => {
   socket.emit("state", game);
@@ -251,12 +303,17 @@ io.on("connection", socket => {
     if (!data || !data.type) return;
 
     if (data.type === "lineout") {
-      setupLineout(data.side, Number(data.x));
+      setupLineout(data.side, Number(data.x), data.direction);
     }
 
     if (data.type === "scrum") {
-      setupScrum(Number(data.x), Number(data.y));
+      setupScrum(Number(data.x), Number(data.y), data.direction);
     }
+  });
+
+  socket.on("coach-attack-direction", direction => {
+    setAttackDirection(direction);
+    io.emit("state", game);
   });
 
   socket.on("coach-team-color", color => {
@@ -274,7 +331,8 @@ io.on("connection", socket => {
       }
     }
 
-    game.ball = { x: 700, y: 410, carrier: null };
+    setupLineout("top", 620, currentDirection);
+
     game.frozen = false;
     game.message = "TEAM-CLARITY";
 
@@ -322,7 +380,6 @@ setInterval(() => {
 
     if (game.ball.carrier && game.players[game.ball.carrier]) {
       const c = game.players[game.ball.carrier];
-
       game.ball.x = c.x + 30;
       game.ball.y = c.y + 5;
     }
