@@ -14,6 +14,11 @@
     <div class="tools">
       <button id="qrBtn">QR Codes</button>
 
+      <select id="langToggle">
+        <option value="en">EN</option>
+        <option value="fr">FR</option>
+      </select>
+
       <select id="sportMode">
         <option value="rugby">Rugby</option>
         <option value="football">Football</option>
@@ -65,7 +70,7 @@
   <div id="qrModal" class="modal hidden">
     <div class="modalCard">
       <div class="modalHeader">
-        <h2>Scan to control players</h2>
+        <h2 id="qrTitle">Scan to control players</h2>
         <button id="closeQr">Close</button>
       </div>
       <div id="qrGrid"></div>
@@ -74,16 +79,16 @@
 
   <div id="paywallOverlay" class="paywall hidden">
     <div class="paywallCard">
-      <h1>SESSION LIVE 🔴</h1>
-      <p>Your session is connected.</p>
-      <p>To keep players connected and continue managing your team:</p>
+      <h1 id="paywallTitle">SESSION LIVE 🔴</h1>
+      <p id="paywallLine1">Your session is connected.</p>
+      <p id="paywallLine2">To keep players connected and continue managing your team:</p>
 
-      <div class="price">€9.99 / year</div>
+      <div class="price" id="paywallPrice">€9.99 / year</div>
 
       <button id="unlockBtn">Unlock Access</button>
 
       <div class="promoBox">
-        <label>Promo code:</label>
+        <label id="promoLabel">Promo code:</label>
         <input id="promoInput" type="text" placeholder="Enter code" />
         <button id="promoBtn">Apply Promo Code</button>
         <div id="promoMessage"></div>
