@@ -10,6 +10,8 @@ let state = null;
 let setupMode = "free";
 let playerGroup = "all";
 let playerSize = "normal";
+let attackDirection = "rtl";
+let sportMode = "rugby";
 
 function fitMouse(e) {
   const rect = canvas.getBoundingClientRect();
@@ -21,6 +23,7 @@ function fitMouse(e) {
 
 socket.on("state", s => {
   state = s;
+  sportMode = state.sportMode || sportMode;
   draw();
 });
 
@@ -29,10 +32,22 @@ function setMode(mode) {
   draw();
 }
 
+document.getElementById("sportMode").onchange = e => {
+  sportMode = e.target.value;
+  socket.emit("coach-sport-mode", sportMode);
+  draw();
+};
+
 document.getElementById("lineoutTopBtn").onclick = () => setMode("lineout-top");
 document.getElementById("lineoutBottomBtn").onclick = () => setMode("lineout-bottom");
 document.getElementById("scrumBtn").onclick = () => setMode("scrum");
 document.getElementById("freeBtn").onclick = () => setMode("free");
+
+document.getElementById("attackDirection").onchange = e => {
+  attackDirection = e.target.value;
+  socket.emit("coach-attack-direction", attackDirection);
+  draw();
+};
 
 document.getElementById("teamColor").onchange = e => {
   socket.emit("coach-team-color", e.target.value);
@@ -62,19 +77,21 @@ document.getElementById("speed").oninput = e => {
 canvas.addEventListener("click", e => {
   const p = fitMouse(e);
 
-  if (setupMode === "lineout-top") {
-    socket.emit("coach-setpiece", { type: "lineout", side: "top", x: p.x, y: p.y });
-    return;
-  }
+  if (sportMode === "rugby") {
+    if (setupMode === "lineout-top") {
+      socket.emit("coach-setpiece", { type: "lineout", side: "top", x: p.x, y: p.y, direction: attackDirection });
+      return;
+    }
 
-  if (setupMode === "lineout-bottom") {
-    socket.emit("coach-setpiece", { type: "lineout", side: "bottom", x: p.x, y: p.y });
-    return;
-  }
+    if (setupMode === "lineout-bottom") {
+      socket.emit("coach-setpiece", { type: "lineout", side: "bottom", x: p.x, y: p.y, direction: attackDirection });
+      return;
+    }
 
-  if (setupMode === "scrum") {
-    socket.emit("coach-setpiece", { type: "scrum", x: p.x, y: p.y });
-    return;
+    if (setupMode === "scrum") {
+      socket.emit("coach-setpiece", { type: "scrum", x: p.x, y: p.y, direction: attackDirection });
+      return;
+    }
   }
 
   socket.emit("coach-ball", p);
@@ -110,7 +127,9 @@ document.getElementById("qrBtn").onclick = async () => {
   const grid = document.getElementById("qrGrid");
   grid.innerHTML = "";
 
-  for (let i = 1; i <= 15; i++) {
+  const maxPlayers = sportMode === "football" ? 11 : 15;
+
+  for (let i = 1; i <= maxPlayers; i++) {
     const item = document.createElement("div");
     item.className = "qrItem";
     item.innerHTML = `
@@ -139,6 +158,11 @@ function pixelText(text, x, y, size = 22, align = "center", color = "white") {
 }
 
 function drawPitch() {
+  if (sportMode === "football") {
+    drawFootballPitch();
+    return;
+  }
+
   ctx.fillStyle = "#6ec65f";
   ctx.fillRect(0, 0, W, H);
 
@@ -229,9 +253,96 @@ function drawPitch() {
   }
 }
 
+function drawFootballPitch() {
+  ctx.fillStyle = "#2f9e44";
+  ctx.fillRect(0, 0, W, H);
+
+  const left = 90;
+  const right = W - 90;
+  const top = 85;
+  const bottom = H - 85;
+  const midX = W / 2;
+  const midY = H / 2;
+
+  ctx.strokeStyle = "#fff";
+  ctx.lineWidth = 6;
+
+  ctx.strokeRect(left, top, right - left, bottom - top);
+
+  ctx.beginPath();
+  ctx.moveTo(midX, top);
+  ctx.lineTo(midX, bottom);
+  ctx.stroke();
+
+  ctx.beginPath();
+  ctx.arc(midX, midY, 95, 0, Math.PI * 2);
+  ctx.stroke();
+
+  ctx.fillStyle = "#fff";
+  ctx.beginPath();
+  ctx.arc(midX, midY, 5, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.strokeRect(left, midY - 170, 170, 340);
+  ctx.strokeRect(right - 170, midY - 170, 170, 340);
+
+  ctx.strokeRect(left, midY - 80, 65, 160);
+  ctx.strokeRect(right - 65, midY - 80, 65, 160);
+
+  ctx.strokeRect(left - 25, midY - 55, 25, 110);
+  ctx.strokeRect(right, midY - 55, 25, 110);
+
+  ctx.fillStyle = "#fff";
+  ctx.beginPath();
+  ctx.arc(left + 115, midY, 5, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.beginPath();
+  ctx.arc(right - 115, midY, 5, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.fillStyle = "#111";
+  ctx.fillRect(0, 0, W, 60);
+
+  pixelText("TEAM-CLARITY | FOOTBALL MODE", W / 2, 39, 30, "center", "#fff");
+
+  if (state?.frozen) {
+    ctx.fillStyle = "rgba(0,0,0,.35)";
+    ctx.fillRect(0, 0, W, H);
+    pixelText("FREEZE", W / 2, H / 2, 90, "center", "#fff");
+  }
+}
+
 function drawBall(ball) {
   ctx.save();
   ctx.translate(ball.x, ball.y);
+
+  if (sportMode === "football") {
+    ctx.fillStyle = "#fff";
+    ctx.beginPath();
+    ctx.arc(0, 0, 16, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.strokeStyle = "#111";
+    ctx.lineWidth = 3;
+    ctx.stroke();
+
+    ctx.fillStyle = "#111";
+    ctx.beginPath();
+    ctx.arc(0, 0, 5, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.beginPath();
+    ctx.moveTo(0, -16);
+    ctx.lineTo(0, 16);
+    ctx.moveTo(-16, 0);
+    ctx.lineTo(16, 0);
+    ctx.stroke();
+
+    ctx.restore();
+    return;
+  }
+
   ctx.rotate(-0.35);
 
   ctx.fillStyle = "#4b2a1b";
@@ -253,9 +364,14 @@ function drawBall(ball) {
 }
 
 function shouldShowPlayer(number) {
-  if (playerGroup === "all") return true;
-  if (playerGroup === "forwards") return number >= 1 && number <= 8;
-  if (playerGroup === "backs") return number >= 9 && number <= 15;
+  if (sportMode === "football" && number > 11) return false;
+
+  if (sportMode === "rugby") {
+    if (playerGroup === "all") return true;
+    if (playerGroup === "forwards") return number >= 1 && number <= 8;
+    if (playerGroup === "backs") return number >= 9 && number <= 15;
+  }
+
   return true;
 }
 
@@ -371,10 +487,18 @@ function draw() {
 
   drawBall(state.ball);
 
-  let modeText = "FREE BALL MODE";
-  if (setupMode === "lineout-top") modeText = "LINEOUT TOP: CLICK FIELD LOCATION";
-  if (setupMode === "lineout-bottom") modeText = "LINEOUT BOTTOM: CLICK FIELD LOCATION";
-  if (setupMode === "scrum") modeText = "SCRUM: CLICK FIELD LOCATION";
+  let modeText = "";
+
+  if (sportMode === "football") {
+    modeText = "FOOTBALL MODE | SAME PHONE CONTROLLERS";
+  } else {
+    modeText = attackDirection === "rtl" ? "ATTACK: RIGHT → LEFT" : "ATTACK: LEFT → RIGHT";
+
+    if (setupMode === "lineout-top") modeText = `LINEOUT TOP: ${modeText}`;
+    if (setupMode === "lineout-bottom") modeText = `LINEOUT BOTTOM: ${modeText}`;
+    if (setupMode === "scrum") modeText = `SCRUM: ${modeText}`;
+    if (setupMode === "free") modeText = `FREE BALL MODE | ${modeText}`;
+  }
 
   pixelText(modeText, W / 2, H - 44, 20, "center", "#ffd700");
   pixelText("Click field = place setup / move ball | Double click player = attach ball | QR Codes = phones", W / 2, H - 18, 18, "center", "#fff");
