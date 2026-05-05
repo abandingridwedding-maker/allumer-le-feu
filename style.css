@@ -11,29 +11,39 @@ body {
 }
 
 #topbar {
-  height: 70px;
+  min-height: 82px;
   background: #d71920;
   border-bottom: 8px solid #111;
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  padding: 0 18px;
+  gap: 14px;
+  padding: 8px 14px 10px 14px;
 }
 
 .brand {
-  font-size: 30px;
+  font-size: 27px;
   font-weight: 900;
   letter-spacing: 1px;
   text-shadow: 3px 3px #000;
   white-space: nowrap;
+  min-width: 240px;
 }
 
 .tools {
+  flex: 1;
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 7px;
   flex-wrap: wrap;
   justify-content: flex-end;
+  padding-right: 6px;
+}
+
+.toolGroup {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  flex-wrap: wrap;
 }
 
 button,
@@ -43,9 +53,12 @@ select {
   border: 3px solid #fff;
   background: #111;
   color: #fff;
-  padding: 9px 11px;
+  padding: 8px 10px;
   border-radius: 8px;
   cursor: pointer;
+  font-size: 13px;
+  min-height: 38px;
+  box-shadow: 2px 2px 0 #000;
 }
 
 button:hover,
@@ -58,16 +71,32 @@ label {
   white-space: nowrap;
 }
 
+.speedLabel {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
 input {
   vertical-align: middle;
 }
 
+#speed {
+  width: 115px;
+}
+
 canvas {
   display: block;
-  width: 100vw;
-  height: calc(100vh - 70px);
+  width: calc(100vw - 10px);
+  height: calc(100vh - 92px);
+  margin: 5px;
   image-rendering: pixelated;
   background: #6ec65f;
+  border-radius: 6px;
+}
+
+.hidden {
+  display: none !important;
 }
 
 .modal {
@@ -78,10 +107,6 @@ canvas {
   align-items: center;
   justify-content: center;
   z-index: 10;
-}
-
-.hidden {
-  display: none !important;
 }
 
 .modalCard {
@@ -199,7 +224,6 @@ canvas {
 
 #promoInput {
   width: 100%;
-  box-sizing: border-box;
   padding: 12px;
   margin-bottom: 10px;
   border-radius: 8px;
@@ -215,24 +239,21 @@ canvas {
   font-weight: 900;
 }
 
-@media (max-width: 1100px) {
+@media (max-width: 1200px) {
   #topbar {
-    height: auto;
-    min-height: 70px;
     align-items: flex-start;
     flex-direction: column;
-    padding: 10px;
   }
 
-  canvas {
-    height: calc(100vh - 120px);
+  .brand {
+    min-width: unset;
   }
 
   .tools {
     justify-content: flex-start;
   }
 
-  .brand {
-    margin-bottom: 8px;
+  canvas {
+    height: calc(100vh - 150px);
   }
 }
