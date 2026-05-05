@@ -5,9 +5,11 @@ ctx.imageSmoothingEnabled = false;
 
 const W = canvas.width;
 const H = canvas.height;
-let state = null;
 
-function fitMouse(e){
+let state = null;
+let setupMode = "free";
+
+function fitMouse(e) {
   const rect = canvas.getBoundingClientRect();
   return {
     x: (e.clientX - rect.left) * (canvas.width / rect.width),
@@ -20,46 +22,91 @@ socket.on("state", s => {
   draw();
 });
 
+function setMode(mode) {
+  setupMode = mode;
+  draw();
+}
+
+document.getElementById("lineoutTopBtn").onclick = () => setMode("lineout-top");
+document.getElementById("lineoutBottomBtn").onclick = () => setMode("lineout-bottom");
+document.getElementById("scrumBtn").onclick = () => setMode("scrum");
+document.getElementById("freeBtn").onclick = () => setMode("free");
+
 document.getElementById("resetBtn").onclick = () => socket.emit("coach-reset");
+
 document.getElementById("freezeBtn").onclick = () => {
   if (!state) return;
   socket.emit("coach-freeze", !state.frozen);
 };
+
 document.getElementById("gridBtn").onclick = () => {
   if (!state) return;
   socket.emit("coach-grid", !state.showGrid);
 };
-document.getElementById("speed").oninput = e => socket.emit("coach-speed", e.target.value);
+
+document.getElementById("speed").oninput = e => {
+  socket.emit("coach-speed", e.target.value);
+};
 
 canvas.addEventListener("click", e => {
   const p = fitMouse(e);
+
+  if (setupMode === "lineout-top") {
+    socket.emit("coach-setpiece", { type: "lineout", side: "top", x: p.x, y: p.y });
+    return;
+  }
+
+  if (setupMode === "lineout-bottom") {
+    socket.emit("coach-setpiece", { type: "lineout", side: "bottom", x: p.x, y: p.y });
+    return;
+  }
+
+  if (setupMode === "scrum") {
+    socket.emit("coach-setpiece", { type: "scrum", x: p.x, y: p.y });
+    return;
+  }
+
   socket.emit("coach-ball", p);
 });
 
 canvas.addEventListener("dblclick", e => {
   if (!state) return;
+
   const p = fitMouse(e);
   let closest = null;
   let best = 9999;
+
   for (const player of Object.values(state.players)) {
     const d = Math.hypot(player.x - p.x, player.y - p.y);
-    if (d < best) { best = d; closest = player; }
+    if (d < best) {
+      best = d;
+      closest = player;
+    }
   }
-  if (closest && best < 60) socket.emit("coach-attach-ball", closest.number);
+
+  if (closest && best < 60) {
+    socket.emit("coach-attach-ball", closest.number);
+  }
 });
 
 document.getElementById("qrBtn").onclick = async () => {
   const modal = document.getElementById("qrModal");
   modal.classList.remove("hidden");
+
   const res = await fetch("/api/qrs");
   const data = await res.json();
+
   const grid = document.getElementById("qrGrid");
   grid.innerHTML = "";
 
   for (let i = 1; i <= 15; i++) {
     const item = document.createElement("div");
     item.className = "qrItem";
-    item.innerHTML = `<div>Player ${i}</div><img src="${data.qrs[i]}"><div>${data.baseUrl}/controller.html?p=${i}</div>`;
+    item.innerHTML = `
+      <div>Player ${i}</div>
+      <img src="${data.qrs[i]}">
+      <div>${data.baseUrl}/controller.html?p=${i}</div>
+    `;
     grid.appendChild(item);
   }
 };
@@ -98,8 +145,8 @@ function drawPitch() {
   const X = pct => left + pw * pct;
   const Y = pct => top + ph * pct;
 
-  ctx.lineWidth = 5;
   ctx.strokeStyle = "#fff";
+  ctx.lineWidth = 5;
 
   ctx.beginPath(); ctx.moveTo(X(0.06), top); ctx.lineTo(X(0.06), bottom); ctx.stroke();
   ctx.beginPath(); ctx.moveTo(X(0.94), top); ctx.lineTo(X(0.94), bottom); ctx.stroke();
@@ -133,11 +180,19 @@ function drawPitch() {
   if (state?.showGrid) {
     ctx.strokeStyle = "rgba(255,255,255,.13)";
     ctx.lineWidth = 1;
+
     for (let x = left; x <= right; x += 70) {
-      ctx.beginPath(); ctx.moveTo(x, top); ctx.lineTo(x, bottom); ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(x, top);
+      ctx.lineTo(x, bottom);
+      ctx.stroke();
     }
+
     for (let y = top; y <= bottom; y += 70) {
-      ctx.beginPath(); ctx.moveTo(left, y); ctx.lineTo(right, y); ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(left, y);
+      ctx.lineTo(right, y);
+      ctx.stroke();
     }
   }
 
@@ -149,7 +204,7 @@ function drawPitch() {
   ctx.shadowOffsetX = 3;
   ctx.shadowOffsetY = 3;
 
-  [["5m",0.10],["22m",0.26],["40m",0.40],["50m",0.50],["40m",0.60],["22m",0.74],["5m",0.90]].forEach(([label,p]) => {
+  [["5m", 0.10], ["22m", 0.26], ["40m", 0.40], ["50m", 0.50], ["40m", 0.60], ["22m", 0.74], ["5m", 0.90]].forEach(([label, p]) => {
     ctx.fillText(label, X(p), top - 14);
     ctx.fillText(label, X(p), bottom + 32);
   });
@@ -169,6 +224,7 @@ function drawPitch() {
 
   ctx.fillStyle = "#d71920";
   ctx.fillRect(0, 0, W, 52);
+
   ctx.fillStyle = "#111";
   ctx.fillRect(0, 52, W, 8);
 
@@ -185,18 +241,22 @@ function drawBall(ball) {
   ctx.save();
   ctx.translate(ball.x, ball.y);
   ctx.rotate(-0.35);
+
   ctx.fillStyle = "#4b2a1b";
   ctx.fillRect(-22, -10, 44, 20);
   ctx.fillRect(-16, -15, 32, 30);
   ctx.fillRect(-8, -19, 16, 38);
+
   ctx.fillStyle = "#9b552f";
   ctx.fillRect(-16, -8, 32, 16);
   ctx.fillRect(-10, -12, 20, 24);
+
   ctx.fillStyle = "#fff";
   ctx.fillRect(-18, -6, 5, 12);
   ctx.fillRect(13, -6, 5, 12);
   ctx.fillRect(-2, -10, 4, 20);
   ctx.fillRect(-10, -2, 20, 4);
+
   ctx.restore();
 }
 
@@ -225,6 +285,7 @@ function drawPlayer(p) {
   ctx.fillRect(-18, -56, 36, 34);
 
   ctx.fillStyle = "#15100c";
+
   if (p.number <= 8) {
     ctx.fillRect(-27, -66, 54, 14);
     ctx.fillRect(-31, -54, 12, 22);
@@ -236,12 +297,14 @@ function drawPlayer(p) {
   ctx.fillStyle = "#2a1a12";
   ctx.fillRect(-11, -37, 22, 8);
   ctx.fillRect(-7, -30, 14, 5);
+
   ctx.fillStyle = "#000";
   ctx.fillRect(-9, -48, 5, 5);
   ctx.fillRect(5, -48, 5, 5);
 
   ctx.fillStyle = "#fff";
   ctx.fillRect(-18, -20, 36, 34);
+
   ctx.strokeStyle = "#111";
   ctx.lineWidth = 3;
   ctx.strokeRect(-18, -20, 36, 34);
@@ -264,8 +327,18 @@ function drawPlayer(p) {
 
 function draw() {
   if (!state) return;
+
   drawPitch();
+
   Object.values(state.players).forEach(drawPlayer);
+
   drawBall(state.ball);
-  pixelText("Click field = move ball | Double click player = attach ball | QR Codes = phones", W / 2, H - 18, 20, "center", "#fff");
+
+  let modeText = "FREE BALL MODE";
+  if (setupMode === "lineout-top") modeText = "LINEOUT TOP: CLICK FIELD LOCATION";
+  if (setupMode === "lineout-bottom") modeText = "LINEOUT BOTTOM: CLICK FIELD LOCATION";
+  if (setupMode === "scrum") modeText = "SCRUM: CLICK FIELD LOCATION";
+
+  pixelText(modeText, W / 2, H - 44, 20, "center", "#ffd700");
+  pixelText("Click field = place setup / move ball | Double click player = attach ball | QR Codes = phones", W / 2, H - 18, 18, "center", "#fff");
 }
