@@ -1,60 +1,78 @@
 const socket = io();
-const params = new URLSearchParams(location.search);
-const playerNumber = Number(params.get("p") || 1);
-document.getElementById("playerNumber").textContent = playerNumber;
-document.getElementById("status").textContent = "Player " + playerNumber + " connected";
 
-socket.emit("join-player", playerNumber);
+const params = new URLSearchParams(window.location.search);
+const playerNumber = Number(params.get("p"));
 
-const joy = document.getElementById("joy");
-const knob = document.getElementById("knob");
+const statusEl = document.getElementById("status");
+const playerNumberEl = document.getElementById("playerNumber");
+const joystick = document.getElementById("joystick");
+const stick = document.getElementById("stick");
+
+playerNumberEl.textContent = playerNumber || "?";
+
+if (!playerNumber || playerNumber < 1 || playerNumber > 15) {
+  statusEl.textContent = "Invalid player QR code";
+} else {
+  statusEl.textContent = `Player ${playerNumber} connected`;
+  socket.emit("join-player", playerNumber);
+}
 
 let active = false;
-let center = {x:0,y:0};
-let current = {x:0,y:0};
 
-function setKnob(dx,dy){
-  const max = 86;
-  const len = Math.hypot(dx,dy);
-  if(len > max){
-    dx = dx / len * max;
-    dy = dy / len * max;
+function centerStick() {
+  stick.style.left = "50%";
+  stick.style.top = "50%";
+  stick.style.transform = "translate(-50%, -50%)";
+}
+
+function sendMove(clientX, clientY) {
+  const rect = joystick.getBoundingClientRect();
+
+  const cx = rect.left + rect.width / 2;
+  const cy = rect.top + rect.height / 2;
+
+  let dx = clientX - cx;
+  let dy = clientY - cy;
+
+  const max = rect.width / 2 - 48;
+  const dist = Math.hypot(dx, dy);
+
+  if (dist > max) {
+    dx = (dx / dist) * max;
+    dy = (dy / dist) * max;
   }
-  knob.style.left = (95 + dx) + "px";
-  knob.style.top = (95 + dy) + "px";
-  current.x = dx / max;
-  current.y = dy / max;
-  socket.emit("move", current);
+
+  stick.style.left = `${rect.width / 2 + dx}px`;
+  stick.style.top = `${rect.height / 2 + dy}px`;
+  stick.style.transform = "translate(-50%, -50%)";
+
+  socket.emit("move", {
+    x: dx / max,
+    y: dy / max
+  });
 }
 
-function start(e){
-  e.preventDefault();
-  active = true;
-  const rect = joy.getBoundingClientRect();
-  center.x = rect.left + rect.width/2;
-  center.y = rect.top + rect.height/2;
-  move(e);
-}
-
-function move(e){
-  if(!active) return;
-  e.preventDefault();
-  const t = e.touches ? e.touches[0] : e;
-  setKnob(t.clientX - center.x, t.clientY - center.y);
-}
-
-function end(e){
-  e.preventDefault();
+function stopMove() {
   active = false;
-  setKnob(0,0);
+  centerStick();
+  socket.emit("move", { x: 0, y: 0 });
 }
 
-joy.addEventListener("touchstart", start, {passive:false});
-joy.addEventListener("touchmove", move, {passive:false});
-joy.addEventListener("touchend", end, {passive:false});
-joy.addEventListener("touchcancel", end, {passive:false});
-joy.addEventListener("mousedown", start);
-window.addEventListener("mousemove", move);
-window.addEventListener("mouseup", end);
+joystick.addEventListener("pointerdown", e => {
+  active = true;
+  joystick.setPointerCapture(e.pointerId);
+  sendMove(e.clientX, e.clientY);
+});
 
-setInterval(()=>socket.emit("move", current), 80);
+joystick.addEventListener("pointermove", e => {
+  if (!active) return;
+  sendMove(e.clientX, e.clientY);
+});
+
+joystick.addEventListener("pointerup", stopMove);
+joystick.addEventListener("pointercancel", stopMove);
+joystick.addEventListener("pointerleave", stopMove);
+
+window.addEventListener("beforeunload", () => {
+  socket.emit("move", { x: 0, y: 0 });
+});
