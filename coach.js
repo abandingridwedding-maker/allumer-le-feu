@@ -492,7 +492,6 @@ function drawFootballPitch() {
 
   ctx.strokeStyle = "#fff";
   ctx.lineWidth = 6;
-
   ctx.strokeRect(left, top, right - left, bottom - top);
 
   ctx.beginPath();
@@ -696,9 +695,7 @@ function draw() {
   if (!state) return;
 
   drawPitch();
-
   Object.values(state.players).forEach(drawPlayer);
-
   drawBall(state.ball);
 
   let modeText = "";
@@ -714,20 +711,22 @@ function draw() {
     if (setupMode === "free") modeText = `${t("freeBallMode")} | ${modeText}`;
   }
 
-  pixelText(modeText, W / 2, H - 44, 20, "center", "#ffd700");
-  pixelText(t("footer"), W / 2, H - 18, 18, "center", "#fff");
+  ctx.fillStyle = "rgba(0,0,0,0.35)";
+  ctx.fillRect(0, H - 82, W, 82);
+
+  pixelText(modeText, W / 2, H - 58, 18, "center", "#ffd700");
+  pixelText(t("footer"), W / 2, H - 28, 14, "center", "#ffffff");
 }
 
 // ================================
 // SIMPLE PAYWALL — COACH SIDE ONLY
-// CHANGE WAIT TIME HERE
+// CHANGE STRIPE LINK + WAIT TIME HERE
 // ================================
 
-const STRIPE_PAYMENT_LINK = "https://buy.stripe.com/YOUR_LINK_HERE";
+const STRIPE_PAYMENT_LINK = "https://buy.stripe.com/28EeVdesG4TgcBz7D06Vq00";
 
-// TEST MODE: 10 seconds
-// Later, change this to: 10 * 60 * 1000
-const PAYWALL_WAIT_TIME = 10 * 1000;
+// FINAL MODE: 5 minutes
+const PAYWALL_WAIT_TIME = 5 * 60 * 1000;
 
 let promoUnlockedThisPageLoad = false;
 
