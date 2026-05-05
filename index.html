@@ -6,16 +6,28 @@
 <title>TEAM-CLARITY — Coach Screen</title>
 <link rel="stylesheet" href="style.css" />
 </head>
+
 <body class="coach">
   <div id="topbar">
     <div class="brand">🔥 TEAM-CLARITY</div>
 
     <div class="tools">
       <button id="qrBtn">QR Codes</button>
+
+      <select id="sportMode">
+        <option value="rugby">Rugby</option>
+        <option value="football">Football</option>
+      </select>
+
       <button id="lineoutTopBtn">Lineout Top</button>
       <button id="lineoutBottomBtn">Lineout Bottom</button>
       <button id="scrumBtn">Scrum</button>
       <button id="freeBtn">Free Ball</button>
+
+      <select id="attackDirection">
+        <option value="rtl">Right → Left</option>
+        <option value="ltr">Left → Right</option>
+      </select>
 
       <select id="teamColor">
         <option value="#d71920">Red</option>
@@ -40,7 +52,11 @@
 
       <button id="freezeBtn">Freeze</button>
       <button id="resetBtn">Reset</button>
-      <label>Speed <input id="speed" type="range" min="1" max="9" step="0.2" value="4.2" /></label>
+
+      <label>
+        Speed
+        <input id="speed" type="range" min="1" max="9" step="0.2" value="4.2" />
+      </label>
     </div>
   </div>
 
