@@ -66,7 +66,13 @@ function defaultPlayers() {
 
 let game = {
   players: defaultPlayers(),
-  ball: { x: 700, y: 410, carrier: null },
+  ball: {
+    x: 700,
+    y: 410,
+    targetX: 700,
+    targetY: 410,
+    carrier: null
+  },
   frozen: false,
   speed: 4.2,
   showGrid: false,
@@ -104,6 +110,23 @@ function setPlayer(number, x, y) {
   game.players[number].y = clamp(y, 35, FIELD_H - 35);
   game.players[number].vx = 0;
   game.players[number].vy = 0;
+}
+
+function setBall(x, y) {
+  const safeX = clamp(Number(x), 35, FIELD_W - 35);
+  const safeY = clamp(Number(y), 35, FIELD_H - 35);
+
+  game.ball.x = safeX;
+  game.ball.y = safeY;
+  game.ball.targetX = safeX;
+  game.ball.targetY = safeY;
+  game.ball.carrier = null;
+}
+
+function moveBallTo(x, y) {
+  game.ball.targetX = clamp(Number(x), 35, FIELD_W - 35);
+  game.ball.targetY = clamp(Number(y), 35, FIELD_H - 35);
+  game.ball.carrier = null;
 }
 
 function applyTeamColor(color) {
@@ -145,11 +168,7 @@ function setupFootballDefault() {
     setPlayer(i, -100, -100);
   }
 
-  game.ball = {
-    x: 720,
-    y: FIELD_H / 2,
-    carrier: null
-  };
+  setBall(720, FIELD_H / 2);
 
   game.message = "FOOTBALL MODE";
 }
@@ -173,20 +192,20 @@ function setupLineout(side, rawX, direction = currentDirection) {
   const lineoutYStart = isTop ? TOP_5M + 8 : BOTTOM_5M - 8;
   const lineoutStep = isTop ? 14 : -14;
 
-  game.ball = {
-    x: x,
-    y: touchY,
-    carrier: null
-  };
+  setBall(x, touchY);
 
+  // 2 = thrower on touchline
   setPlayer(2, x, touchY);
 
+  // Lineout forwards between 5m and 15m
   const forwards = [3, 1, 4, 5, 6, 7, 8];
 
   forwards.forEach((num, idx) => {
     setPlayer(num, x, lineoutYStart + idx * lineoutStep);
   });
 
+  // RTL = backs on right side of forwards
+  // LTR = backs on left side of forwards
   const dir = isRTL ? 1 : -1;
 
   setPlayer(9, x + dir * 90, isTop ? TOP_15M + 35 : BOTTOM_15M - 35);
@@ -197,9 +216,12 @@ function setupLineout(side, rawX, direction = currentDirection) {
   setPlayer(15, x + dir * 590, isTop ? TOP_15M + 235 : BOTTOM_15M - 235);
   setPlayer(14, x + dir * 720, isTop ? BOTTOM_5M - 15 : TOP_5M + 15);
 
+  // Blind wing behind 10
   setPlayer(11, x + dir * 160, isTop ? TOP_5M + 25 : BOTTOM_5M - 25);
 
-  game.message = isRTL ? "LINEOUT RIGHT TO LEFT" : "LINEOUT LEFT TO RIGHT";
+  game.message = isRTL
+    ? "LINEOUT RIGHT TO LEFT"
+    : "LINEOUT LEFT TO RIGHT";
 
   io.emit("state", game);
 }
@@ -220,26 +242,30 @@ function setupScrum(rawX, rawY, direction = currentDirection) {
 
   const y = clamp(rawY, 235, FIELD_H - 235);
 
-  game.ball = {
-    x: x,
-    y: y,
-    carrier: null
-  };
+  setBall(x, y);
 
   if (isRTL) {
+    // Attack right to left.
+    // Backs on RIGHT side of forwards.
+
+    // Front row: 3,2,1 vertically stacked
     setPlayer(3, x, y - 45);
     setPlayer(2, x, y);
     setPlayer(1, x, y + 45);
 
+    // Locks behind front row
     setPlayer(5, x + 45, y - 25);
     setPlayer(4, x + 45, y + 25);
 
+    // Back row
     setPlayer(6, x + 90, y - 55);
     setPlayer(7, x + 90, y + 55);
     setPlayer(8, x + 115, y);
 
+    // 9 behind 8
     setPlayer(9, x + 165, y + 35);
 
+    // Backs on right side, ready to attack left
     setPlayer(10, x + 245, y - 75);
     setPlayer(12, x + 365, TOP_15M + 15);
     setPlayer(13, x + 500, TOP_5M + 15);
@@ -247,19 +273,27 @@ function setupScrum(rawX, rawY, direction = currentDirection) {
     setPlayer(14, x + 500, BOTTOM_5M - 15);
     setPlayer(11, x + 240, y + 100);
   } else {
+    // Attack left to right.
+    // Backs on LEFT side of forwards.
+
+    // Front row inverse: 1,2,3 vertically stacked
     setPlayer(1, x, y - 45);
     setPlayer(2, x, y);
     setPlayer(3, x, y + 45);
 
+    // Locks behind front row
     setPlayer(4, x - 45, y - 25);
     setPlayer(5, x - 45, y + 25);
 
+    // Back row
     setPlayer(6, x - 90, y - 55);
     setPlayer(7, x - 90, y + 55);
     setPlayer(8, x - 115, y);
 
+    // 9 behind 8
     setPlayer(9, x - 165, y + 35);
 
+    // Backs on left side, ready to attack right
     setPlayer(10, x - 245, y - 75);
     setPlayer(12, x - 365, TOP_15M + 15);
     setPlayer(13, x - 500, TOP_5M + 15);
@@ -273,6 +307,7 @@ function setupScrum(rawX, rawY, direction = currentDirection) {
   io.emit("state", game);
 }
 
+// Starting screen = rugby, lineout top, backs ready, right to left
 setupLineout("top", 620, "rtl");
 
 io.on("connection", socket => {
@@ -301,10 +336,7 @@ io.on("connection", socket => {
   });
 
   socket.on("coach-ball", data => {
-    game.ball.x = clamp(Number(data.x), 35, FIELD_W - 35);
-    game.ball.y = clamp(Number(data.y), 35, FIELD_H - 35);
-    game.ball.carrier = null;
-
+    moveBallTo(data.x, data.y);
     io.emit("state", game);
   });
 
@@ -313,6 +345,8 @@ io.on("connection", socket => {
 
     if (game.players[number]) {
       game.ball.carrier = number;
+      game.ball.targetX = game.ball.x;
+      game.ball.targetY = game.ball.y;
     }
 
     io.emit("state", game);
@@ -415,8 +449,24 @@ setInterval(() => {
 
     if (game.ball.carrier && game.players[game.ball.carrier]) {
       const c = game.players[game.ball.carrier];
+
       game.ball.x = c.x + 30;
       game.ball.y = c.y + 5;
+      game.ball.targetX = game.ball.x;
+      game.ball.targetY = game.ball.y;
+    } else if (game.ball.targetX !== undefined && game.ball.targetY !== undefined) {
+      const dx = game.ball.targetX - game.ball.x;
+      const dy = game.ball.targetY - game.ball.y;
+      const dist = Math.hypot(dx, dy);
+
+      if (dist > 2) {
+        const ballSpeed = 18;
+        game.ball.x += (dx / dist) * Math.min(ballSpeed, dist);
+        game.ball.y += (dy / dist) * Math.min(ballSpeed, dist);
+      } else {
+        game.ball.x = game.ball.targetX;
+        game.ball.y = game.ball.targetY;
+      }
     }
   }
 
