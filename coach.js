@@ -8,6 +8,8 @@ const H = canvas.height;
 
 let state = null;
 let setupMode = "free";
+let playerGroup = "all";
+let playerSize = "normal";
 
 function fitMouse(e) {
   const rect = canvas.getBoundingClientRect();
@@ -31,6 +33,20 @@ document.getElementById("lineoutTopBtn").onclick = () => setMode("lineout-top");
 document.getElementById("lineoutBottomBtn").onclick = () => setMode("lineout-bottom");
 document.getElementById("scrumBtn").onclick = () => setMode("scrum");
 document.getElementById("freeBtn").onclick = () => setMode("free");
+
+document.getElementById("teamColor").onchange = e => {
+  socket.emit("coach-team-color", e.target.value);
+};
+
+document.getElementById("playerGroup").onchange = e => {
+  playerGroup = e.target.value;
+  draw();
+};
+
+document.getElementById("playerSize").onchange = e => {
+  playerSize = e.target.value;
+  draw();
+};
 
 document.getElementById("resetBtn").onclick = () => socket.emit("coach-reset");
 
@@ -260,11 +276,58 @@ function drawBall(ball) {
   ctx.restore();
 }
 
+function shouldShowPlayer(number) {
+  if (playerGroup === "all") return true;
+  if (playerGroup === "forwards") return number >= 1 && number <= 8;
+  if (playerGroup === "backs") return number >= 9 && number <= 15;
+  return true;
+}
+
+function drawCirclePlayer(p) {
+  ctx.save();
+
+  const radius = 16;
+
+  ctx.fillStyle = "rgba(0,0,0,.25)";
+  ctx.beginPath();
+  ctx.ellipse(p.x + 3, p.y + 4, radius + 2, radius * 0.6, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.fillStyle = p.color;
+  ctx.beginPath();
+  ctx.arc(p.x, p.y, radius, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.strokeStyle = "#fff";
+  ctx.lineWidth = 4;
+  ctx.stroke();
+
+  ctx.fillStyle = p.color === "#ffffff" ? "#111" : "#fff";
+  ctx.font = "900 18px Courier New";
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.fillText(p.number, p.x, p.y + 1);
+
+  ctx.restore();
+
+  ctx.fillStyle = p.connected ? "#00ff7f" : "#ffdf4d";
+  ctx.beginPath();
+  ctx.arc(p.x + 15, p.y - 15, 5, 0, Math.PI * 2);
+  ctx.fill();
+}
+
 function drawPlayer(p) {
+  if (!shouldShowPlayer(p.number)) return;
+
+  if (playerSize === "small") {
+    drawCirclePlayer(p);
+    return;
+  }
+
   ctx.save();
   ctx.translate(p.x, p.y);
 
-  const s = 0.55;
+  const s = playerSize === "medium" ? 0.37 : 0.55;
   ctx.scale(s, s);
 
   ctx.fillStyle = "rgba(0,0,0,.25)";
@@ -321,8 +384,6 @@ function drawPlayer(p) {
   ctx.beginPath();
   ctx.arc(p.x + 18, p.y - 30, 7, 0, Math.PI * 2);
   ctx.fill();
-
-  pixelText(String(p.number), p.x, p.y + 45, 18, "center", "#fff");
 }
 
 function draw() {
