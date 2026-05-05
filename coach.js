@@ -12,9 +12,139 @@ let playerGroup = "all";
 let playerSize = "normal";
 let attackDirection = "rtl";
 let sportMode = "rugby";
+let currentLang = "en";
 
 let draggingBall = false;
 let draggingPlayerNumber = null;
+
+const TEXT = {
+  en: {
+    slogan: "CLARITY CREATES INTENSITY",
+    qrCodes: "QR Codes",
+    qrTitle: "Scan to control players",
+    close: "Close",
+    rugby: "Rugby",
+    football: "Football",
+    lineoutTop: "Lineout Top",
+    lineoutBottom: "Lineout Bottom",
+    scrum: "Scrum",
+    freeBall: "Free Ball",
+    rightLeft: "Right → Left",
+    leftRight: "Left → Right",
+    allPlayers: "All Players",
+    forwardsOnly: "Forwards Only",
+    backsOnly: "Backs Only",
+    normalSize: "Normal Size",
+    mediumSize: "2/3 Size",
+    smallCircle: "Small Circle",
+    freeze: "Freeze",
+    reset: "Reset",
+    speed: "Speed",
+    session: "SESSION LIVE 🔴",
+    message1: "Your session is connected.",
+    message2: "To keep players connected and continue managing your team:",
+    price: "€9.99 / year",
+    unlock: "Unlock Access",
+    promo: "Promo code:",
+    promoPlaceholder: "Enter code",
+    applyPromo: "Apply Promo Code",
+    invalid: "Invalid promo code.",
+    footballMode: "FOOTBALL MODE | SAME PHONE CONTROLLERS",
+    attackRTL: "ATTACK: RIGHT → LEFT",
+    attackLTR: "ATTACK: LEFT → RIGHT",
+    lineoutTopMode: "LINEOUT TOP",
+    lineoutBottomMode: "LINEOUT BOTTOM",
+    scrumMode: "SCRUM",
+    freeBallMode: "FREE BALL MODE",
+    footer: "Click/drag player = coach reposition | Click/drag grass = move ball | Double click player = attach ball"
+  },
+  fr: {
+    slogan: "LA CLARTÉ CRÉE L’INTENSITÉ",
+    qrCodes: "QR Codes",
+    qrTitle: "Scanner pour contrôler les joueurs",
+    close: "Fermer",
+    rugby: "Rugby",
+    football: "Football",
+    lineoutTop: "Touche haut",
+    lineoutBottom: "Touche bas",
+    scrum: "Mêlée",
+    freeBall: "Ballon libre",
+    rightLeft: "Droite → Gauche",
+    leftRight: "Gauche → Droite",
+    allPlayers: "Tous les joueurs",
+    forwardsOnly: "Avants seulement",
+    backsOnly: "Arrières seulement",
+    normalSize: "Taille normale",
+    mediumSize: "Taille 2/3",
+    smallCircle: "Petit cercle",
+    freeze: "Bloquer",
+    reset: "Réinitialiser",
+    speed: "Vitesse",
+    session: "SESSION ACTIVE 🔴",
+    message1: "Votre session est connectée.",
+    message2: "Pour garder les joueurs connectés et continuer à gérer votre équipe :",
+    price: "9,99€ / an",
+    unlock: "Débloquer l’accès",
+    promo: "Code promo :",
+    promoPlaceholder: "Entrer le code",
+    applyPromo: "Appliquer le code promo",
+    invalid: "Code promo invalide.",
+    footballMode: "MODE FOOTBALL | MÊMES CONTRÔLEURS TÉLÉPHONE",
+    attackRTL: "ATTAQUE : DROITE → GAUCHE",
+    attackLTR: "ATTAQUE : GAUCHE → DROITE",
+    lineoutTopMode: "TOUCHE HAUT",
+    lineoutBottomMode: "TOUCHE BAS",
+    scrumMode: "MÊLÉE",
+    freeBallMode: "BALLON LIBRE",
+    footer: "Cliquer/glisser joueur = repositionner | Cliquer/glisser terrain = bouger ballon | Double-clic joueur = attacher ballon"
+  }
+};
+
+function t(key) {
+  return TEXT[currentLang][key] || TEXT.en[key] || key;
+}
+
+function applyTranslations() {
+  document.getElementById("qrBtn").textContent = t("qrCodes");
+  document.getElementById("qrTitle").textContent = t("qrTitle");
+  document.getElementById("closeQr").textContent = t("close");
+
+  document.querySelector('#sportMode option[value="rugby"]').textContent = t("rugby");
+  document.querySelector('#sportMode option[value="football"]').textContent = t("football");
+
+  document.getElementById("lineoutTopBtn").textContent = t("lineoutTop");
+  document.getElementById("lineoutBottomBtn").textContent = t("lineoutBottom");
+  document.getElementById("scrumBtn").textContent = t("scrum");
+  document.getElementById("freeBtn").textContent = t("freeBall");
+
+  document.querySelector('#attackDirection option[value="rtl"]').textContent = t("rightLeft");
+  document.querySelector('#attackDirection option[value="ltr"]').textContent = t("leftRight");
+
+  document.querySelector('#playerGroup option[value="all"]').textContent = t("allPlayers");
+  document.querySelector('#playerGroup option[value="forwards"]').textContent = t("forwardsOnly");
+  document.querySelector('#playerGroup option[value="backs"]').textContent = t("backsOnly");
+
+  document.querySelector('#playerSize option[value="normal"]').textContent = t("normalSize");
+  document.querySelector('#playerSize option[value="medium"]').textContent = t("mediumSize");
+  document.querySelector('#playerSize option[value="small"]').textContent = t("smallCircle");
+
+  document.getElementById("freezeBtn").textContent = t("freeze");
+  document.getElementById("resetBtn").textContent = t("reset");
+
+  const speedLabel = document.querySelector("label");
+  if (speedLabel) {
+    speedLabel.childNodes[0].nodeValue = t("speed") + " ";
+  }
+
+  document.getElementById("paywallTitle").textContent = t("session");
+  document.getElementById("paywallLine1").textContent = t("message1");
+  document.getElementById("paywallLine2").textContent = t("message2");
+  document.getElementById("paywallPrice").textContent = t("price");
+  document.getElementById("unlockBtn").textContent = t("unlock");
+  document.getElementById("promoLabel").textContent = t("promo");
+  document.getElementById("promoInput").placeholder = t("promoPlaceholder");
+  document.getElementById("promoBtn").textContent = t("applyPromo");
+}
 
 function fitMouse(e) {
   const rect = canvas.getBoundingClientRect();
@@ -34,6 +164,13 @@ function setMode(mode) {
   setupMode = mode;
   draw();
 }
+
+document.getElementById("langToggle").onchange = e => {
+  currentLang = e.target.value;
+  localStorage.setItem("teamClarityLang", currentLang);
+  applyTranslations();
+  draw();
+};
 
 document.getElementById("sportMode").onchange = e => {
   sportMode = e.target.value;
@@ -315,7 +452,7 @@ function drawPitch() {
   ctx.fillStyle = "#111";
   ctx.fillRect(0, 52, W, 8);
 
-  pixelText("CLARITY CREATES INTENSITY", W / 2, 37, 30, "center", "#fff");
+  pixelText(t("slogan"), W / 2, 37, 30, "center", "#fff");
 
   if (state?.frozen) {
     ctx.fillStyle = "rgba(0,0,0,.35)";
@@ -549,18 +686,18 @@ function draw() {
   let modeText = "";
 
   if (sportMode === "football") {
-    modeText = "FOOTBALL MODE | SAME PHONE CONTROLLERS";
+    modeText = t("footballMode");
   } else {
-    modeText = attackDirection === "rtl" ? "ATTACK: RIGHT → LEFT" : "ATTACK: LEFT → RIGHT";
+    modeText = attackDirection === "rtl" ? t("attackRTL") : t("attackLTR");
 
-    if (setupMode === "lineout-top") modeText = `LINEOUT TOP: ${modeText}`;
-    if (setupMode === "lineout-bottom") modeText = `LINEOUT BOTTOM: ${modeText}`;
-    if (setupMode === "scrum") modeText = `SCRUM: ${modeText}`;
-    if (setupMode === "free") modeText = `FREE BALL MODE | ${modeText}`;
+    if (setupMode === "lineout-top") modeText = `${t("lineoutTopMode")}: ${modeText}`;
+    if (setupMode === "lineout-bottom") modeText = `${t("lineoutBottomMode")}: ${modeText}`;
+    if (setupMode === "scrum") modeText = `${t("scrumMode")}: ${modeText}`;
+    if (setupMode === "free") modeText = `${t("freeBallMode")} | ${modeText}`;
   }
 
   pixelText(modeText, W / 2, H - 44, 20, "center", "#ffd700");
-  pixelText("Click/drag player = coach reposition | Click/drag grass = move ball | Double click player = attach ball", W / 2, H - 18, 18, "center", "#fff");
+  pixelText(t("footer"), W / 2, H - 18, 18, "center", "#fff");
 }
 
 // ================================
@@ -574,13 +711,14 @@ const STRIPE_PAYMENT_LINK = "https://buy.stripe.com/YOUR_LINK_HERE";
 // Later, change this to: 10 * 60 * 1000
 const PAYWALL_WAIT_TIME = 10 * 1000;
 
+let promoUnlockedThisPageLoad = false;
+
 function hasValidAccess() {
   if (localStorage.getItem("subscriptionActive") === "true") {
     return true;
   }
 
-  const promoExpiresAt = Number(localStorage.getItem("promoAccessExpiresAt") || 0);
-  return Date.now() < promoExpiresAt;
+  return promoUnlockedThisPageLoad === true;
 }
 
 function showPaywall() {
@@ -599,13 +737,20 @@ function hidePaywall() {
   }
 }
 
-function unlockPromoForToday() {
-  const expiresAt = Date.now() + 24 * 60 * 60 * 1000;
-  localStorage.setItem("promoAccessExpiresAt", String(expiresAt));
+function unlockPromoForThisPageLoadOnly() {
+  promoUnlockedThisPageLoad = true;
   hidePaywall();
 }
 
 window.addEventListener("load", () => {
+  const savedLang = localStorage.getItem("teamClarityLang");
+  if (savedLang === "fr" || savedLang === "en") {
+    currentLang = savedLang;
+    document.getElementById("langToggle").value = currentLang;
+  }
+
+  applyTranslations();
+
   if (!hasValidAccess()) {
     setTimeout(showPaywall, PAYWALL_WAIT_TIME);
   }
@@ -625,9 +770,9 @@ window.addEventListener("load", () => {
       const code = (input?.value || "").trim().toUpperCase();
 
       if (code === "AZRUGBY") {
-        unlockPromoForToday();
+        unlockPromoForThisPageLoadOnly();
       } else if (message) {
-        message.textContent = "Invalid promo code.";
+        message.textContent = t("invalid");
         message.style.color = "#ff5555";
       }
     };
