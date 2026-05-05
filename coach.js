@@ -55,11 +55,6 @@ document.getElementById("freezeBtn").onclick = () => {
   socket.emit("coach-freeze", !state.frozen);
 };
 
-document.getElementById("gridBtn").onclick = () => {
-  if (!state) return;
-  socket.emit("coach-grid", !state.showGrid);
-};
-
 document.getElementById("speed").oninput = e => {
   socket.emit("coach-speed", e.target.value);
 };
@@ -192,25 +187,6 @@ function drawPitch() {
   ctx.beginPath(); ctx.moveTo(left, Y(0.23)); ctx.lineTo(right, Y(0.23)); ctx.stroke();
   ctx.beginPath(); ctx.moveTo(left, Y(0.77)); ctx.lineTo(right, Y(0.77)); ctx.stroke();
   ctx.setLineDash([]);
-
-  if (state?.showGrid) {
-    ctx.strokeStyle = "rgba(255,255,255,.13)";
-    ctx.lineWidth = 1;
-
-    for (let x = left; x <= right; x += 70) {
-      ctx.beginPath();
-      ctx.moveTo(x, top);
-      ctx.lineTo(x, bottom);
-      ctx.stroke();
-    }
-
-    for (let y = top; y <= bottom; y += 70) {
-      ctx.beginPath();
-      ctx.moveTo(left, y);
-      ctx.lineTo(right, y);
-      ctx.stroke();
-    }
-  }
 
   ctx.save();
   ctx.fillStyle = "#fff";
