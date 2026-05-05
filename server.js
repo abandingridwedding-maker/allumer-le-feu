@@ -2,7 +2,7 @@ const express = require("express");
 const http = require("http");
 const { Server } = require("socket.io");
 const QRCode = require("qrcode");
-const os = require("os");
+const path = require("path");
 
 const app = express();
 const server = http.createServer(app);
@@ -10,17 +10,26 @@ const io = new Server(server);
 
 const PORT = process.env.PORT || 3000;
 
-app.use(express.static("public"));
+app.use(express.static(__dirname));
+app.use(express.static(path.join(__dirname, "public")));
 
-function getLocalIP() {
-  const nets = os.networkInterfaces();
-  for (const name of Object.keys(nets)) {
-    for (const net of nets[name]) {
-      if (net.family === "IPv4" && !net.internal) return net.address;
-    }
+app.get("/", (req, res) => {
+  res.sendFile(path.join(__dirname, "index.html"));
+});
+
+app.get("/api/qrs", async (req, res) => {
+  const host = req.get("host");
+  const protocol = req.headers["x-forwarded-proto"] || req.protocol;
+  const baseUrl = `${protocol}://${host}`;
+
+  const qrs = {};
+  for (let i = 1; i <= 15; i++) {
+    const url = `${baseUrl}/controller.html?p=${i}`;
+    qrs[i] = await QRCode.toDataURL(url);
   }
-  return "localhost";
-}
+
+  res.json({ baseUrl, qrs });
+});
 
 const FIELD_W = 1400;
 const FIELD_H = 820;
@@ -57,23 +66,6 @@ let game = {
 
 const controllers = {};
 
-app.get("/api/qrs", async (req, res) => {
-  // IMPORTANT:
-  // Do NOT use req.get("host") here, because if the coach opens localhost,
-  // the QR code would also become localhost, which phones cannot use.
-  // Always use the laptop's local Wi-Fi IP instead.
-  const localIP = getLocalIP();
-  const baseUrl = `http://${localIP}:${PORT}`;
-  const qrs = {};
-
-  for (let i = 1; i <= 15; i++) {
-    const url = `${baseUrl}/controller.html?p=${i}`;
-    qrs[i] = await QRCode.toDataURL(url);
-  }
-
-  res.json({ baseUrl, qrs });
-});
-
 io.on("connection", socket => {
   socket.emit("state", game);
 
@@ -94,25 +86,22 @@ io.on("connection", socket => {
   });
 
   socket.on("coach-ball", data => {
-    game.ball.x = Math.max(40, Math.min(FIELD_W - 40, Number(data.x)));
-    game.ball.y = Math.max(40, Math.min(FIELD_H - 40, Number(data.y)));
+    game.ball.x = Number(data.x);
+    game.ball.y = Number(data.y);
     game.ball.carrier = null;
     io.emit("state", game);
   });
 
   socket.on("coach-attach-ball", number => {
     number = Number(number);
-    if (game.players[number]) {
-      game.ball.carrier = number;
-      io.emit("state", game);
-    }
+    if (game.players[number]) game.ball.carrier = number;
+    io.emit("state", game);
   });
 
   socket.on("coach-reset", () => {
     game.players = defaultPlayers();
     game.ball = { x: 700, y: 410, carrier: null };
     game.frozen = false;
-    game.message = "ALLUMER LE FEU";
     io.emit("state", game);
   });
 
@@ -130,48 +119,30 @@ io.on("connection", socket => {
     game.speed = Math.max(1, Math.min(9, Number(value) || 4.2));
     io.emit("state", game);
   });
-
-  socket.on("disconnect", () => {
-    const number = controllers[socket.id];
-    delete controllers[socket.id];
-    if (number && game.players[number]) {
-      game.players[number].connected = false;
-      game.players[number].vx = 0;
-      game.players[number].vy = 0;
-    }
-    io.emit("state", game);
-  });
 });
 
 setInterval(() => {
   if (!game.frozen) {
     for (const p of Object.values(game.players)) {
-      if (p.frozen) continue;
       const len = Math.hypot(p.vx, p.vy);
       if (len > 0.05) {
-        const nx = p.vx / Math.max(1, len);
-        const ny = p.vy / Math.max(1, len);
-        p.x += nx * game.speed;
-        p.y += ny * game.speed;
+        p.x += (p.vx / len) * game.speed;
+        p.y += (p.vy / len) * game.speed;
         p.x = Math.max(35, Math.min(FIELD_W - 35, p.x));
         p.y = Math.max(35, Math.min(FIELD_H - 35, p.y));
       }
     }
+
     if (game.ball.carrier && game.players[game.ball.carrier]) {
       const c = game.players[game.ball.carrier];
       game.ball.x = c.x + 30;
       game.ball.y = c.y + 5;
     }
   }
+
   io.emit("state", game);
 }, 1000 / 30);
 
 server.listen(PORT, "0.0.0.0", () => {
-  console.log("");
-  console.log("🔥 ALLUMER LE FEU is running");
-  console.log(`Coach screen: http://${getLocalIP()}:${PORT}`);
-  console.log(`Same computer: http://localhost:${PORT}`);
-  console.log("");
-});app.get("/", (req, res) => {
-  res.sendFile(__dirname + "/index.html");
+  console.log("🔥 ALLUMER LE FEU is running on port " + PORT);
 });
