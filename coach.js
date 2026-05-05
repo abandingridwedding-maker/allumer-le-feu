@@ -13,6 +13,9 @@ let playerSize = "normal";
 let attackDirection = "rtl";
 let sportMode = "rugby";
 
+let draggingBall = false;
+let draggingPlayerNumber = null;
+
 function fitMouse(e) {
   const rect = canvas.getBoundingClientRect();
   return {
@@ -74,7 +77,40 @@ document.getElementById("speed").oninput = e => {
   socket.emit("coach-speed", e.target.value);
 };
 
-canvas.addEventListener("click", e => {
+function shouldShowPlayer(number) {
+  if (sportMode === "football" && number > 11) return false;
+
+  if (sportMode === "rugby") {
+    if (playerGroup === "all") return true;
+    if (playerGroup === "forwards") return number >= 1 && number <= 8;
+    if (playerGroup === "backs") return number >= 9 && number <= 15;
+  }
+
+  return true;
+}
+
+function getClosestPlayerToMouse(mousePoint) {
+  if (!state || !state.players) return null;
+
+  let closest = null;
+  let bestDistance = 9999;
+
+  for (const player of Object.values(state.players)) {
+    if (!shouldShowPlayer(player.number)) continue;
+
+    const distance = Math.hypot(player.x - mousePoint.x, player.y - mousePoint.y);
+
+    if (distance < bestDistance) {
+      bestDistance = distance;
+      closest = player;
+    }
+  }
+
+  if (bestDistance < 45) return closest;
+  return null;
+}
+
+canvas.addEventListener("mousedown", e => {
   const p = fitMouse(e);
 
   if (sportMode === "rugby") {
@@ -94,26 +130,61 @@ canvas.addEventListener("click", e => {
     }
   }
 
+  const player = getClosestPlayerToMouse(p);
+
+  if (player) {
+    draggingPlayerNumber = player.number;
+    draggingBall = false;
+
+    socket.emit("coach-move-player", {
+      number: draggingPlayerNumber,
+      x: p.x,
+      y: p.y
+    });
+
+    return;
+  }
+
+  draggingBall = true;
+  draggingPlayerNumber = null;
   socket.emit("coach-ball", p);
+});
+
+canvas.addEventListener("mousemove", e => {
+  const p = fitMouse(e);
+
+  if (draggingPlayerNumber) {
+    socket.emit("coach-move-player", {
+      number: draggingPlayerNumber,
+      x: p.x,
+      y: p.y
+    });
+    return;
+  }
+
+  if (draggingBall) {
+    socket.emit("coach-ball", p);
+  }
+});
+
+canvas.addEventListener("mouseup", () => {
+  draggingBall = false;
+  draggingPlayerNumber = null;
+});
+
+canvas.addEventListener("mouseleave", () => {
+  draggingBall = false;
+  draggingPlayerNumber = null;
 });
 
 canvas.addEventListener("dblclick", e => {
   if (!state) return;
 
   const p = fitMouse(e);
-  let closest = null;
-  let best = 9999;
+  const player = getClosestPlayerToMouse(p);
 
-  for (const player of Object.values(state.players)) {
-    const d = Math.hypot(player.x - p.x, player.y - p.y);
-    if (d < best) {
-      best = d;
-      closest = player;
-    }
-  }
-
-  if (closest && best < 60) {
-    socket.emit("coach-attach-ball", closest.number);
+  if (player) {
+    socket.emit("coach-attach-ball", player.number);
   }
 });
 
@@ -363,18 +434,6 @@ function drawBall(ball) {
   ctx.restore();
 }
 
-function shouldShowPlayer(number) {
-  if (sportMode === "football" && number > 11) return false;
-
-  if (sportMode === "rugby") {
-    if (playerGroup === "all") return true;
-    if (playerGroup === "forwards") return number >= 1 && number <= 8;
-    if (playerGroup === "backs") return number >= 9 && number <= 15;
-  }
-
-  return true;
-}
-
 function drawCirclePlayer(p) {
   ctx.save();
 
@@ -501,72 +560,9 @@ function draw() {
   }
 
   pixelText(modeText, W / 2, H - 44, 20, "center", "#ffd700");
-  pixelText("Click field = place setup / move ball | Double click player = attach ball | QR Codes = phones", W / 2, H - 18, 18, "center", "#fff");
-}
-// ================================
-// COACH DRAG-AND-DROP PLAYER CONTROL
-// ================================
-
-let draggingPlayerNumber = null;
-
-function getClosestPlayerToMouse(mousePoint) {
-  if (!state || !state.players) return null;
-
-  let closest = null;
-  let bestDistance = 9999;
-
-  for (const player of Object.values(state.players)) {
-    if (!shouldShowPlayer(player.number)) continue;
-
-    const distance = Math.hypot(player.x - mousePoint.x, player.y - mousePoint.y);
-
-    if (distance < bestDistance) {
-      bestDistance = distance;
-      closest = player;
-    }
-  }
-
-  if (bestDistance < 45) {
-    return closest;
-  }
-
-  return null;
+  pixelText("Click/drag player = coach reposition | Click/drag grass = move ball | Double click player = attach ball", W / 2, H - 18, 18, "center", "#fff");
 }
 
-canvas.addEventListener("mousedown", e => {
-  const p = fitMouse(e);
-
-  const player = getClosestPlayerToMouse(p);
-
-  if (player) {
-    draggingPlayerNumber = player.number;
-    socket.emit("coach-move-player", {
-      number: draggingPlayerNumber,
-      x: p.x,
-      y: p.y
-    });
-  }
-});
-
-canvas.addEventListener("mousemove", e => {
-  if (!draggingPlayerNumber) return;
-
-  const p = fitMouse(e);
-
-  socket.emit("coach-move-player", {
-    number: draggingPlayerNumber,
-    x: p.x,
-    y: p.y
-  });
-});
-
-canvas.addEventListener("mouseup", () => {
-  draggingPlayerNumber = null;
-});
-
-canvas.addEventListener("mouseleave", () => {
-  draggingPlayerNumber = null;
-});
 // ================================
 // SIMPLE PAYWALL — COACH SIDE ONLY
 // CHANGE WAIT TIME HERE
@@ -630,11 +626,9 @@ window.addEventListener("load", () => {
 
       if (code === "AZRUGBY") {
         unlockPromoForToday();
-      } else {
-        if (message) {
-          message.textContent = "Invalid promo code.";
-          message.style.color = "#ff5555";
-        }
+      } else if (message) {
+        message.textContent = "Invalid promo code.";
+        message.style.color = "#ff5555";
       }
     };
   }
