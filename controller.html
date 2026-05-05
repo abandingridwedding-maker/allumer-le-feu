@@ -2,24 +2,94 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-<title>Allumer le FEU — Controller</title>
-<link rel="stylesheet" href="style.css" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+<title>TEAM-CLARITY Controller</title>
+<style>
+  * { box-sizing: border-box; touch-action: none; }
+
+  body {
+    margin: 0;
+    min-height: 100vh;
+    background: #080808;
+    color: #fff;
+    font-family: "Courier New", monospace;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: space-between;
+    padding: 24px 16px;
+    overflow: hidden;
+  }
+
+  .title {
+    text-align: center;
+    font-size: 26px;
+    font-weight: 900;
+    text-shadow: 3px 3px #000;
+  }
+
+  .status {
+    text-align: center;
+    font-size: 20px;
+    margin-top: 10px;
+  }
+
+  .playerNumber {
+    font-size: 72px;
+    font-weight: 900;
+    color: #ffd700;
+    text-shadow: 4px 4px #d71920;
+  }
+
+  #joystick {
+    width: 260px;
+    height: 260px;
+    border-radius: 50%;
+    border: 6px solid #fff;
+    background: radial-gradient(circle, #222 0%, #111 60%, #000 100%);
+    position: relative;
+    box-shadow: 0 0 30px rgba(255,255,255,.2);
+  }
+
+  #stick {
+    width: 96px;
+    height: 96px;
+    border-radius: 50%;
+    background: #d71920;
+    border: 5px solid #fff;
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    box-shadow: 0 0 20px rgba(215,25,32,.8);
+  }
+
+  .instructions {
+    text-align: center;
+    font-size: 17px;
+    line-height: 1.35;
+    max-width: 360px;
+    opacity: .9;
+  }
+</style>
 </head>
-<body class="controllerBody">
+
+<body>
   <div>
-    <div class="controllerTitle">ALLUMER LE FEU</div>
+    <div class="title">🔥 TEAM-CLARITY</div>
     <div class="status" id="status">Connecting...</div>
   </div>
 
   <div class="playerNumber" id="playerNumber">?</div>
 
-  <div class="joystickWrap" id="joy">
-    <div class="joystickBase"></div>
-    <div class="joystickKnob" id="knob"></div>
+  <div id="joystick">
+    <div id="stick"></div>
   </div>
 
-  <div class="phoneHelp">Move your finger in the circle to move your player. Keep this page open.</div>
+  <div class="instructions">
+    Move your finger inside the circle to move your player.<br />
+    Keep this page open.
+  </div>
 
 <script src="/socket.io/socket.io.js"></script>
 <script src="controller.js"></script>
