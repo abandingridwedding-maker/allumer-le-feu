@@ -131,7 +131,7 @@ function applyTranslations() {
   document.getElementById("freezeBtn").textContent = t("freeze");
   document.getElementById("resetBtn").textContent = t("reset");
 
-  const speedLabel = document.querySelector("label");
+  const speedLabel = document.querySelector(".speedLabel");
   if (speedLabel) {
     speedLabel.childNodes[0].nodeValue = t("speed") + " ";
   }
@@ -146,6 +146,22 @@ function applyTranslations() {
   document.getElementById("promoBtn").textContent = t("applyPromo");
 }
 
+function updateToolVisibility() {
+  const rugbyItems = document.querySelectorAll(".rugbyOnly");
+
+  rugbyItems.forEach(item => {
+    if (sportMode === "rugby") {
+      item.classList.remove("hidden");
+    } else {
+      item.classList.add("hidden");
+    }
+  });
+
+  if (sportMode === "football") {
+    setupMode = "free";
+  }
+}
+
 function fitMouse(e) {
   const rect = canvas.getBoundingClientRect();
   return {
@@ -157,6 +173,7 @@ function fitMouse(e) {
 socket.on("state", s => {
   state = s;
   sportMode = state.sportMode || sportMode;
+  updateToolVisibility();
   draw();
 });
 
@@ -174,6 +191,7 @@ document.getElementById("langToggle").onchange = e => {
 
 document.getElementById("sportMode").onchange = e => {
   sportMode = e.target.value;
+  updateToolVisibility();
   socket.emit("coach-sport-mode", sportMode);
   draw();
 };
@@ -457,7 +475,7 @@ function drawPitch() {
   if (state?.frozen) {
     ctx.fillStyle = "rgba(0,0,0,.35)";
     ctx.fillRect(0, 0, W, H);
-    pixelText("FREEZE", W / 2, H / 2, 90, "center", "#fff");
+    pixelText(t("freeze"), W / 2, H / 2, 90, "center", "#fff");
   }
 }
 
@@ -517,7 +535,7 @@ function drawFootballPitch() {
   if (state?.frozen) {
     ctx.fillStyle = "rgba(0,0,0,.35)";
     ctx.fillRect(0, 0, W, H);
-    pixelText("FREEZE", W / 2, H / 2, 90, "center", "#fff");
+    pixelText(t("freeze"), W / 2, H / 2, 90, "center", "#fff");
   }
 }
 
@@ -744,12 +762,14 @@ function unlockPromoForThisPageLoadOnly() {
 
 window.addEventListener("load", () => {
   const savedLang = localStorage.getItem("teamClarityLang");
+
   if (savedLang === "fr" || savedLang === "en") {
     currentLang = savedLang;
     document.getElementById("langToggle").value = currentLang;
   }
 
   applyTranslations();
+  updateToolVisibility();
 
   if (!hasValidAccess()) {
     setTimeout(showPaywall, PAYWALL_WAIT_TIME);
