@@ -503,7 +503,70 @@ function draw() {
   pixelText(modeText, W / 2, H - 44, 20, "center", "#ffd700");
   pixelText("Click field = place setup / move ball | Double click player = attach ball | QR Codes = phones", W / 2, H - 18, 18, "center", "#fff");
 }
+// ================================
+// COACH DRAG-AND-DROP PLAYER CONTROL
+// ================================
 
+let draggingPlayerNumber = null;
+
+function getClosestPlayerToMouse(mousePoint) {
+  if (!state || !state.players) return null;
+
+  let closest = null;
+  let bestDistance = 9999;
+
+  for (const player of Object.values(state.players)) {
+    if (!shouldShowPlayer(player.number)) continue;
+
+    const distance = Math.hypot(player.x - mousePoint.x, player.y - mousePoint.y);
+
+    if (distance < bestDistance) {
+      bestDistance = distance;
+      closest = player;
+    }
+  }
+
+  if (bestDistance < 45) {
+    return closest;
+  }
+
+  return null;
+}
+
+canvas.addEventListener("mousedown", e => {
+  const p = fitMouse(e);
+
+  const player = getClosestPlayerToMouse(p);
+
+  if (player) {
+    draggingPlayerNumber = player.number;
+    socket.emit("coach-move-player", {
+      number: draggingPlayerNumber,
+      x: p.x,
+      y: p.y
+    });
+  }
+});
+
+canvas.addEventListener("mousemove", e => {
+  if (!draggingPlayerNumber) return;
+
+  const p = fitMouse(e);
+
+  socket.emit("coach-move-player", {
+    number: draggingPlayerNumber,
+    x: p.x,
+    y: p.y
+  });
+});
+
+canvas.addEventListener("mouseup", () => {
+  draggingPlayerNumber = null;
+});
+
+canvas.addEventListener("mouseleave", () => {
+  draggingPlayerNumber = null;
+});
 // ================================
 // SIMPLE PAYWALL — COACH SIDE ONLY
 // CHANGE WAIT TIME HERE
