@@ -194,18 +194,14 @@ function setupLineout(side, rawX, direction = currentDirection) {
 
   setBall(x, touchY);
 
-  // 2 = thrower on touchline
   setPlayer(2, x, touchY);
 
-  // Lineout forwards between 5m and 15m
   const forwards = [3, 1, 4, 5, 6, 7, 8];
 
   forwards.forEach((num, idx) => {
     setPlayer(num, x, lineoutYStart + idx * lineoutStep);
   });
 
-  // RTL = backs on right side of forwards
-  // LTR = backs on left side of forwards
   const dir = isRTL ? 1 : -1;
 
   setPlayer(9, x + dir * 90, isTop ? TOP_15M + 35 : BOTTOM_15M - 35);
@@ -216,7 +212,6 @@ function setupLineout(side, rawX, direction = currentDirection) {
   setPlayer(15, x + dir * 590, isTop ? TOP_15M + 235 : BOTTOM_15M - 235);
   setPlayer(14, x + dir * 720, isTop ? BOTTOM_5M - 15 : TOP_5M + 15);
 
-  // Blind wing behind 10
   setPlayer(11, x + dir * 160, isTop ? TOP_5M + 25 : BOTTOM_5M - 25);
 
   game.message = isRTL
@@ -245,27 +240,19 @@ function setupScrum(rawX, rawY, direction = currentDirection) {
   setBall(x, y);
 
   if (isRTL) {
-    // Attack right to left.
-    // Backs on RIGHT side of forwards.
-
-    // Front row: 3,2,1 vertically stacked
     setPlayer(3, x, y - 45);
     setPlayer(2, x, y);
     setPlayer(1, x, y + 45);
 
-    // Locks behind front row
     setPlayer(5, x + 45, y - 25);
     setPlayer(4, x + 45, y + 25);
 
-    // Back row
     setPlayer(6, x + 90, y - 55);
     setPlayer(7, x + 90, y + 55);
     setPlayer(8, x + 115, y);
 
-    // 9 behind 8
     setPlayer(9, x + 165, y + 35);
 
-    // Backs on right side, ready to attack left
     setPlayer(10, x + 245, y - 75);
     setPlayer(12, x + 365, TOP_15M + 15);
     setPlayer(13, x + 500, TOP_5M + 15);
@@ -273,27 +260,19 @@ function setupScrum(rawX, rawY, direction = currentDirection) {
     setPlayer(14, x + 500, BOTTOM_5M - 15);
     setPlayer(11, x + 240, y + 100);
   } else {
-    // Attack left to right.
-    // Backs on LEFT side of forwards.
-
-    // Front row inverse: 1,2,3 vertically stacked
     setPlayer(1, x, y - 45);
     setPlayer(2, x, y);
     setPlayer(3, x, y + 45);
 
-    // Locks behind front row
     setPlayer(4, x - 45, y - 25);
     setPlayer(5, x - 45, y + 25);
 
-    // Back row
     setPlayer(6, x - 90, y - 55);
     setPlayer(7, x - 90, y + 55);
     setPlayer(8, x - 115, y);
 
-    // 9 behind 8
     setPlayer(9, x - 165, y + 35);
 
-    // Backs on left side, ready to attack right
     setPlayer(10, x - 245, y - 75);
     setPlayer(12, x - 365, TOP_15M + 15);
     setPlayer(13, x - 500, TOP_5M + 15);
@@ -307,7 +286,6 @@ function setupScrum(rawX, rawY, direction = currentDirection) {
   io.emit("state", game);
 }
 
-// Starting screen = rugby, lineout top, backs ready, right to left
 setupLineout("top", 620, "rtl");
 
 io.on("connection", socket => {
@@ -340,11 +318,33 @@ io.on("connection", socket => {
     io.emit("state", game);
   });
 
+  socket.on("coach-move-player", data => {
+    const number = Number(data.number);
+
+    if (!game.players[number]) return;
+
+    game.players[number].x = clamp(Number(data.x), 35, FIELD_W - 35);
+    game.players[number].y = clamp(Number(data.y), 35, FIELD_H - 35);
+    game.players[number].vx = 0;
+    game.players[number].vy = 0;
+
+    if (game.ball.carrier === number) {
+      game.ball.x = game.players[number].x + 30;
+      game.ball.y = game.players[number].y + 5;
+      game.ball.targetX = game.ball.x;
+      game.ball.targetY = game.ball.y;
+    }
+
+    io.emit("state", game);
+  });
+
   socket.on("coach-attach-ball", number => {
     number = Number(number);
 
     if (game.players[number]) {
       game.ball.carrier = number;
+      game.ball.x = game.players[number].x + 30;
+      game.ball.y = game.players[number].y + 5;
       game.ball.targetX = game.ball.x;
       game.ball.targetY = game.ball.y;
     }
