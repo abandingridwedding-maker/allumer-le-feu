@@ -20,9 +20,20 @@ app.get("/", (req, res) => {
 const FIELD_W = 1400;
 const FIELD_H = 820;
 
+const TOP_TOUCH = 70;
+const BOTTOM_TOUCH = FIELD_H - 70;
+const TOP_5M = 125;
+const TOP_15M = 220;
+const BOTTOM_15M = FIELD_H - 220;
+const BOTTOM_5M = FIELD_H - 125;
+
+let currentTeamColor = "#d71920";
+
 function clamp(value, min, max) {
   return Math.max(min, Math.min(max, value));
 }
+
+const controllers = {};
 
 function defaultPlayers() {
   const players = {};
@@ -40,9 +51,15 @@ function defaultPlayers() {
       vy: 0,
       connected: false,
       frozen: false,
-      color: i <= 8 ? "#d71920" : "#111111",
+      color: currentTeamColor,
       name: `Player ${i}`
     };
+  }
+
+  for (const playerNumber of Object.values(controllers)) {
+    if (players[playerNumber]) {
+      players[playerNumber].connected = true;
+    }
   }
 
   return players;
@@ -54,10 +71,9 @@ let game = {
   frozen: false,
   speed: 4.2,
   showGrid: true,
+  teamColor: currentTeamColor,
   message: "TEAM-CLARITY"
 };
-
-const controllers = {};
 
 app.get("/api/qrs", async (req, res) => {
   const host = req.get("host");
@@ -90,48 +106,51 @@ function setPlayer(number, x, y) {
   game.players[number].vy = 0;
 }
 
+function applyTeamColor(color) {
+  currentTeamColor = color;
+  game.teamColor = color;
+
+  for (const p of Object.values(game.players)) {
+    p.color = color;
+  }
+}
+
 function setupLineout(side, rawX) {
   stopAllPlayers();
 
-  const x = clamp(rawX, 170, FIELD_W - 230);
-
-  const topTouch = 80;
-  const bottomTouch = FIELD_H - 80;
+  const x = clamp(rawX, 190, FIELD_W - 620);
 
   const isTop = side === "top";
+  const touchY = isTop ? TOP_TOUCH : BOTTOM_TOUCH;
 
-  const touchY = isTop ? topTouch : bottomTouch;
-  const direction = isTop ? 1 : -1;
+  const lineoutY = isTop
+    ? (TOP_5M + TOP_15M) / 2
+    : (BOTTOM_5M + BOTTOM_15M) / 2;
 
-  const lineX = x;
+  const spreadDir = isTop ? 1 : -1;
 
   game.ball = {
-    x: lineX,
+    x: x - 18,
     y: touchY,
     carrier: null
   };
 
-  // Hooker / thrower on touchline
-  setPlayer(2, lineX - 25, touchY + direction * 5);
+  setPlayer(2, x - 25, touchY);
 
-  // Lineout forwards: 1,3,4,5,6,7,8
   const forwards = [1, 3, 4, 5, 6, 7, 8];
   forwards.forEach((num, idx) => {
-    setPlayer(num, lineX, touchY + direction * (45 + idx * 34));
+    setPlayer(num, x + idx * 24, lineoutY);
   });
 
-  // 9 at tail / receiver
-  setPlayer(9, lineX + 45, touchY + direction * 275);
+  setPlayer(9, x + 205, lineoutY + spreadDir * 25);
 
-  // Attacking backline
-  setPlayer(10, lineX + 115, touchY + direction * 165);
-  setPlayer(12, lineX + 205, touchY + direction * 190);
-  setPlayer(13, lineX + 295, touchY + direction * 215);
-  setPlayer(15, lineX + 385, touchY + direction * 240);
-  setPlayer(14, lineX + 485, touchY + direction * 265);
+  setPlayer(10, x + 290, isTop ? TOP_15M + 35 : BOTTOM_15M - 35);
+  setPlayer(12, x + 405, isTop ? TOP_15M + 95 : BOTTOM_15M - 95);
+  setPlayer(13, x + 525, isTop ? TOP_15M + 155 : BOTTOM_15M - 155);
+  setPlayer(15, x + 650, isTop ? TOP_15M + 225 : BOTTOM_15M - 225);
+  setPlayer(14, x + 775, isTop ? BOTTOM_15M - 40 : TOP_15M + 40);
 
-  // Blind wing behind 10
-  setPlayer(11, lineX + 95, touchY + direction * 115);
+  setPlayer(11, x + 260, isTop ? TOP_5M + 30 : BOTTOM_5M - 30);
 
   game.message = isTop ? "LINEOUT TOP" : "LINEOUT BOTTOM";
 
@@ -141,41 +160,54 @@ function setupLineout(side, rawX) {
 function setupScrum(rawX, rawY) {
   stopAllPlayers();
 
-  const x = clamp(rawX, 170, FIELD_W - 360);
-  const y = clamp(rawY, 170, FIELD_H - 170);
+  const x = clamp(rawX, 220, FIELD_W - 220);
+  const y = clamp(rawY, 230, FIELD_H - 230);
 
   game.ball = {
-    x: x - 50,
+    x: x - 55,
     y: y,
     carrier: null
   };
 
-  // Front row
-  setPlayer(1, x - 35, y - 15);
-  setPlayer(2, x, y - 15);
-  setPlayer(3, x + 35, y - 15);
+  setPlayer(1, x - 35, y - 20);
+  setPlayer(2, x, y - 20);
+  setPlayer(3, x + 35, y - 20);
 
-  // Locks
-  setPlayer(4, x - 20, y + 25);
-  setPlayer(5, x + 20, y + 25);
+  setPlayer(4, x - 22, y + 20);
+  setPlayer(5, x + 22, y + 20);
 
-  // Back row
-  setPlayer(6, x - 55, y + 45);
-  setPlayer(7, x + 55, y + 45);
-  setPlayer(8, x, y + 70);
+  setPlayer(6, x - 60, y + 45);
+  setPlayer(7, x + 60, y + 45);
+  setPlayer(8, x, y + 75);
 
-  // 9 feeder
-  setPlayer(9, x - 75, y + 15);
+  setPlayer(9, x - 90, y + 45);
 
-  // Backline
-  setPlayer(10, x + 115, y - 20);
-  setPlayer(12, x + 210, y - 5);
-  setPlayer(13, x + 305, y + 10);
-  setPlayer(15, x + 405, y + 25);
-  setPlayer(14, x + 500, y + 40);
+  const leftWingY = TOP_5M + 10;
+  const topChannelY = TOP_15M + 15;
+  const bottomChannelY = BOTTOM_15M - 15;
+  const rightWingY = BOTTOM_5M - 10;
 
-  // Blind wing behind 10
-  setPlayer(11, x + 90, y - 70);
+  if (y > 300 && y < 520) {
+    setPlayer(10, x + 115, y - 70);
+    setPlayer(12, x + 230, topChannelY);
+    setPlayer(13, x + 350, leftWingY);
+
+    setPlayer(15, x + 230, bottomChannelY);
+    setPlayer(14, x + 350, rightWingY);
+
+    setPlayer(11, x + 85, y + 70);
+  } else {
+    const midHighY = y < FIELD_H / 2 ? y + 105 : y - 105;
+    const midLowY = y < FIELD_H / 2 ? y + 190 : y - 190;
+
+    setPlayer(10, x + 120, topChannelY);
+    setPlayer(12, x + 240, midHighY);
+    setPlayer(13, x + 365, midLowY);
+    setPlayer(15, x + 500, bottomChannelY);
+    setPlayer(14, x + 620, rightWingY);
+
+    setPlayer(11, x + 95, leftWingY);
+  }
 
   game.message = "SCRUM";
 
@@ -237,8 +269,21 @@ io.on("connection", socket => {
     }
   });
 
+  socket.on("coach-team-color", color => {
+    applyTeamColor(color);
+    io.emit("state", game);
+  });
+
   socket.on("coach-reset", () => {
     game.players = defaultPlayers();
+    applyTeamColor(currentTeamColor);
+
+    for (const playerNumber of Object.values(controllers)) {
+      if (game.players[playerNumber]) {
+        game.players[playerNumber].connected = true;
+      }
+    }
+
     game.ball = { x: 700, y: 410, carrier: null };
     game.frozen = false;
     game.message = "TEAM-CLARITY";
