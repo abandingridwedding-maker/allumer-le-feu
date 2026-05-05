@@ -503,3 +503,39 @@ function draw() {
   pixelText(modeText, W / 2, H - 44, 20, "center", "#ffd700");
   pixelText("Click field = place setup / move ball | Double click player = attach ball | QR Codes = phones", W / 2, H - 18, 18, "center", "#fff");
 }
+const STRIPE_PAYMENT_LINK = "https://buy.stripe.com/YOUR_LINK_HERE";
+const TEN_MINUTES = 10 * 1000; // TEST = 10 seconds
+
+function hasValidAccess() {
+  if (localStorage.getItem("subscriptionActive") === "true") return true;
+  const promoExpiresAt = Number(localStorage.getItem("promoAccessExpiresAt") || 0);
+  return Date.now() < promoExpiresAt;
+}
+
+function showPaywall() {
+  if (hasValidAccess()) return;
+  document.getElementById("paywallOverlay")?.classList.remove("hidden");
+}
+
+window.addEventListener("load", () => {
+  if (!hasValidAccess()) {
+    setTimeout(showPaywall, TEN_MINUTES);
+  }
+
+  document.getElementById("unlockBtn")?.addEventListener("click", () => {
+    window.location.href = STRIPE_PAYMENT_LINK;
+  });
+
+  document.getElementById("promoBtn")?.addEventListener("click", () => {
+    const code = document.getElementById("promoInput")?.value.trim().toUpperCase();
+    const msg = document.getElementById("promoMessage");
+
+    if (code === "AZRUGBY") {
+      localStorage.setItem("promoAccessExpiresAt", String(Date.now() + 24 * 60 * 60 * 1000));
+      document.getElementById("paywallOverlay")?.classList.add("hidden");
+    } else if (msg) {
+      msg.textContent = "Invalid promo code.";
+      msg.style.color = "#ff5555";
+    }
+  });
+});
