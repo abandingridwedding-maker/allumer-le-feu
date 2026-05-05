@@ -172,4 +172,6 @@ server.listen(PORT, "0.0.0.0", () => {
   console.log(`Coach screen: http://${getLocalIP()}:${PORT}`);
   console.log(`Same computer: http://localhost:${PORT}`);
   console.log("");
+});app.get("/", (req, res) => {
+  res.sendFile(__dirname + "/index.html");
 });
