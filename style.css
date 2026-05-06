@@ -63,12 +63,42 @@ select {
   cursor: pointer;
   font-size: 13px;
   min-height: 38px;
-  box-shadow: 2px 2px 0 #000;
+  box-shadow: 3px 3px 0 #000;
+  transition:
+    transform 0.08s ease,
+    box-shadow 0.08s ease,
+    background 0.12s ease,
+    outline 0.12s ease;
 }
 
 button:hover,
 select:hover {
-  background: #333;
+  background: #292929;
+  outline: 2px solid #ffd700;
+  outline-offset: 2px;
+}
+
+button:active,
+select:active {
+  transform: translate(3px, 3px);
+  box-shadow: 0 0 0 #000;
+}
+
+button.active,
+select.active,
+.modeActive {
+  background: #ffd700 !important;
+  color: #111 !important;
+  border-color: #fff;
+  outline: 3px solid #111;
+  outline-offset: 2px;
+}
+
+button:focus-visible,
+select:focus-visible,
+input:focus-visible {
+  outline: 3px solid #ffd700;
+  outline-offset: 2px;
 }
 
 label {
@@ -86,8 +116,10 @@ input {
   vertical-align: middle;
 }
 
-#speed {
+#speed,
+#simSpeed {
   width: 115px;
+  accent-color: #ffd700;
 }
 
 /* =========================
@@ -95,19 +127,17 @@ input {
 ========================= */
 canvas {
   display: block;
-  width: calc(100vw - 10px);
-  height: calc(100vh - 92px);
-  margin: 5px;
+  width: calc(100vw - 18px);
+  height: calc(100vh - 104px);
+  margin: 9px;
   image-rendering: pixelated;
   background: #6ec65f;
   border-radius: 6px;
-}
-
-#field {
   cursor: grab;
 }
 
-#field.grabbing {
+#field.grabbing,
+canvas.grabbing {
   cursor: grabbing;
 }
 
@@ -310,11 +340,23 @@ canvas {
   padding: 28px;
   text-align: center;
   box-shadow: 8px 8px 0 #d71920;
+  transition:
+    transform 0.1s ease,
+    box-shadow 0.1s ease,
+    background 0.12s ease,
+    outline 0.12s ease;
 }
 
 .homeCard:hover {
   transform: translateY(-4px);
   background: #1b1b1b;
+  outline: 3px solid #ffd700;
+  outline-offset: 4px;
+}
+
+.homeCard:active {
+  transform: translate(4px, 4px);
+  box-shadow: 2px 2px 0 #d71920;
 }
 
 .homeIcon {
@@ -326,9 +368,10 @@ canvas {
 }
 
 /* =========================
-   V2 SAVED PLAY FOLDER
+   V2 SAVED PLAY / LOG LISTS
 ========================= */
-#savedPlaysList {
+#savedPlaysList,
+#logsList {
   display: flex;
   flex-direction: column;
   gap: 14px;
@@ -364,6 +407,20 @@ canvas {
 }
 
 /* =========================
+   SCORE UI
+========================= */
+.bigScore {
+  font-size: 72px;
+  font-weight: 900;
+  color: #ffd700;
+}
+
+.scoreLine {
+  font-size: 22px;
+  margin-bottom: 12px;
+}
+
+/* =========================
    RESPONSIVE
 ========================= */
 @media (max-width: 1200px) {
@@ -381,7 +438,7 @@ canvas {
   }
 
   canvas {
-    height: calc(100vh - 150px);
+    height: calc(100vh - 162px);
   }
 }
 
