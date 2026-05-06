@@ -16,7 +16,7 @@ const FIELD = {
   width: 1600,
   height: 900,
   topMargin: 120,
-  bottomMargin: 140,
+  bottomMargin: 145,
   sideMargin: 70
 };
 
@@ -31,7 +31,7 @@ const state = {
   sportMode: "rugby",
   frozen: false,
   speed: 1,
-  ball: { x: 900, y: 450 },
+  ball: { x: 950, y: 230 },
   players: {}
 };
 
@@ -43,23 +43,33 @@ function clamp(v, min, max) {
 }
 
 function playableLeft() {
-  return FIELD.sideMargin;
+  return FIELD.sideMargin + 22;
 }
 
 function playableRight() {
-  return FIELD.width - FIELD.sideMargin;
+  return FIELD.width - FIELD.sideMargin - 22;
 }
 
 function playableTop() {
-  return FIELD.topMargin;
+  return FIELD.topMargin + 24;
 }
 
 function playableBottom() {
-  return FIELD.height - FIELD.bottomMargin;
+  return FIELD.height - FIELD.bottomMargin - 24;
 }
 
 function emitState() {
   io.emit("state", state);
+}
+
+function clampAll() {
+  Object.values(state.players).forEach(p => {
+    p.x = clamp(p.x, playableLeft(), playableRight());
+    p.y = clamp(p.y, playableTop(), playableBottom());
+  });
+
+  state.ball.x = clamp(state.ball.x, playableLeft(), playableRight());
+  state.ball.y = clamp(state.ball.y, playableTop(), playableBottom());
 }
 
 function initPlayers() {
@@ -75,18 +85,23 @@ function initPlayers() {
     };
   }
 
-  applyLineoutTop();
+  placeLineout("top", 920);
 }
 
 /* ================================
-   TEAM-CLARITY SHAPES
+   TEAM-CLARITY STANDARD SHAPES
    Always RIGHT → LEFT
 ================================ */
 
-function applyLineoutTop() {
-  const xForwards = 920;
-  const startY = 160;
-  const spacing = 42;
+function placeLineout(side = "top", clickedX = 920) {
+  const xForwards = clamp(
+    Number(clickedX) || 920,
+    playableLeft() + 200,
+    playableRight() - 520
+  );
+
+  const spacing = side === "top" ? 34 : -34;
+  const startY = side === "top" ? FIELD.topMargin + 72 : FIELD.height - FIELD.bottomMargin - 72;
 
   [1, 3, 4, 5, 6, 7, 8].forEach((n, i) => {
     state.players[n].x = xForwards;
@@ -94,139 +109,102 @@ function applyLineoutTop() {
   });
 
   state.players[2].x = xForwards - 78;
-  state.players[2].y = startY - 2;
+  state.players[2].y = startY - spacing * 0.2;
 
-  state.players[9].x = xForwards + 80;
-  state.players[9].y = startY + 4.4 * spacing;
+  state.players[9].x = xForwards + 76;
+  state.players[9].y = startY + spacing * 4.2;
 
-  state.players[10].x = xForwards + 190;
-  state.players[10].y = startY + 3.6 * spacing;
+  const backsStartX = clamp(xForwards + 185, playableLeft() + 100, playableRight() - 100);
 
-  state.players[12].x = xForwards + 290;
-  state.players[12].y = startY + 4.4 * spacing;
+  state.players[10].x = backsStartX;
+  state.players[10].y = clamp(startY + spacing * 3.5, playableTop() + 20, playableBottom() - 20);
 
-  state.players[13].x = xForwards + 405;
-  state.players[13].y = startY + 5.2 * spacing;
+  state.players[12].x = clamp(backsStartX + 105, playableLeft(), playableRight());
+  state.players[12].y = clamp(startY + spacing * 4.3, playableTop() + 20, playableBottom() - 20);
 
-  state.players[15].x = xForwards + 515;
-  state.players[15].y = startY + 6.1 * spacing;
+  state.players[13].x = clamp(backsStartX + 220, playableLeft(), playableRight());
+  state.players[13].y = clamp(startY + spacing * 5.0, playableTop() + 20, playableBottom() - 20);
 
-  state.players[14].x = xForwards + 620;
-  state.players[14].y = startY + 7.0 * spacing;
+  state.players[15].x = clamp(backsStartX + 330, playableLeft(), playableRight());
+  state.players[15].y = clamp(startY + spacing * 5.9, playableTop() + 20, playableBottom() - 20);
 
-  state.players[11].x = xForwards + 260;
-  state.players[11].y = startY + 1.5 * spacing;
+  state.players[14].x = clamp(backsStartX + 435, playableLeft(), playableRight());
+  state.players[14].y = clamp(startY + spacing * 6.8, playableTop() + 20, playableBottom() - 20);
 
-  state.ball.x = xForwards + 35;
-  state.ball.y = startY + 48;
+  state.players[11].x = clamp(backsStartX + 160, playableLeft(), playableRight());
+  state.players[11].y = clamp(startY + spacing * 1.6, playableTop() + 20, playableBottom() - 20);
 
-  clampAll();
-}
-
-function applyLineoutBottom() {
-  const xForwards = 920;
-  const startY = 720;
-  const spacing = -42;
-
-  [1, 3, 4, 5, 6, 7, 8].forEach((n, i) => {
-    state.players[n].x = xForwards;
-    state.players[n].y = startY + i * spacing;
-  });
-
-  state.players[2].x = xForwards - 78;
-  state.players[2].y = startY + 2;
-
-  state.players[9].x = xForwards + 80;
-  state.players[9].y = startY + 4.4 * spacing;
-
-  state.players[10].x = xForwards + 190;
-  state.players[10].y = startY + 3.6 * spacing;
-
-  state.players[12].x = xForwards + 290;
-  state.players[12].y = startY + 4.4 * spacing;
-
-  state.players[13].x = xForwards + 405;
-  state.players[13].y = startY + 5.2 * spacing;
-
-  state.players[15].x = xForwards + 515;
-  state.players[15].y = startY + 6.1 * spacing;
-
-  state.players[14].x = xForwards + 620;
-  state.players[14].y = startY + 7.0 * spacing;
-
-  state.players[11].x = xForwards + 260;
-  state.players[11].y = startY + 1.5 * spacing;
-
-  state.ball.x = xForwards + 35;
-  state.ball.y = startY - 48;
+  state.ball.x = xForwards + 34;
+  state.ball.y = startY + spacing * 1.4;
 
   clampAll();
 }
 
-function applyScrum() {
-  const cx = 720;
-  const cy = 445;
-  const gap = 42;
+function placeScrum(clickedX = 720, clickedY = 445) {
+  const cx = clamp(
+    Number(clickedX) || 720,
+    playableLeft() + 160,
+    playableRight() - 580
+  );
 
-  state.players[1].x = cx - gap;
-  state.players[1].y = cy - gap;
+  const cy = clamp(
+    Number(clickedY) || 445,
+    playableTop() + 140,
+    playableBottom() - 200
+  );
+
+  const gapX = 38;
+  const gapY = 38;
+
+  state.players[1].x = cx - gapX;
+  state.players[1].y = cy - gapY;
 
   state.players[2].x = cx;
-  state.players[2].y = cy - gap;
+  state.players[2].y = cy - gapY;
 
-  state.players[3].x = cx + gap;
-  state.players[3].y = cy - gap;
+  state.players[3].x = cx + gapX;
+  state.players[3].y = cy - gapY;
 
-  state.players[4].x = cx - 22;
+  state.players[4].x = cx - 19;
   state.players[4].y = cy;
 
-  state.players[5].x = cx + 22;
+  state.players[5].x = cx + 19;
   state.players[5].y = cy;
 
-  state.players[6].x = cx - 72;
-  state.players[6].y = cy + gap;
+  state.players[6].x = cx - 66;
+  state.players[6].y = cy + gapY;
 
-  state.players[7].x = cx + 72;
-  state.players[7].y = cy + gap;
+  state.players[7].x = cx + 66;
+  state.players[7].y = cy + gapY;
 
   state.players[8].x = cx;
-  state.players[8].y = cy + gap + 20;
+  state.players[8].y = cy + gapY + 18;
 
-  state.players[9].x = cx + 165;
-  state.players[9].y = cy + 18;
+  state.players[9].x = cx + 150;
+  state.players[9].y = cy + 14;
 
-  state.players[10].x = cx + 285;
-  state.players[10].y = cy + 48;
+  state.players[10].x = clamp(cx + 265, playableLeft(), playableRight());
+  state.players[10].y = clamp(cy + 42, playableTop(), playableBottom());
 
-  state.players[12].x = cx + 395;
-  state.players[12].y = cy + 90;
+  state.players[12].x = clamp(cx + 375, playableLeft(), playableRight());
+  state.players[12].y = clamp(cy + 82, playableTop(), playableBottom());
 
-  state.players[13].x = cx + 520;
-  state.players[13].y = cy + 140;
+  state.players[13].x = clamp(cx + 500, playableLeft(), playableRight());
+  state.players[13].y = clamp(cy + 132, playableTop(), playableBottom());
 
-  state.players[15].x = cx + 625;
-  state.players[15].y = cy + 205;
+  state.players[15].x = clamp(cx + 605, playableLeft(), playableRight());
+  state.players[15].y = clamp(cy + 195, playableTop(), playableBottom());
 
-  state.players[14].x = cx + 735;
-  state.players[14].y = cy + 255;
+  state.players[14].x = clamp(cx + 710, playableLeft(), playableRight());
+  state.players[14].y = clamp(cy + 245, playableTop(), playableBottom());
 
-  state.players[11].x = cx + 455;
-  state.players[11].y = cy - 120;
+  state.players[11].x = clamp(cx + 440, playableLeft(), playableRight());
+  state.players[11].y = clamp(cy - 118, playableTop(), playableBottom());
 
-  state.ball.x = cx + 112;
-  state.ball.y = cy + 12;
+  state.ball.x = cx + 105;
+  state.ball.y = cy + 8;
 
   clampAll();
-}
-
-function clampAll() {
-  Object.values(state.players).forEach(p => {
-    p.x = clamp(p.x, playableLeft(), playableRight());
-    p.y = clamp(p.y, playableTop(), playableBottom());
-  });
-
-  state.ball.x = clamp(state.ball.x, playableLeft(), playableRight());
-  state.ball.y = clamp(state.ball.y, playableTop(), playableBottom());
 }
 
 initPlayers();
@@ -268,7 +246,6 @@ app.get("/api/sim-qrs", async (req, res) => {
 io.on("connection", socket => {
   socket.emit("state", state);
 
-  // CLARITY LIVE CONTROLLERS
   socket.on("controller-connect", number => {
     number = Number(number);
     controllerSockets[socket.id] = number;
@@ -281,7 +258,7 @@ io.on("connection", socket => {
   });
 
   socket.on("controller-move", data => {
-    if (state.frozen) return;
+    if (state.frozen || !data) return;
 
     const number = controllerSockets[socket.id];
     if (!number) return;
@@ -300,25 +277,11 @@ io.on("connection", socket => {
     emitState();
   });
 
-  // backwards compatibility for old controller.js if cached
-  socket.on("player-join", number => {
-    socket.emit("controller-connect", number);
-  });
-
-  socket.on("join-player", number => {
-    socket.emit("controller-connect", number);
-  });
-
-  socket.on("controller-join", number => {
-    socket.emit("controller-connect", number);
-  });
-
   socket.on("player-move", data => {
     if (state.frozen || !data) return;
 
     const number = Number(data.number || controllerSockets[socket.id]);
     const player = state.players[number];
-
     if (!player) return;
 
     const speed = Number(state.speed || 1);
@@ -332,15 +295,47 @@ io.on("connection", socket => {
     emitState();
   });
 
-  // COACH CONTROLS
+  socket.on("player-join", number => {
+    number = Number(number);
+    controllerSockets[socket.id] = number;
+
+    if (state.players[number]) {
+      state.players[number].connected = true;
+    }
+
+    emitState();
+  });
+
+  socket.on("join-player", number => {
+    number = Number(number);
+    controllerSockets[socket.id] = number;
+
+    if (state.players[number]) {
+      state.players[number].connected = true;
+    }
+
+    emitState();
+  });
+
+  socket.on("controller-join", number => {
+    number = Number(number);
+    controllerSockets[socket.id] = number;
+
+    if (state.players[number]) {
+      state.players[number].connected = true;
+    }
+
+    emitState();
+  });
+
   socket.on("coach-move-player", data => {
     if (state.frozen || !data) return;
 
-    const p = state.players[Number(data.number)];
-    if (!p) return;
+    const player = state.players[Number(data.number)];
+    if (!player) return;
 
-    p.x = clamp(Number(data.x), playableLeft(), playableRight());
-    p.y = clamp(Number(data.y), playableTop(), playableBottom());
+    player.x = clamp(Number(data.x), playableLeft(), playableRight());
+    player.y = clamp(Number(data.y), playableTop(), playableBottom());
 
     emitState();
   });
@@ -355,17 +350,17 @@ io.on("connection", socket => {
   });
 
   socket.on("coach-attach-ball", number => {
-    const p = state.players[Number(number)];
-    if (!p) return;
+    const player = state.players[Number(number)];
+    if (!player) return;
 
-    state.ball.x = clamp(p.x + 28, playableLeft(), playableRight());
-    state.ball.y = clamp(p.y - 10, playableTop(), playableBottom());
+    state.ball.x = clamp(player.x + 28, playableLeft(), playableRight());
+    state.ball.y = clamp(player.y - 10, playableTop(), playableBottom());
 
     emitState();
   });
 
   socket.on("coach-reset", () => {
-    applyLineoutTop();
+    placeLineout("top", 920);
     emitState();
   });
 
@@ -397,22 +392,17 @@ io.on("connection", socket => {
   socket.on("coach-setpiece", data => {
     if (!data) return;
 
-    if (data.type === "lineout" && data.side === "top") {
-      applyLineoutTop();
-    }
-
-    if (data.type === "lineout" && data.side === "bottom") {
-      applyLineoutBottom();
+    if (data.type === "lineout") {
+      placeLineout(data.side || "top", data.x || 920);
     }
 
     if (data.type === "scrum") {
-      applyScrum();
+      placeScrum(data.x || 720, data.y || 445);
     }
 
     emitState();
   });
 
-  // PLAYER SIMULATOR CONTROLLERS
   socket.on("sim-player-join", number => {
     number = Number(number);
     simulatorSockets[socket.id] = number;
