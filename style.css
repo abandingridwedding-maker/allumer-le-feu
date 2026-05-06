@@ -49,7 +49,7 @@ body {
 }
 
 /* =========================
-   BUTTONS / SELECTS
+   BUTTONS / SELECTS / INPUTS
 ========================= */
 button,
 select {
@@ -91,7 +91,7 @@ input {
 }
 
 /* =========================
-   CANVAS
+   CANVAS FIELD
 ========================= */
 canvas {
   display: block;
@@ -103,8 +103,16 @@ canvas {
   border-radius: 6px;
 }
 
+#field {
+  cursor: grab;
+}
+
+#field.grabbing {
+  cursor: grabbing;
+}
+
 /* =========================
-   BUILDER MODE
+   BUILDER MODE BUTTONS
 ========================= */
 .builderOnly {
   background: #ffd700;
@@ -121,7 +129,7 @@ canvas {
 }
 
 /* =========================
-   MODAL
+   MODALS
 ========================= */
 .modal {
   position: fixed;
@@ -254,23 +262,6 @@ canvas {
 }
 
 /* =========================
-   RESPONSIVE
-========================= */
-@media (max-width: 1200px) {
-  #topbar {
-    flex-direction: column;
-    align-items: flex-start;
-  }
-
-  .tools {
-    justify-content: flex-start;
-  }
-
-  canvas {
-    height: calc(100vh - 150px);
-  }
-}
-/* =========================
    V2 HOME SCREEN
 ========================= */
 .homeBody {
@@ -292,6 +283,7 @@ canvas {
   font-weight: 900;
   text-shadow: 4px 4px #d71920;
   margin-bottom: 10px;
+  text-align: center;
 }
 
 .homeSubtitle {
@@ -300,6 +292,7 @@ canvas {
   font-weight: 900;
   margin-bottom: 38px;
   text-transform: uppercase;
+  text-align: center;
 }
 
 .homeCards {
@@ -333,7 +326,7 @@ canvas {
 }
 
 /* =========================
-   V2 PLAY FOLDER
+   V2 SAVED PLAY FOLDER
 ========================= */
 #savedPlaysList {
   display: flex;
@@ -371,14 +364,25 @@ canvas {
 }
 
 /* =========================
-   V2 DRAG CURSOR
+   RESPONSIVE
 ========================= */
-#field {
-  cursor: grab;
-}
+@media (max-width: 1200px) {
+  #topbar {
+    flex-direction: column;
+    align-items: flex-start;
+  }
 
-#field.grabbing {
-  cursor: grabbing;
+  .brand {
+    min-width: unset;
+  }
+
+  .tools {
+    justify-content: flex-start;
+  }
+
+  canvas {
+    height: calc(100vh - 150px);
+  }
 }
 
 @media (max-width: 900px) {
@@ -388,6 +392,18 @@ canvas {
 
   .homeLogo {
     font-size: 34px;
-    text-align: center;
+  }
+
+  .homeSubtitle {
+    font-size: 16px;
+  }
+
+  #qrGrid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .savedPlayItem {
+    flex-direction: column;
+    align-items: flex-start;
   }
 }
