@@ -40,13 +40,11 @@ let state = {
   frozen: false,
   speed: 5,
   sportMode: "rugby",
-  attackDirection: "rtl",
   teamColor: "red"
 };
 
 let simulatorState = {
-  connectedPlayers: {},
-  active: false
+  connectedPlayers: {}
 };
 
 function emitState() {
@@ -93,77 +91,108 @@ function moveBall(x, y) {
   emitState();
 }
 
-function setLineout({ side, x, y, direction }) {
-  const dir = direction || state.attackDirection;
-  const baseX = x || 650;
-  const baseY = side === "bottom" ? 650 : 210;
-  const spacing = side === "bottom" ? -38 : 38;
+function clamp(value, min, max) {
+  return Math.max(min, Math.min(max, value));
+}
 
-  [1, 3, 4, 5, 6, 7, 8].forEach((num, i) => {
+/*
+  TEAM-CLARITY V2 RULE:
+  Rugby always attacks LEFT → RIGHT.
+  Forwards stay ahead / closer to ball.
+  Backs sit deeper to the LEFT of the set piece.
+  Backs are clamped so they remain visible.
+*/
+
+function setLineout({ side, x }) {
+  const baseX = clamp(Number(x) || 650, 260, 1260);
+  const lineoutY = side === "bottom" ? 675 : 225;
+  const spacing = side === "bottom" ? -42 : 42;
+
+  const backsDepth = 170;
+  const backsX = clamp(baseX - backsDepth, 120, 1320);
+
+  // Lineout forwards — better spaced, less overlap
+  const lineoutPlayers = [1, 3, 4, 5, 6, 7, 8];
+
+  lineoutPlayers.forEach((num, i) => {
     state.players[num].x = baseX;
-    state.players[num].y = baseY + i * spacing;
+    state.players[num].y = lineoutY + i * spacing;
   });
 
-  state.players[2].x = baseX - 80;
-  state.players[2].y = baseY - spacing;
+  // Hooker
+  state.players[2].x = clamp(baseX - 85, 90, 1460);
+  state.players[2].y = lineoutY - spacing;
 
-  state.players[9].x = baseX + 70;
-  state.players[9].y = baseY + spacing * 5;
+  // 9 ahead / inside
+  state.players[9].x = clamp(baseX + 78, 90, 1460);
+  state.players[9].y = lineoutY + spacing * 4.3;
 
-  if (dir === "rtl") {
-    state.players[10].x = baseX - 130;
-    state.players[12].x = baseX - 180;
-    state.players[13].x = baseX - 250;
-    state.players[11].x = baseX - 120;
-    state.players[15].x = baseX - 360;
-    state.players[14].x = baseX - 470;
-  } else {
-    state.players[10].x = baseX + 130;
-    state.players[12].x = baseX + 180;
-    state.players[13].x = baseX + 250;
-    state.players[11].x = baseX + 120;
-    state.players[15].x = baseX + 360;
-    state.players[14].x = baseX + 470;
-  }
+  // Backs — always visible, deeper to the left, staggered
+  state.players[10].x = backsX;
+  state.players[10].y = lineoutY + spacing * 3.1;
 
-  state.players[10].y = baseY + spacing * 4;
-  state.players[12].y = baseY + spacing * 5;
-  state.players[13].y = baseY + spacing * 6;
-  state.players[11].y = baseY + spacing * 2;
-  state.players[15].y = baseY + spacing * 7;
-  state.players[14].y = baseY + spacing * 8;
+  state.players[12].x = clamp(backsX - 95, 100, 1460);
+  state.players[12].y = lineoutY + spacing * 4.1;
 
-  state.ball.x = baseX + 40;
-  state.ball.y = baseY;
+  state.players[13].x = clamp(backsX - 190, 100, 1460);
+  state.players[13].y = lineoutY + spacing * 5.0;
+
+  state.players[11].x = clamp(backsX - 30, 100, 1460);
+  state.players[11].y = lineoutY + spacing * 1.6;
+
+  state.players[15].x = clamp(backsX - 300, 100, 1460);
+  state.players[15].y = lineoutY + spacing * 6.2;
+
+  state.players[14].x = clamp(backsX - 410, 100, 1460);
+  state.players[14].y = lineoutY + spacing * 7.1;
+
+  state.ball.x = clamp(baseX + 45, 90, 1500);
+  state.ball.y = lineoutY;
   state.ball.attachedTo = null;
 
   emitState();
 }
 
-function setScrum({ x, y, direction }) {
-  const dir = direction || state.attackDirection;
-  const baseX = x || 760;
-  const baseY = y || 450;
-  const sign = dir === "rtl" ? 1 : -1;
+function setScrum({ x, y }) {
+  const baseX = clamp(Number(x) || 720, 350, 1180);
+  const baseY = clamp(Number(y) || 450, 220, 660);
 
-  state.players[1].x = baseX - 45; state.players[1].y = baseY;
-  state.players[2].x = baseX; state.players[2].y = baseY;
-  state.players[3].x = baseX + 45; state.players[3].y = baseY;
-  state.players[4].x = baseX - 25; state.players[4].y = baseY + 45;
-  state.players[5].x = baseX + 25; state.players[5].y = baseY + 45;
-  state.players[6].x = baseX - 70; state.players[6].y = baseY + 85;
-  state.players[7].x = baseX + 70; state.players[7].y = baseY + 85;
-  state.players[8].x = baseX; state.players[8].y = baseY + 115;
+  // Scrum pack — wider and clearer
+  state.players[1].x = baseX - 55; state.players[1].y = baseY;
+  state.players[2].x = baseX;      state.players[2].y = baseY;
+  state.players[3].x = baseX + 55; state.players[3].y = baseY;
 
-  state.players[9].x = baseX + sign * 130; state.players[9].y = baseY + 80;
-  state.players[10].x = baseX + sign * 240; state.players[10].y = baseY + 35;
-  state.players[12].x = baseX + sign * 340; state.players[12].y = baseY + 80;
-  state.players[13].x = baseX + sign * 460; state.players[13].y = baseY + 135;
-  state.players[11].x = baseX + sign * 250; state.players[11].y = baseY - 110;
-  state.players[14].x = baseX + sign * 620; state.players[14].y = baseY + 230;
-  state.players[15].x = baseX + sign * 520; state.players[15].y = baseY + 180;
+  state.players[4].x = baseX - 35; state.players[4].y = baseY + 55;
+  state.players[5].x = baseX + 35; state.players[5].y = baseY + 55;
 
-  state.ball.x = state.players[9].x + sign * 30;
+  state.players[6].x = baseX - 90; state.players[6].y = baseY + 105;
+  state.players[7].x = baseX + 90; state.players[7].y = baseY + 105;
+
+  state.players[8].x = baseX;      state.players[8].y = baseY + 135;
+
+  // Ball / 9 / backline, always left → right attack
+  state.players[9].x = clamp(baseX + 150, 90, 1500);
+  state.players[9].y = baseY + 95;
+
+  state.players[10].x = clamp(baseX + 260, 90, 1500);
+  state.players[10].y = baseY + 45;
+
+  state.players[12].x = clamp(baseX + 370, 90, 1500);
+  state.players[12].y = baseY + 88;
+
+  state.players[13].x = clamp(baseX + 495, 90, 1500);
+  state.players[13].y = baseY + 140;
+
+  state.players[11].x = clamp(baseX + 250, 90, 1500);
+  state.players[11].y = baseY - 125;
+
+  state.players[15].x = clamp(baseX + 560, 90, 1500);
+  state.players[15].y = baseY + 195;
+
+  state.players[14].x = clamp(baseX + 680, 90, 1500);
+  state.players[14].y = baseY + 245;
+
+  state.ball.x = clamp(state.players[9].x + 35, 90, 1500);
   state.ball.y = state.players[9].y;
   state.ball.attachedTo = null;
 
@@ -209,11 +238,6 @@ io.on("connection", socket => {
 
   socket.on("coach-sport-mode", mode => {
     state.sportMode = mode;
-    emitState();
-  });
-
-  socket.on("coach-attack-direction", direction => {
-    state.attackDirection = direction;
     emitState();
   });
 
@@ -296,6 +320,9 @@ io.on("connection", socket => {
       player.y += Number(data.dy || 0) * speed;
     }
 
+    player.x = clamp(player.x, 40, 1560);
+    player.y = clamp(player.y, 70, 830);
+
     if (state.ball.attachedTo === number) {
       state.ball.x = player.x + 30;
       state.ball.y = player.y - 20;
@@ -312,13 +339,9 @@ io.on("connection", socket => {
     }
   });
 
-  // ================================
   // PLAYER SIMULATOR SOCKETS
-  // ================================
-
   socket.on("sim-player-join", number => {
     number = Number(number);
-
     simulatorState.connectedPlayers[number] = true;
 
     io.emit("sim-player-connected", {
@@ -333,9 +356,7 @@ io.on("connection", socket => {
     io.emit("sim-player-move", {
       number: Number(data.number),
       dx: Number(data.dx || 0),
-      dy: Number(data.dy || 0),
-      x: typeof data.x === "number" ? data.x : null,
-      y: typeof data.y === "number" ? data.y : null
+      dy: Number(data.dy || 0)
     });
   });
 
@@ -350,10 +371,6 @@ io.on("connection", socket => {
   socket.on("sim-reset", () => {
     simulatorState.connectedPlayers = {};
     io.emit("sim-reset");
-  });
-
-  socket.on("disconnect", () => {
-    // Live player disconnect is not forced here because phones can refresh/reconnect.
   });
 });
 
