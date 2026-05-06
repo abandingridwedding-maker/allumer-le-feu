@@ -17,6 +17,11 @@ let currentLang = "en";
 let draggingBall = false;
 let draggingPlayerNumber = null;
 
+// V2 PLAY BUILDER
+let builderMode = false;
+let builderSteps = [];
+let builderPlaying = false;
+
 const TEXT = {
   en: {
     slogan: "CLARITY CREATES INTENSITY",
@@ -56,7 +61,15 @@ const TEXT = {
     lineoutBottomMode: "LINEOUT BOTTOM",
     scrumMode: "SCRUM",
     freeBallMode: "FREE BALL MODE",
-    footer: "Click/drag player = coach reposition | Click/drag grass = move ball | Double click player = attach ball"
+    footer: "Click/drag player = coach reposition | Click/drag grass = move ball | Double click player = attach ball",
+    builderOn: "PLAY BUILDER ON",
+    builderOff: "PLAY BUILDER",
+    addStep: "Add Step",
+    playSteps: "Play Steps",
+    savePlay: "Save Play",
+    loadPlay: "Load Play",
+    clear: "Clear",
+    builderFooter: "PLAY BUILDER: Move players + ball → Add Step → Play Steps → Save Play"
   },
   fr: {
     slogan: "LA CLARTÉ CRÉE L’INTENSITÉ",
@@ -96,7 +109,15 @@ const TEXT = {
     lineoutBottomMode: "TOUCHE BAS",
     scrumMode: "MÊLÉE",
     freeBallMode: "BALLON LIBRE",
-    footer: "Cliquer/glisser joueur = repositionner | Cliquer/glisser terrain = bouger ballon | Double-clic joueur = attacher ballon"
+    footer: "Cliquer/glisser joueur = repositionner | Cliquer/glisser terrain = bouger ballon | Double-clic joueur = attacher ballon",
+    builderOn: "PLAY BUILDER ACTIF",
+    builderOff: "Play Builder",
+    addStep: "Ajouter étape",
+    playSteps: "Jouer étapes",
+    savePlay: "Sauver jeu",
+    loadPlay: "Charger jeu",
+    clear: "Effacer",
+    builderFooter: "PLAY BUILDER : Bouger joueurs + ballon → Ajouter étape → Jouer étapes → Sauver jeu"
   }
 };
 
@@ -104,60 +125,92 @@ function t(key) {
   return TEXT[currentLang][key] || TEXT.en[key] || key;
 }
 
+function safeText(id, value) {
+  const el = document.getElementById(id);
+  if (el) el.textContent = value;
+}
+
 function applyTranslations() {
-  document.getElementById("qrBtn").textContent = t("qrCodes");
-  document.getElementById("qrTitle").textContent = t("qrTitle");
-  document.getElementById("closeQr").textContent = t("close");
+  safeText("qrBtn", t("qrCodes"));
+  safeText("qrTitle", t("qrTitle"));
+  safeText("closeQr", t("close"));
 
-  document.querySelector('#sportMode option[value="rugby"]').textContent = t("rugby");
-  document.querySelector('#sportMode option[value="football"]').textContent = t("football");
+  const rugbyOpt = document.querySelector('#sportMode option[value="rugby"]');
+  const footballOpt = document.querySelector('#sportMode option[value="football"]');
+  if (rugbyOpt) rugbyOpt.textContent = t("rugby");
+  if (footballOpt) footballOpt.textContent = t("football");
 
-  document.getElementById("lineoutTopBtn").textContent = t("lineoutTop");
-  document.getElementById("lineoutBottomBtn").textContent = t("lineoutBottom");
-  document.getElementById("scrumBtn").textContent = t("scrum");
-  document.getElementById("freeBtn").textContent = t("freeBall");
+  safeText("lineoutTopBtn", t("lineoutTop"));
+  safeText("lineoutBottomBtn", t("lineoutBottom"));
+  safeText("scrumBtn", t("scrum"));
+  safeText("freeBtn", t("freeBall"));
 
-  document.querySelector('#attackDirection option[value="rtl"]').textContent = t("rightLeft");
-  document.querySelector('#attackDirection option[value="ltr"]').textContent = t("leftRight");
+  const rtlOpt = document.querySelector('#attackDirection option[value="rtl"]');
+  const ltrOpt = document.querySelector('#attackDirection option[value="ltr"]');
+  if (rtlOpt) rtlOpt.textContent = t("rightLeft");
+  if (ltrOpt) ltrOpt.textContent = t("leftRight");
 
-  document.querySelector('#playerGroup option[value="all"]').textContent = t("allPlayers");
-  document.querySelector('#playerGroup option[value="forwards"]').textContent = t("forwardsOnly");
-  document.querySelector('#playerGroup option[value="backs"]').textContent = t("backsOnly");
+  const allOpt = document.querySelector('#playerGroup option[value="all"]');
+  const fwOpt = document.querySelector('#playerGroup option[value="forwards"]');
+  const bkOpt = document.querySelector('#playerGroup option[value="backs"]');
+  if (allOpt) allOpt.textContent = t("allPlayers");
+  if (fwOpt) fwOpt.textContent = t("forwardsOnly");
+  if (bkOpt) bkOpt.textContent = t("backsOnly");
 
-  document.querySelector('#playerSize option[value="normal"]').textContent = t("normalSize");
-  document.querySelector('#playerSize option[value="medium"]').textContent = t("mediumSize");
-  document.querySelector('#playerSize option[value="small"]').textContent = t("smallCircle");
+  const normalOpt = document.querySelector('#playerSize option[value="normal"]');
+  const mediumOpt = document.querySelector('#playerSize option[value="medium"]');
+  const smallOpt = document.querySelector('#playerSize option[value="small"]');
+  if (normalOpt) normalOpt.textContent = t("normalSize");
+  if (mediumOpt) mediumOpt.textContent = t("mediumSize");
+  if (smallOpt) smallOpt.textContent = t("smallCircle");
 
-  document.getElementById("freezeBtn").textContent = t("freeze");
-  document.getElementById("resetBtn").textContent = t("reset");
+  safeText("freezeBtn", t("freeze"));
+  safeText("resetBtn", t("reset"));
+
+  safeText("builderAddBtn", t("addStep"));
+  safeText("builderPlayBtn", t("playSteps"));
+  safeText("builderSaveBtn", t("savePlay"));
+  safeText("builderLoadBtn", t("loadPlay"));
+  safeText("builderClearBtn", t("clear"));
+  updateBuilderButton();
 
   const speedLabel = document.querySelector(".speedLabel");
-  if (speedLabel) {
-    speedLabel.childNodes[0].nodeValue = t("speed") + " ";
-  }
+  if (speedLabel) speedLabel.childNodes[0].nodeValue = t("speed") + " ";
 
-  document.getElementById("paywallTitle").textContent = t("session");
-  document.getElementById("paywallLine1").textContent = t("message1");
-  document.getElementById("paywallLine2").textContent = t("message2");
-  document.getElementById("paywallPrice").textContent = t("price");
-  document.getElementById("unlockBtn").textContent = t("unlock");
-  document.getElementById("promoLabel").textContent = t("promo");
-  document.getElementById("promoInput").placeholder = t("promoPlaceholder");
-  document.getElementById("promoBtn").textContent = t("applyPromo");
+  safeText("paywallTitle", t("session"));
+  safeText("paywallLine1", t("message1"));
+  safeText("paywallLine2", t("message2"));
+  safeText("paywallPrice", t("price"));
+  safeText("unlockBtn", t("unlock"));
+  safeText("promoLabel", t("promo"));
+  safeText("promoBtn", t("applyPromo"));
+
+  const promoInput = document.getElementById("promoInput");
+  if (promoInput) promoInput.placeholder = t("promoPlaceholder");
 }
 
 function updateToolVisibility() {
   document.querySelectorAll(".rugbyOnly").forEach(item => {
-    if (sportMode === "rugby") {
-      item.classList.remove("hidden");
-    } else {
-      item.classList.add("hidden");
-    }
+    item.classList.toggle("hidden", sportMode !== "rugby");
   });
 
-  if (sportMode === "football") {
-    setupMode = "free";
-  }
+  if (sportMode === "football") setupMode = "free";
+}
+
+function updateBuilderButton() {
+  const btn = document.getElementById("builderToggleBtn");
+  if (!btn) return;
+  btn.textContent = builderMode ? t("builderOn") : t("builderOff");
+  btn.style.background = builderMode ? "#ffd700" : "#111";
+  btn.style.color = builderMode ? "#111" : "#fff";
+}
+
+function updateBuilderControls() {
+  document.querySelectorAll(".builderOnly").forEach(el => {
+    el.classList.toggle("hidden", !builderMode);
+  });
+  updateBuilderButton();
+  draw();
 }
 
 function fitMouse(e) {
@@ -230,6 +283,18 @@ document.getElementById("speed").oninput = e => {
   socket.emit("coach-speed", e.target.value);
 };
 
+// BUILDER BUTTONS
+document.getElementById("builderToggleBtn").onclick = () => {
+  builderMode = !builderMode;
+  updateBuilderControls();
+};
+
+document.getElementById("builderAddBtn").onclick = addBuilderStep;
+document.getElementById("builderPlayBtn").onclick = playBuilderSteps;
+document.getElementById("builderSaveBtn").onclick = saveBuilderPlay;
+document.getElementById("builderLoadBtn").onclick = loadBuilderPlay;
+document.getElementById("builderClearBtn").onclick = clearBuilderSteps;
+
 function shouldShowPlayer(number) {
   if (sportMode === "football" && number > 11) return false;
 
@@ -266,7 +331,7 @@ function getClosestPlayerToMouse(mousePoint) {
 canvas.addEventListener("mousedown", e => {
   const p = fitMouse(e);
 
-  if (sportMode === "rugby") {
+  if (!builderMode && sportMode === "rugby") {
     if (setupMode === "lineout-top") {
       socket.emit("coach-setpiece", {
         type: "lineout",
@@ -706,12 +771,86 @@ function drawPlayer(p) {
   ctx.fill();
 }
 
+function drawArrow(x1, y1, x2, y2, color = "#ffd700") {
+  const dx = x2 - x1;
+  const dy = y2 - y1;
+  const dist = Math.hypot(dx, dy);
+  if (dist < 8) return;
+
+  const angle = Math.atan2(dy, dx);
+  const headLength = 14;
+
+  ctx.save();
+  ctx.strokeStyle = color;
+  ctx.fillStyle = color;
+  ctx.lineWidth = 5;
+  ctx.setLineDash([16, 10]);
+  ctx.globalAlpha = 0.85;
+
+  ctx.beginPath();
+  ctx.moveTo(x1, y1);
+  ctx.lineTo(x2, y2);
+  ctx.stroke();
+
+  ctx.setLineDash([]);
+  ctx.beginPath();
+  ctx.moveTo(x2, y2);
+  ctx.lineTo(
+    x2 - headLength * Math.cos(angle - Math.PI / 6),
+    y2 - headLength * Math.sin(angle - Math.PI / 6)
+  );
+  ctx.lineTo(
+    x2 - headLength * Math.cos(angle + Math.PI / 6),
+    y2 - headLength * Math.sin(angle + Math.PI / 6)
+  );
+  ctx.closePath();
+  ctx.fill();
+
+  ctx.restore();
+}
+
+function drawBuilderLines() {
+  if (!builderMode || builderSteps.length < 2) return;
+
+  const previous = builderSteps[builderSteps.length - 2];
+  const latest = builderSteps[builderSteps.length - 1];
+
+  Object.values(latest.players).forEach(current => {
+    const before = previous.players[current.number];
+    if (!before) return;
+    if (!shouldShowPlayer(current.number)) return;
+
+    drawArrow(before.x, before.y, current.x, current.y, "#ffffff");
+  });
+
+  if (previous.ball && latest.ball) {
+    drawArrow(previous.ball.x, previous.ball.y, latest.ball.x, latest.ball.y, "#ffd700");
+  }
+}
+
+function drawBuilderOverlay() {
+  if (!builderMode) return;
+
+  ctx.save();
+  ctx.fillStyle = "rgba(255,215,0,0.16)";
+  ctx.fillRect(0, 60, W, 46);
+
+  ctx.strokeStyle = "#ffd700";
+  ctx.lineWidth = 4;
+  ctx.strokeRect(8, 66, W - 16, 34);
+
+  pixelText(`PLAY BUILDER | STEPS: ${builderSteps.length}`, W / 2, 91, 24, "center", "#ffd700");
+  ctx.restore();
+}
+
 function draw() {
   if (!state) return;
 
   drawPitch();
+  drawBuilderLines();
   Object.values(state.players).forEach(drawPlayer);
   drawBall(state.ball);
+  drawBuilderOverlay();
 
   let modeText = "";
 
@@ -726,11 +865,131 @@ function draw() {
     if (setupMode === "free") modeText = `${t("freeBallMode")} | ${modeText}`;
   }
 
-  ctx.fillStyle = "rgba(0,0,0,0.35)";
+  ctx.fillStyle = "rgba(0,0,0,0.38)";
   ctx.fillRect(0, H - 82, W, 82);
 
   pixelText(modeText, W / 2, H - 58, 18, "center", "#ffd700");
-  pixelText(t("footer"), W / 2, H - 28, 14, "center", "#ffffff");
+  pixelText(builderMode ? t("builderFooter") : t("footer"), W / 2, H - 28, 14, "center", "#ffffff");
+}
+
+// ================================
+// V2 PLAY BUILDER FUNCTIONS
+// ================================
+
+function copyCurrentStateForBuilder() {
+  if (!state) return null;
+
+  return {
+    players: JSON.parse(JSON.stringify(state.players)),
+    ball: JSON.parse(JSON.stringify(state.ball)),
+    setupMode,
+    attackDirection,
+    sportMode
+  };
+}
+
+function addBuilderStep() {
+  if (!state) return;
+
+  const step = copyCurrentStateForBuilder();
+  builderSteps.push(step);
+  draw();
+}
+
+function clearBuilderSteps() {
+  builderSteps = [];
+  draw();
+}
+
+function saveBuilderPlay() {
+  if (builderSteps.length < 1) {
+    alert("Add at least 1 step first.");
+    return;
+  }
+
+  const playName = prompt("Play name?", "New Play");
+  if (!playName) return;
+
+  const play = {
+    name: playName,
+    savedAt: new Date().toISOString(),
+    steps: builderSteps
+  };
+
+  localStorage.setItem("teamClarityBuilderPlay", JSON.stringify(play));
+  alert("Saved: " + playName);
+}
+
+function loadBuilderPlay() {
+  const saved = localStorage.getItem("teamClarityBuilderPlay");
+
+  if (!saved) {
+    alert("No saved play found.");
+    return;
+  }
+
+  const play = JSON.parse(saved);
+  builderSteps = play.steps || [];
+
+  if (builderSteps.length > 0) {
+    applyBuilderStep(builderSteps[0]);
+  }
+
+  alert("Loaded: " + play.name);
+  draw();
+}
+
+function applyBuilderStep(step) {
+  if (!step) return;
+
+  if (step.sportMode) {
+    sportMode = step.sportMode;
+    socket.emit("coach-sport-mode", sportMode);
+  }
+
+  if (step.attackDirection) {
+    attackDirection = step.attackDirection;
+    const attackSelect = document.getElementById("attackDirection");
+    if (attackSelect) attackSelect.value = attackDirection;
+    socket.emit("coach-attack-direction", attackDirection);
+  }
+
+  Object.values(step.players).forEach(p => {
+    socket.emit("coach-move-player", {
+      number: p.number,
+      x: p.x,
+      y: p.y
+    });
+  });
+
+  if (step.ball) {
+    socket.emit("coach-ball", {
+      x: step.ball.x,
+      y: step.ball.y
+    });
+  }
+}
+
+function playBuilderSteps() {
+  if (!builderSteps || builderSteps.length < 2) {
+    alert("Add at least 2 steps first.");
+    return;
+  }
+
+  if (builderPlaying) return;
+  builderPlaying = true;
+
+  let i = 0;
+
+  const interval = setInterval(() => {
+    applyBuilderStep(builderSteps[i]);
+    i++;
+
+    if (i >= builderSteps.length) {
+      clearInterval(interval);
+      builderPlaying = false;
+    }
+  }, 950);
 }
 
 // ================================
@@ -738,34 +997,24 @@ function draw() {
 // ================================
 
 const STRIPE_PAYMENT_LINK = "https://buy.stripe.com/28EeVdesG4TgcBz7D06Vq00";
-
-// Final wait time: 5 minutes
 const PAYWALL_WAIT_TIME = 5 * 60 * 1000;
 
 let promoUnlockedThisPageLoad = false;
 
 function hasValidAccess() {
-  if (localStorage.getItem("subscriptionActive") === "true") {
-    return true;
-  }
-
+  if (localStorage.getItem("subscriptionActive") === "true") return true;
   return promoUnlockedThisPageLoad === true;
 }
 
 function showPaywall() {
   if (hasValidAccess()) return;
-
   const overlay = document.getElementById("paywallOverlay");
-  if (overlay) {
-    overlay.classList.remove("hidden");
-  }
+  if (overlay) overlay.classList.remove("hidden");
 }
 
 function hidePaywall() {
   const overlay = document.getElementById("paywallOverlay");
-  if (overlay) {
-    overlay.classList.add("hidden");
-  }
+  if (overlay) overlay.classList.add("hidden");
 }
 
 function unlockPromoForThisPageLoadOnly() {
@@ -783,6 +1032,7 @@ window.addEventListener("load", () => {
 
   applyTranslations();
   updateToolVisibility();
+  updateBuilderControls();
 
   if (!hasValidAccess()) {
     setTimeout(showPaywall, PAYWALL_WAIT_TIME);
@@ -811,83 +1061,3 @@ window.addEventListener("load", () => {
     };
   }
 });
-// ================================
-// V2 PLAY BUILDER MODE
-// ================================
-let builderMode = false;
-let builderSteps = [];
-
-function togglePlayBuilderMode() {
-  builderMode = !builderMode;
-  alert(builderMode ? "Play Builder ON" : "Play Builder OFF");
-}
-
-function addBuilderStep() {
-  if (!state) return;
-
-  builderSteps.push({
-    players: JSON.parse(JSON.stringify(state.players)),
-    ball: JSON.parse(JSON.stringify(state.ball))
-  });
-
-  alert("Step saved: " + builderSteps.length);
-}
-
-function clearBuilderSteps() {
-  builderSteps = [];
-  alert("Play steps cleared");
-}
-
-function saveBuilderPlay() {
-  const playName = prompt("Play name?", "New Play");
-  if (!playName) return;
-
-  localStorage.setItem("teamClarityBuilderPlay", JSON.stringify({
-    name: playName,
-    steps: builderSteps
-  }));
-
-  alert("Play saved: " + playName);
-}
-
-function loadBuilderPlay() {
-  const saved = localStorage.getItem("teamClarityBuilderPlay");
-  if (!saved) {
-    alert("No saved play found");
-    return;
-  }
-
-  const play = JSON.parse(saved);
-  builderSteps = play.steps || [];
-
-  alert("Loaded: " + play.name + " | Steps: " + builderSteps.length);
-}
-
-function playBuilderSteps() {
-  if (!builderSteps || builderSteps.length < 2) {
-    alert("Add at least 2 steps first");
-    return;
-  }
-
-  let i = 0;
-
-  const interval = setInterval(() => {
-    const step = builderSteps[i];
-
-    Object.values(step.players).forEach(p => {
-      socket.emit("coach-move-player", {
-        number: p.number,
-        x: p.x,
-        y: p.y
-      });
-    });
-
-    socket.emit("coach-ball", step.ball);
-
-    i++;
-
-    if (i >= builderSteps.length) {
-      clearInterval(interval);
-    }
-  }, 900);
-}
