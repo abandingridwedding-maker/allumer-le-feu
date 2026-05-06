@@ -17,11 +17,6 @@ let currentLang = "en";
 let draggingBall = false;
 let draggingPlayerNumber = null;
 
-// V2 PLAY BUILDER
-let builderMode = false;
-let builderSteps = [];
-let builderPlaying = false;
-
 const TEXT = {
   en: {
     slogan: "CLARITY CREATES INTENSITY",
@@ -61,15 +56,7 @@ const TEXT = {
     lineoutBottomMode: "LINEOUT BOTTOM",
     scrumMode: "SCRUM",
     freeBallMode: "FREE BALL MODE",
-    footer: "Click/drag player = coach reposition | Click/drag grass = move ball | Double click player = attach ball",
-    builderOn: "PLAY BUILDER ON",
-    builderOff: "PLAY BUILDER",
-    addStep: "Add Step",
-    playSteps: "Play Steps",
-    savePlay: "Save Play",
-    loadPlay: "Load Play",
-    clear: "Clear",
-    builderFooter: "PLAY BUILDER: Move players + ball → Add Step → Play Steps → Save Play"
+    footer: "Click/drag player = coach reposition | Click/drag grass = move ball | Double click player = attach ball"
   },
   fr: {
     slogan: "LA CLARTÉ CRÉE L’INTENSITÉ",
@@ -109,15 +96,7 @@ const TEXT = {
     lineoutBottomMode: "TOUCHE BAS",
     scrumMode: "MÊLÉE",
     freeBallMode: "BALLON LIBRE",
-    footer: "Cliquer/glisser joueur = repositionner | Cliquer/glisser terrain = bouger ballon | Double-clic joueur = attacher ballon",
-    builderOn: "PLAY BUILDER ACTIF",
-    builderOff: "Play Builder",
-    addStep: "Ajouter étape",
-    playSteps: "Jouer étapes",
-    savePlay: "Sauver jeu",
-    loadPlay: "Charger jeu",
-    clear: "Effacer",
-    builderFooter: "PLAY BUILDER : Bouger joueurs + ballon → Ajouter étape → Jouer étapes → Sauver jeu"
+    footer: "Cliquer/glisser joueur = repositionner | Cliquer/glisser terrain = bouger ballon | Double-clic joueur = attacher ballon"
   }
 };
 
@@ -167,13 +146,6 @@ function applyTranslations() {
   safeText("freezeBtn", t("freeze"));
   safeText("resetBtn", t("reset"));
 
-  safeText("builderAddBtn", t("addStep"));
-  safeText("builderPlayBtn", t("playSteps"));
-  safeText("builderSaveBtn", t("savePlay"));
-  safeText("builderLoadBtn", t("loadPlay"));
-  safeText("builderClearBtn", t("clear"));
-  updateBuilderButton();
-
   const speedLabel = document.querySelector(".speedLabel");
   if (speedLabel) speedLabel.childNodes[0].nodeValue = t("speed") + " ";
 
@@ -195,22 +167,6 @@ function updateToolVisibility() {
   });
 
   if (sportMode === "football") setupMode = "free";
-}
-
-function updateBuilderButton() {
-  const btn = document.getElementById("builderToggleBtn");
-  if (!btn) return;
-  btn.textContent = builderMode ? t("builderOn") : t("builderOff");
-  btn.style.background = builderMode ? "#ffd700" : "#111";
-  btn.style.color = builderMode ? "#111" : "#fff";
-}
-
-function updateBuilderControls() {
-  document.querySelectorAll(".builderOnly").forEach(el => {
-    el.classList.toggle("hidden", !builderMode);
-  });
-  updateBuilderButton();
-  draw();
 }
 
 function fitMouse(e) {
@@ -283,18 +239,6 @@ document.getElementById("speed").oninput = e => {
   socket.emit("coach-speed", e.target.value);
 };
 
-// BUILDER BUTTONS
-document.getElementById("builderToggleBtn").onclick = () => {
-  builderMode = !builderMode;
-  updateBuilderControls();
-};
-
-document.getElementById("builderAddBtn").onclick = addBuilderStep;
-document.getElementById("builderPlayBtn").onclick = playBuilderSteps;
-document.getElementById("builderSaveBtn").onclick = saveBuilderPlay;
-document.getElementById("builderLoadBtn").onclick = loadBuilderPlay;
-document.getElementById("builderClearBtn").onclick = clearBuilderSteps;
-
 function shouldShowPlayer(number) {
   if (sportMode === "football" && number > 11) return false;
 
@@ -331,7 +275,7 @@ function getClosestPlayerToMouse(mousePoint) {
 canvas.addEventListener("mousedown", e => {
   const p = fitMouse(e);
 
-  if (!builderMode && sportMode === "rugby") {
+  if (sportMode === "rugby") {
     if (setupMode === "lineout-top") {
       socket.emit("coach-setpiece", {
         type: "lineout",
@@ -597,25 +541,10 @@ function drawFootballPitch() {
   ctx.strokeRect(left - 25, midY - 55, 25, 110);
   ctx.strokeRect(right, midY - 55, 25, 110);
 
-  ctx.fillStyle = "#fff";
-  ctx.beginPath();
-  ctx.arc(left + 115, midY, 5, 0, Math.PI * 2);
-  ctx.fill();
-
-  ctx.beginPath();
-  ctx.arc(right - 115, midY, 5, 0, Math.PI * 2);
-  ctx.fill();
-
   ctx.fillStyle = "#111";
   ctx.fillRect(0, 0, W, 60);
 
   pixelText("TEAM-CLARITY | FOOTBALL MODE", W / 2, 39, 30, "center", "#fff");
-
-  if (state?.frozen) {
-    ctx.fillStyle = "rgba(0,0,0,.35)";
-    ctx.fillRect(0, 0, W, H);
-    pixelText(t("freeze"), W / 2, H / 2, 90, "center", "#fff");
-  }
 }
 
 function drawBall(ball) {
@@ -670,7 +599,6 @@ function drawBall(ball) {
 
 function drawCirclePlayer(p) {
   ctx.save();
-
   const radius = 16;
 
   ctx.fillStyle = "rgba(0,0,0,.25)";
@@ -771,86 +699,12 @@ function drawPlayer(p) {
   ctx.fill();
 }
 
-function drawArrow(x1, y1, x2, y2, color = "#ffd700") {
-  const dx = x2 - x1;
-  const dy = y2 - y1;
-  const dist = Math.hypot(dx, dy);
-  if (dist < 8) return;
-
-  const angle = Math.atan2(dy, dx);
-  const headLength = 14;
-
-  ctx.save();
-  ctx.strokeStyle = color;
-  ctx.fillStyle = color;
-  ctx.lineWidth = 5;
-  ctx.setLineDash([16, 10]);
-  ctx.globalAlpha = 0.85;
-
-  ctx.beginPath();
-  ctx.moveTo(x1, y1);
-  ctx.lineTo(x2, y2);
-  ctx.stroke();
-
-  ctx.setLineDash([]);
-  ctx.beginPath();
-  ctx.moveTo(x2, y2);
-  ctx.lineTo(
-    x2 - headLength * Math.cos(angle - Math.PI / 6),
-    y2 - headLength * Math.sin(angle - Math.PI / 6)
-  );
-  ctx.lineTo(
-    x2 - headLength * Math.cos(angle + Math.PI / 6),
-    y2 - headLength * Math.sin(angle + Math.PI / 6)
-  );
-  ctx.closePath();
-  ctx.fill();
-
-  ctx.restore();
-}
-
-function drawBuilderLines() {
-  if (!builderMode || builderSteps.length < 2) return;
-
-  const previous = builderSteps[builderSteps.length - 2];
-  const latest = builderSteps[builderSteps.length - 1];
-
-  Object.values(latest.players).forEach(current => {
-    const before = previous.players[current.number];
-    if (!before) return;
-    if (!shouldShowPlayer(current.number)) return;
-
-    drawArrow(before.x, before.y, current.x, current.y, "#ffffff");
-  });
-
-  if (previous.ball && latest.ball) {
-    drawArrow(previous.ball.x, previous.ball.y, latest.ball.x, latest.ball.y, "#ffd700");
-  }
-}
-
-function drawBuilderOverlay() {
-  if (!builderMode) return;
-
-  ctx.save();
-  ctx.fillStyle = "rgba(255,215,0,0.16)";
-  ctx.fillRect(0, 60, W, 46);
-
-  ctx.strokeStyle = "#ffd700";
-  ctx.lineWidth = 4;
-  ctx.strokeRect(8, 66, W - 16, 34);
-
-  pixelText(`PLAY BUILDER | STEPS: ${builderSteps.length}`, W / 2, 91, 24, "center", "#ffd700");
-  ctx.restore();
-}
-
 function draw() {
   if (!state) return;
 
   drawPitch();
-  drawBuilderLines();
   Object.values(state.players).forEach(drawPlayer);
   drawBall(state.ball);
-  drawBuilderOverlay();
 
   let modeText = "";
 
@@ -865,140 +719,16 @@ function draw() {
     if (setupMode === "free") modeText = `${t("freeBallMode")} | ${modeText}`;
   }
 
-  ctx.fillStyle = "rgba(0,0,0,0.38)";
+  ctx.fillStyle = "rgba(0,0,0,0.35)";
   ctx.fillRect(0, H - 82, W, 82);
 
   pixelText(modeText, W / 2, H - 58, 18, "center", "#ffd700");
-  pixelText(builderMode ? t("builderFooter") : t("footer"), W / 2, H - 28, 14, "center", "#ffffff");
+  pixelText(t("footer"), W / 2, H - 28, 14, "center", "#ffffff");
 }
 
-// ================================
-// V2 PLAY BUILDER FUNCTIONS
-// ================================
-
-function copyCurrentStateForBuilder() {
-  if (!state) return null;
-
-  return {
-    players: JSON.parse(JSON.stringify(state.players)),
-    ball: JSON.parse(JSON.stringify(state.ball)),
-    setupMode,
-    attackDirection,
-    sportMode
-  };
-}
-
-function addBuilderStep() {
-  if (!state) return;
-
-  const step = copyCurrentStateForBuilder();
-  builderSteps.push(step);
-  draw();
-}
-
-function clearBuilderSteps() {
-  builderSteps = [];
-  draw();
-}
-
-function saveBuilderPlay() {
-  if (builderSteps.length < 1) {
-    alert("Add at least 1 step first.");
-    return;
-  }
-
-  const playName = prompt("Play name?", "New Play");
-  if (!playName) return;
-
-  const play = {
-    name: playName,
-    savedAt: new Date().toISOString(),
-    steps: builderSteps
-  };
-
-  localStorage.setItem("teamClarityBuilderPlay", JSON.stringify(play));
-  alert("Saved: " + playName);
-}
-
-function loadBuilderPlay() {
-  const saved = localStorage.getItem("teamClarityBuilderPlay");
-
-  if (!saved) {
-    alert("No saved play found.");
-    return;
-  }
-
-  const play = JSON.parse(saved);
-  builderSteps = play.steps || [];
-
-  if (builderSteps.length > 0) {
-    applyBuilderStep(builderSteps[0]);
-  }
-
-  alert("Loaded: " + play.name);
-  draw();
-}
-
-function applyBuilderStep(step) {
-  if (!step) return;
-
-  if (step.sportMode) {
-    sportMode = step.sportMode;
-    socket.emit("coach-sport-mode", sportMode);
-  }
-
-  if (step.attackDirection) {
-    attackDirection = step.attackDirection;
-    const attackSelect = document.getElementById("attackDirection");
-    if (attackSelect) attackSelect.value = attackDirection;
-    socket.emit("coach-attack-direction", attackDirection);
-  }
-
-  Object.values(step.players).forEach(p => {
-    socket.emit("coach-move-player", {
-      number: p.number,
-      x: p.x,
-      y: p.y
-    });
-  });
-
-  if (step.ball) {
-    socket.emit("coach-ball", {
-      x: step.ball.x,
-      y: step.ball.y
-    });
-  }
-}
-
-function playBuilderSteps() {
-  if (!builderSteps || builderSteps.length < 2) {
-    alert("Add at least 2 steps first.");
-    return;
-  }
-
-  if (builderPlaying) return;
-  builderPlaying = true;
-
-  let i = 0;
-
-  const interval = setInterval(() => {
-    applyBuilderStep(builderSteps[i]);
-    i++;
-
-    if (i >= builderSteps.length) {
-      clearInterval(interval);
-      builderPlaying = false;
-    }
-  }, 950);
-}
-
-// ================================
-// PAYWALL — COACH SIDE ONLY
-// ================================
-
+// PAYWALL
 const STRIPE_PAYMENT_LINK = "https://buy.stripe.com/28EeVdesG4TgcBz7D06Vq00";
 const PAYWALL_WAIT_TIME = 5 * 60 * 1000;
-
 let promoUnlockedThisPageLoad = false;
 
 function hasValidAccess() {
@@ -1032,7 +762,6 @@ window.addEventListener("load", () => {
 
   applyTranslations();
   updateToolVisibility();
-  updateBuilderControls();
 
   if (!hasValidAccess()) {
     setTimeout(showPaywall, PAYWALL_WAIT_TIME);
