@@ -1,1 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>TEAM-CLARITY — Play Simulator</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
 
+<body>
+  <div id="topbar">
+    <div class="brand">🏃 PLAY SIMULATOR</div>
+
+    <div class="tools">
+      <div class="toolGroup">
+        <button onclick="window.location.href='index.html'">Home</button>
+        <button id="loadPlayBtn">📂 Choose Play</button>
+        <button id="startSimBtn">Start Rep</button>
+        <button id="resetSimBtn">Reset</button>
+      </div>
+
+      <div class="toolGroup">
+        <label>
+          Player:
+          <select id="playerNumber">
+            <option value="1">1</option><option value="2">2</option><option value="3">3</option>
+            <option value="4">4</option><option value="5">5</option><option value="6">6</option>
+            <option value="7">7</option><option value="8">8</option><option value="9">9</option>
+            <option value="10">10</option><option value="11">11</option><option value="12">12</option>
+            <option value="13">13</option><option value="14">14</option><option value="15">15</option>
+          </select>
+        </label>
+
+        <button id="confirmTimingBtn">Confirm Timing</button>
+      </div>
+    </div>
+  </div>
+
+  <canvas id="field" width="1600" height="900"></canvas>
+
+  <div id="playModal" class="modal hidden">
+    <div class="modalCard">
+      <div class="modalHeader">
+        <h2>📂 Choose Saved Play</h2>
+        <button id="closePlayModal">Close</button>
+      </div>
+      <div id="savedPlaysList"></div>
+    </div>
+  </div>
+
+  <div id="scoreModal" class="modal hidden">
+    <div class="modalCard scoreCard">
+      <div class="modalHeader">
+        <h2>Rep Score</h2>
+        <button id="closeScoreModal">Close</button>
+      </div>
+
+      <div id="scoreResult" class="scoreResult"></div>
+    </div>
+  </div>
+
+  <script src="playsimulator.js"></script>
+</body>
+</html>
