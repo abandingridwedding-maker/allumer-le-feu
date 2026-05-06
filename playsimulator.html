@@ -3,18 +3,19 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>TEAM-CLARITY — Play Simulator</title>
+  <title>TEAM-CLARITY — Player Simulator</title>
   <link rel="stylesheet" href="style.css" />
 </head>
 
 <body>
   <div id="topbar">
-    <div class="brand">🏃 PLAY SIMULATOR</div>
+    <div class="brand">🏃 PLAYER SIMULATOR</div>
 
     <div class="tools">
       <div class="toolGroup">
         <button onclick="window.location.href='index.html'">Home</button>
         <button id="loadPlayBtn">📂 Choose Play</button>
+        <button id="qrBtn">QR Codes</button>
         <button id="startSimBtn">Start Rep</button>
         <button id="resetSimBtn">Reset</button>
       </div>
@@ -30,8 +31,6 @@
             <option value="13">13</option><option value="14">14</option><option value="15">15</option>
           </select>
         </label>
-
-        <button id="confirmTimingBtn">Confirm Timing</button>
       </div>
     </div>
   </div>
@@ -48,17 +47,27 @@
     </div>
   </div>
 
+  <div id="qrModal" class="modal hidden">
+    <div class="modalCard">
+      <div class="modalHeader">
+        <h2>Scan to control simulator players</h2>
+        <button id="closeQr">Close</button>
+      </div>
+      <div id="qrGrid"></div>
+    </div>
+  </div>
+
   <div id="scoreModal" class="modal hidden">
     <div class="modalCard scoreCard">
       <div class="modalHeader">
         <h2>Rep Score</h2>
         <button id="closeScoreModal">Close</button>
       </div>
-
       <div id="scoreResult" class="scoreResult"></div>
     </div>
   </div>
 
+  <script src="/socket.io/socket.io.js"></script>
   <script src="playsimulator.js"></script>
 </body>
 </html>
