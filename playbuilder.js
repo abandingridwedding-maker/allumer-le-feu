@@ -1,344 +1,716 @@
-const field = document.getElementById("playField");
-const stepCount = document.getElementById("stepCount");
-const movementLayer = document.getElementById("movementLayer");
+const canvas = document.getElementById("field");
+const ctx = canvas.getContext("2d");
+ctx.imageSmoothingEnabled = false;
 
-let players = [];
-let ball = null;
+const W = canvas.width;
+const H = canvas.height;
+
+let setupMode = "free";
+let attackDirection = "rtl";
+let playerSize = "normal";
+let teamColor = "#d71920";
+
+let players = {};
+let ball = { x: 820, y: 430 };
+
+let draggingType = null;
+let draggingPlayerNumber = null;
+let dragOffset = { x: 0, y: 0 };
+
+let builderStarted = false;
 let steps = [];
+let isAnimating = false;
 
-function createPlayer(number, xPercent, yPercent) {
-  const el = document.createElement("div");
-  el.className = "player";
-  el.dataset.number = number;
+const COLORS = {
+  red: "#d71920",
+  white: "#ffffff",
+  black: "#111111",
+  blue: "#1f6feb"
+};
 
-  el.innerHTML = `
-    <div class="player-head"></div>
-    <div class="player-body">
-      <span class="player-number">${number}</span>
-    </div>
-    <div class="player-legs">
-      <span></span>
-      <span></span>
-    </div>
-  `;
+const builderBtn = document.getElementById("builderMainBtn");
 
-  setPositionPercent(el, xPercent, yPercent);
-  makeDraggable(el);
-  field.appendChild(el);
-  players.push(el);
+function initPlayers() {
+  players = {};
+  for (let i = 1; i <= 15; i++) {
+    players[i] = {
+      number: i,
+      x: 300 + (i % 5) * 90,
+      y: 200 + Math.floor(i / 5) * 90,
+      color: teamColor
+    };
+  }
+  setLineoutTop();
 }
 
-function createBall(xPercent, yPercent) {
-  ball = document.createElement("div");
-  ball.className = "ball";
-  setPositionPercent(ball, xPercent, yPercent);
-  makeDraggable(ball);
-  field.appendChild(ball);
+function setTeamColor(value) {
+  teamColor = COLORS[value] || COLORS.red;
+  Object.values(players).forEach(p => p.color = teamColor);
+  draw();
 }
 
-function setPositionPercent(el, xPercent, yPercent) {
-  el.style.left = xPercent + "%";
-  el.style.top = yPercent + "%";
+function pixelText(text, x, y, size = 22, align = "center", color = "white") {
+  ctx.save();
+  ctx.font = `900 ${size}px Courier New`;
+  ctx.textAlign = align;
+  ctx.fillStyle = color;
+  ctx.shadowColor = "#000";
+  ctx.shadowOffsetX = 4;
+  ctx.shadowOffsetY = 4;
+  ctx.fillText(text, x, y);
+  ctx.restore();
 }
 
-function getPositionPercent(el) {
+function drawPitch() {
+  ctx.fillStyle = "#6ec65f";
+  ctx.fillRect(0, 0, W, H);
+
+  const left = 70;
+  const right = W - 70;
+  const top = 70;
+  const bottom = H - 70;
+  const pw = right - left;
+  const ph = bottom - top;
+
+  ctx.strokeStyle = "#fff";
+  ctx.lineWidth = 7;
+  ctx.strokeRect(left, top, pw, ph);
+
+  const X = pct => left + pw * pct;
+  const Y = pct => top + ph * pct;
+
+  ctx.strokeStyle = "#fff";
+  ctx.lineWidth = 5;
+
+  ctx.beginPath(); ctx.moveTo(X(0.06), top); ctx.lineTo(X(0.06), bottom); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(X(0.94), top); ctx.lineTo(X(0.94), bottom); ctx.stroke();
+
+  ctx.setLineDash([16, 14]);
+  ctx.beginPath(); ctx.moveTo(X(0.10), top); ctx.lineTo(X(0.10), bottom); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(X(0.90), top); ctx.lineTo(X(0.90), bottom); ctx.stroke();
+
+  ctx.setLineDash([]);
+  ctx.lineWidth = 6;
+  ctx.beginPath(); ctx.moveTo(X(0.26), top); ctx.lineTo(X(0.26), bottom); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(X(0.74), top); ctx.lineTo(X(0.74), bottom); ctx.stroke();
+
+  ctx.setLineDash([20, 16]);
+  ctx.lineWidth = 4;
+  ctx.beginPath(); ctx.moveTo(X(0.40), top); ctx.lineTo(X(0.40), bottom); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(X(0.60), top); ctx.lineTo(X(0.60), bottom); ctx.stroke();
+
+  ctx.setLineDash([]);
+  ctx.lineWidth = 6;
+  ctx.beginPath(); ctx.moveTo(X(0.50), top); ctx.lineTo(X(0.50), bottom); ctx.stroke();
+
+  ctx.setLineDash([18, 16]);
+  ctx.lineWidth = 4;
+  ctx.beginPath(); ctx.moveTo(left, Y(0.08)); ctx.lineTo(right, Y(0.08)); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(left, Y(0.92)); ctx.lineTo(right, Y(0.92)); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(left, Y(0.23)); ctx.lineTo(right, Y(0.23)); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(left, Y(0.77)); ctx.lineTo(right, Y(0.77)); ctx.stroke();
+  ctx.setLineDash([]);
+
+  ctx.save();
+  ctx.fillStyle = "#fff";
+  ctx.font = "900 18px Courier New";
+  ctx.textAlign = "center";
+  ctx.shadowColor = "#000";
+  ctx.shadowOffsetX = 3;
+  ctx.shadowOffsetY = 3;
+
+  [["5m", 0.10], ["22m", 0.26], ["40m", 0.40], ["50m", 0.50], ["40m", 0.60], ["22m", 0.74], ["5m", 0.90]].forEach(([label, p]) => {
+    ctx.fillText(label, X(p), top - 14);
+    ctx.fillText(label, X(p), bottom + 32);
+  });
+
+  ctx.textAlign = "left";
+  ctx.fillText("5m", left + 8, Y(0.08) - 8);
+  ctx.fillText("15m", left + 8, Y(0.23) - 8);
+  ctx.fillText("15m", left + 8, Y(0.77) - 8);
+  ctx.fillText("5m", left + 8, Y(0.92) - 8);
+
+  ctx.textAlign = "right";
+  ctx.fillText("5m", right - 8, Y(0.08) - 8);
+  ctx.fillText("15m", right - 8, Y(0.23) - 8);
+  ctx.fillText("15m", right - 8, Y(0.77) - 8);
+  ctx.fillText("5m", right - 8, Y(0.92) - 8);
+  ctx.restore();
+
+  ctx.fillStyle = "#d71920";
+  ctx.fillRect(0, 0, W, 52);
+
+  ctx.fillStyle = "#111";
+  ctx.fillRect(0, 52, W, 8);
+
+  pixelText("TEAM-CLARITY PLAY BUILDER", W / 2, 37, 30, "center", "#fff");
+}
+
+function drawBall() {
+  ctx.save();
+  ctx.translate(ball.x, ball.y);
+  ctx.rotate(-0.35);
+
+  ctx.fillStyle = "#4b2a1b";
+  ctx.fillRect(-22, -10, 44, 20);
+  ctx.fillRect(-16, -15, 32, 30);
+  ctx.fillRect(-8, -19, 16, 38);
+
+  ctx.fillStyle = "#9b552f";
+  ctx.fillRect(-16, -8, 32, 16);
+  ctx.fillRect(-10, -12, 20, 24);
+
+  ctx.fillStyle = "#fff";
+  ctx.fillRect(-18, -6, 5, 12);
+  ctx.fillRect(13, -6, 5, 12);
+  ctx.fillRect(-2, -10, 4, 20);
+  ctx.fillRect(-10, -2, 20, 4);
+
+  ctx.restore();
+}
+
+function drawCirclePlayer(p) {
+  ctx.save();
+
+  ctx.fillStyle = p.color;
+  ctx.beginPath();
+  ctx.arc(p.x, p.y, 16, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.strokeStyle = "#fff";
+  ctx.lineWidth = 4;
+  ctx.stroke();
+
+  ctx.fillStyle = p.color === "#ffffff" ? "#111" : "#fff";
+  ctx.font = "900 18px Courier New";
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.fillText(p.number, p.x, p.y + 1);
+
+  ctx.restore();
+}
+
+function drawPlayer(p) {
+  if (playerSize === "small") {
+    drawCirclePlayer(p);
+    return;
+  }
+
+  ctx.save();
+  ctx.translate(p.x, p.y);
+
+  const s = playerSize === "medium" ? 0.37 : 0.55;
+  ctx.scale(s, s);
+
+  ctx.fillStyle = "rgba(0,0,0,.25)";
+  ctx.fillRect(-24, 30, 48, 8);
+
+  ctx.fillStyle = p.color;
+  ctx.fillRect(-22, -24, 44, 50);
+
+  ctx.fillStyle = "#fff";
+  ctx.fillRect(-15, -11, 30, 5);
+  ctx.fillRect(-15, 2, 30, 5);
+
+  ctx.fillStyle = "#111";
+  ctx.fillRect(-16, 22, 11, 26);
+  ctx.fillRect(5, 22, 11, 26);
+
+  ctx.fillStyle = "#c88b62";
+  ctx.fillRect(-18, -56, 36, 34);
+
+  ctx.fillStyle = "#15100c";
+  if (p.number <= 8) {
+    ctx.fillRect(-27, -66, 54, 14);
+    ctx.fillRect(-31, -54, 12, 22);
+    ctx.fillRect(19, -54, 12, 22);
+  } else {
+    ctx.fillRect(-20, -66, 40, 12);
+  }
+
+  ctx.fillStyle = "#000";
+  ctx.fillRect(-9, -48, 5, 5);
+  ctx.fillRect(5, -48, 5, 5);
+
+  ctx.fillStyle = "#fff";
+  ctx.fillRect(-18, -20, 36, 34);
+
+  ctx.strokeStyle = "#111";
+  ctx.lineWidth = 3;
+  ctx.strokeRect(-18, -20, 36, 34);
+
+  ctx.fillStyle = "#111";
+  ctx.font = "900 28px Courier New";
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.fillText(p.number, 0, -2);
+
+  ctx.restore();
+}
+
+function drawArrow(x1, y1, x2, y2, color = "#ffd700") {
+  const dx = x2 - x1;
+  const dy = y2 - y1;
+  const dist = Math.hypot(dx, dy);
+  if (dist < 8) return;
+
+  const angle = Math.atan2(dy, dx);
+  const headLength = 15;
+
+  ctx.save();
+  ctx.strokeStyle = color;
+  ctx.fillStyle = color;
+  ctx.lineWidth = 5;
+  ctx.setLineDash([15, 10]);
+  ctx.globalAlpha = 0.85;
+
+  ctx.beginPath();
+  ctx.moveTo(x1, y1);
+  ctx.lineTo(x2, y2);
+  ctx.stroke();
+
+  ctx.setLineDash([]);
+  ctx.beginPath();
+  ctx.moveTo(x2, y2);
+  ctx.lineTo(x2 - headLength * Math.cos(angle - Math.PI / 6), y2 - headLength * Math.sin(angle - Math.PI / 6));
+  ctx.lineTo(x2 - headLength * Math.cos(angle + Math.PI / 6), y2 - headLength * Math.sin(angle + Math.PI / 6));
+  ctx.closePath();
+  ctx.fill();
+
+  ctx.restore();
+}
+
+function drawStepLines() {
+  if (steps.length < 2) return;
+
+  const a = steps[steps.length - 2];
+  const b = steps[steps.length - 1];
+
+  Object.values(b.players).forEach(p2 => {
+    const p1 = a.players[p2.number];
+    if (!p1) return;
+    drawArrow(p1.x, p1.y, p2.x, p2.y, "#ffffff");
+  });
+
+  drawArrow(a.ball.x, a.ball.y, b.ball.x, b.ball.y, "#ffd700");
+}
+
+function drawFooter() {
+  ctx.fillStyle = "rgba(0,0,0,0.40)";
+  ctx.fillRect(0, H - 82, W, 82);
+
+  const status = builderStarted
+    ? `BUILDER ACTIVE | NEXT: SAVE STEP ${steps.length + 1}`
+    : "PLACE PLAYERS + BALL | CLICK START BUILDER";
+
+  pixelText(status, W / 2, H - 58, 18, "center", "#ffd700");
+  pixelText("Ball has click priority | Drag = fist cursor | Save/Load = 8-bit folder", W / 2, H - 28, 14, "center", "#ffffff");
+}
+
+function draw() {
+  drawPitch();
+  drawStepLines();
+  Object.values(players).forEach(drawPlayer);
+  drawBall();
+  drawFooter();
+}
+
+function canvasPoint(e) {
+  const rect = canvas.getBoundingClientRect();
   return {
-    x: parseFloat(el.style.left),
-    y: parseFloat(el.style.top)
+    x: (e.clientX - rect.left) * (canvas.width / rect.width),
+    y: (e.clientY - rect.top) * (canvas.height / rect.height)
   };
 }
 
-function makeDraggable(el) {
-  let dragging = false;
-  let offsetX = 0;
-  let offsetY = 0;
+function ballHitTest(p) {
+  return Math.hypot(ball.x - p.x, ball.y - p.y) < 42;
+}
 
-  function start(clientX, clientY) {
-    dragging = true;
-    el.style.transition = "none";
+function playerHitTest(p) {
+  let closest = null;
+  let best = 9999;
 
-    const rect = el.getBoundingClientRect();
-    offsetX = clientX - rect.left;
-    offsetY = clientY - rect.top;
-  }
-
-  function move(clientX, clientY) {
-    if (!dragging) return;
-
-    const fieldRect = field.getBoundingClientRect();
-
-    let x = ((clientX - fieldRect.left - offsetX) / fieldRect.width) * 100;
-    let y = ((clientY - fieldRect.top - offsetY) / fieldRect.height) * 100;
-
-    x = Math.max(0, Math.min(97, x));
-    y = Math.max(0, Math.min(92, y));
-
-    el.style.left = x + "%";
-    el.style.top = y + "%";
-  }
-
-  function stop() {
-    dragging = false;
-  }
-
-  el.addEventListener("mousedown", e => {
-    e.preventDefault();
-    start(e.clientX, e.clientY);
+  Object.values(players).forEach(player => {
+    const d = Math.hypot(player.x - p.x, player.y - p.y);
+    if (d < best) {
+      best = d;
+      closest = player;
+    }
   });
 
-  window.addEventListener("mousemove", e => move(e.clientX, e.clientY));
-  window.addEventListener("mouseup", stop);
-
-  el.addEventListener("touchstart", e => {
-    const t = e.touches[0];
-    start(t.clientX, t.clientY);
-  }, { passive: false });
-
-  window.addEventListener("touchmove", e => {
-    const t = e.touches[0];
-    move(t.clientX, t.clientY);
-  }, { passive: false });
-
-  window.addEventListener("touchend", stop);
+  return best < 36 ? closest : null;
 }
+
+canvas.addEventListener("mousedown", e => {
+  if (isAnimating) return;
+
+  const p = canvasPoint(e);
+
+  // IMPORTANT: ball priority
+  if (ballHitTest(p)) {
+    draggingType = "ball";
+    draggingPlayerNumber = null;
+    dragOffset.x = p.x - ball.x;
+    dragOffset.y = p.y - ball.y;
+    canvas.classList.add("grabbing");
+    return;
+  }
+
+  const player = playerHitTest(p);
+
+  if (player) {
+    draggingType = "player";
+    draggingPlayerNumber = player.number;
+    dragOffset.x = p.x - player.x;
+    dragOffset.y = p.y - player.y;
+    canvas.classList.add("grabbing");
+    return;
+  }
+
+  ball.x = p.x;
+  ball.y = p.y;
+  draw();
+});
+
+canvas.addEventListener("mousemove", e => {
+  const p = canvasPoint(e);
+
+  if (draggingType === "ball") {
+    ball.x = p.x - dragOffset.x;
+    ball.y = p.y - dragOffset.y;
+    draw();
+    return;
+  }
+
+  if (draggingType === "player" && draggingPlayerNumber) {
+    players[draggingPlayerNumber].x = p.x - dragOffset.x;
+    players[draggingPlayerNumber].y = p.y - dragOffset.y;
+    draw();
+  }
+});
+
+window.addEventListener("mouseup", () => {
+  draggingType = null;
+  draggingPlayerNumber = null;
+  canvas.classList.remove("grabbing");
+});
 
 function captureStep() {
   return {
-    players: players.map(p => ({
-      number: p.dataset.number,
-      ...getPositionPercent(p)
-    })),
-    ball: getPositionPercent(ball)
+    players: JSON.parse(JSON.stringify(players)),
+    ball: JSON.parse(JSON.stringify(ball)),
+    attackDirection,
+    playerSize,
+    teamColor
   };
 }
 
-function applyStep(step, transition = false) {
-  players.forEach(p => {
-    const saved = step.players.find(s => s.number === p.dataset.number);
-    if (!saved) return;
+function applyStep(step) {
+  players = JSON.parse(JSON.stringify(step.players));
+  ball = JSON.parse(JSON.stringify(step.ball));
+  attackDirection = step.attackDirection || attackDirection;
+  playerSize = step.playerSize || playerSize;
+  teamColor = step.teamColor || teamColor;
 
-    p.style.transition = transition ? "left 0.85s linear, top 0.85s linear" : "none";
-    setPositionPercent(p, saved.x, saved.y);
-  });
+  document.getElementById("attackDirection").value = attackDirection;
+  document.getElementById("playerSize").value = playerSize;
 
-  ball.style.transition = transition ? "left 0.85s linear, top 0.85s linear" : "none";
-  setPositionPercent(ball, step.ball.x, step.ball.y);
+  draw();
 }
 
-function addStep() {
-  steps.push(captureStep());
-  updateStepCounter();
-  drawMovementLines();
+function updateBuilderButton() {
+  if (!builderStarted) {
+    builderBtn.textContent = "Start Builder";
+  } else {
+    builderBtn.textContent = `Save Step ${steps.length + 1}`;
+  }
 }
 
-function resetToStep(index) {
-  if (!steps[index]) return;
-  applyStep(steps[index], false);
-  drawMovementLines();
-}
-
-function playAnimation() {
-  if (steps.length < 2) {
-    alert("Add at least 2 steps first");
+function builderMainAction() {
+  if (!builderStarted) {
+    builderStarted = true;
+    steps = [];
+    steps.push(captureStep());
+    updateBuilderButton();
+    draw();
     return;
   }
 
-  clearMovementLines();
-  applyStep(steps[0], false);
+  steps.push(captureStep());
+  updateBuilderButton();
+  draw();
+}
 
-  let i = 1;
+function clearSteps() {
+  builderStarted = false;
+  steps = [];
+  updateBuilderButton();
+  draw();
+}
 
-  const interval = setInterval(() => {
-    applyStep(steps[i], true);
-    i++;
+function animateBetweenSteps(from, to, duration = 900) {
+  return new Promise(resolve => {
+    const start = performance.now();
 
-    if (i >= steps.length) {
-      clearInterval(interval);
-      setTimeout(drawMovementLines, 900);
+    function frame(now) {
+      const t = Math.min((now - start) / duration, 1);
+      const smooth = t * t * (3 - 2 * t);
+
+      Object.values(players).forEach(p => {
+        const a = from.players[p.number];
+        const b = to.players[p.number];
+        if (!a || !b) return;
+
+        p.x = a.x + (b.x - a.x) * smooth;
+        p.y = a.y + (b.y - a.y) * smooth;
+      });
+
+      ball.x = from.ball.x + (to.ball.x - from.ball.x) * smooth;
+      ball.y = from.ball.y + (to.ball.y - from.ball.y) * smooth;
+
+      draw();
+
+      if (t < 1) {
+        requestAnimationFrame(frame);
+      } else {
+        resolve();
+      }
     }
-  }, 950);
+
+    requestAnimationFrame(frame);
+  });
+}
+
+async function playAnimation() {
+  if (steps.length < 2) {
+    alert("Create at least 2 steps first.");
+    return;
+  }
+
+  isAnimating = true;
+  applyStep(steps[0]);
+
+  for (let i = 1; i < steps.length; i++) {
+    await animateBetweenSteps(steps[i - 1], steps[i], 900);
+  }
+
+  isAnimating = false;
+  draw();
+}
+
+function getSavedPlays() {
+  return JSON.parse(localStorage.getItem("teamClaritySavedPlays") || "[]");
+}
+
+function setSavedPlays(plays) {
+  localStorage.setItem("teamClaritySavedPlays", JSON.stringify(plays));
 }
 
 function savePlay() {
-  const play = {
-    name: document.getElementById("playName").value || "Unnamed Play",
-    type: document.getElementById("playType").value,
-    steps
-  };
-
-  localStorage.setItem("teamClarityPlayBuilderSave", JSON.stringify(play));
-  alert("Play saved: " + play.name);
-}
-
-function loadPlay() {
-  const saved = localStorage.getItem("teamClarityPlayBuilderSave");
-
-  if (!saved) {
-    alert("No saved play found");
+  if (steps.length < 1) {
+    alert("Start builder and save at least one step first.");
     return;
   }
 
-  const play = JSON.parse(saved);
+  const name = prompt("Play name?", "New Play");
+  if (!name) return;
 
-  document.getElementById("playName").value = play.name;
-  document.getElementById("playType").value = play.type;
+  const plays = getSavedPlays();
 
-  steps = play.steps || [];
-  updateStepCounter();
-
-  if (steps.length > 0) {
-    applyStep(steps[0], false);
-  }
-
-  drawMovementLines();
-}
-
-function updateStepCounter() {
-  stepCount.innerText = steps.length;
-}
-
-function clearMovementLines() {
-  movementLayer.innerHTML = "";
-}
-
-function drawMovementLines() {
-  clearMovementLines();
-
-  if (steps.length < 2) return;
-
-  const fieldRect = field.getBoundingClientRect();
-  movementLayer.setAttribute("width", fieldRect.width);
-  movementLayer.setAttribute("height", fieldRect.height);
-
-  const latest = steps[steps.length - 1];
-  const previous = steps[steps.length - 2];
-
-  latest.players.forEach(current => {
-    const before = previous.players.find(p => p.number === current.number);
-    if (!before) return;
-
-    drawArrow(
-      percentToPx(before.x, fieldRect.width) + 20,
-      percentToPx(before.y, fieldRect.height) + 25,
-      percentToPx(current.x, fieldRect.width) + 20,
-      percentToPx(current.y, fieldRect.height) + 25,
-      "white"
-    );
+  plays.push({
+    id: Date.now(),
+    name,
+    createdAt: new Date().toLocaleString(),
+    steps
   });
 
-  drawArrow(
-    percentToPx(previous.ball.x, fieldRect.width) + 10,
-    percentToPx(previous.ball.y, fieldRect.height) + 10,
-    percentToPx(latest.ball.x, fieldRect.width) + 10,
-    percentToPx(latest.ball.y, fieldRect.height) + 10,
-    "#ffd84a"
-  );
+  setSavedPlays(plays);
+  openPlayFolder();
 }
 
-function percentToPx(percent, size) {
-  return (percent / 100) * size;
-}
+function openPlayFolder() {
+  const modal = document.getElementById("playModal");
+  const list = document.getElementById("savedPlaysList");
 
-function drawArrow(x1, y1, x2, y2, color) {
-  const distance = Math.hypot(x2 - x1, y2 - y1);
-  if (distance < 8) return;
+  const plays = getSavedPlays();
+  list.innerHTML = "";
 
-  const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
-  line.setAttribute("x1", x1);
-  line.setAttribute("y1", y1);
-  line.setAttribute("x2", x2);
-  line.setAttribute("y2", y2);
-  line.setAttribute("stroke", color);
-  line.setAttribute("stroke-width", "4");
-  line.setAttribute("stroke-dasharray", "8 6");
-  line.setAttribute("opacity", "0.85");
-  movementLayer.appendChild(line);
-}
-
-function setStartingShape() {
-  const type = document.getElementById("playType").value;
-
-  steps = [];
-  clearPlayersAndBall();
-
-  if (type === "Lineout") {
-    createLineoutShape();
-  } else if (type === "Scrum") {
-    createScrumShape();
-  } else {
-    createGeneralPlayShape();
+  if (plays.length === 0) {
+    list.innerHTML = `<div class="emptyFolder">📂 No saved plays yet.</div>`;
   }
 
-  createBall(55, 42);
-  addStep();
+  plays.forEach(play => {
+    const item = document.createElement("div");
+    item.className = "savedPlayItem";
+
+    item.innerHTML = `
+      <div>
+        <div class="savedPlayName">📁 ${play.name}</div>
+        <div class="savedPlayMeta">${play.steps.length} steps | ${play.createdAt}</div>
+      </div>
+      <div>
+        <button data-load="${play.id}">Load</button>
+        <button data-delete="${play.id}">Delete</button>
+      </div>
+    `;
+
+    list.appendChild(item);
+  });
+
+  list.querySelectorAll("[data-load]").forEach(btn => {
+    btn.onclick = () => {
+      const id = Number(btn.dataset.load);
+      const play = getSavedPlays().find(p => p.id === id);
+      if (!play) return;
+
+      steps = play.steps;
+      builderStarted = true;
+      applyStep(steps[0]);
+      updateBuilderButton();
+      modal.classList.add("hidden");
+    };
+  });
+
+  list.querySelectorAll("[data-delete]").forEach(btn => {
+    btn.onclick = () => {
+      const id = Number(btn.dataset.delete);
+      setSavedPlays(getSavedPlays().filter(p => p.id !== id));
+      openPlayFolder();
+    };
+  });
+
+  modal.classList.remove("hidden");
 }
 
-function clearPlayersAndBall() {
-  players.forEach(p => p.remove());
-  players = [];
-
-  if (ball) ball.remove();
-  ball = null;
-}
-
-function createLineoutShape() {
-  const baseX = 43;
+function setLineoutTop() {
+  setupMode = "lineout-top";
+  const baseX = attackDirection === "rtl" ? 650 : 950;
 
   [1, 3, 4, 5, 6, 7, 8].forEach((num, i) => {
-    createPlayer(num, baseX, 19 + i * 5);
+    players[num].x = baseX;
+    players[num].y = 220 + i * 38;
   });
 
-  createPlayer(2, baseX - 7, 15);
-  createPlayer(9, 51, 43);
-  createPlayer(10, 58, 39);
-  createPlayer(12, 67, 47);
-  createPlayer(13, 77, 56);
-  createPlayer(11, 55, 25);
-  createPlayer(14, 94, 80);
-  createPlayer(15, 86, 65);
+  players[2].x = baseX - 75;
+  players[2].y = 190;
+
+  players[9].x = baseX + 65;
+  players[9].y = 420;
+
+  players[10].x = baseX - 100;
+  players[10].y = 500;
+  players[12].x = baseX - 100;
+  players[12].y = 560;
+  players[11].x = baseX - 105;
+  players[11].y = 620;
+  players[13].x = baseX - 110;
+  players[13].y = 680;
+  players[15].x = baseX - 250;
+  players[15].y = 790;
+  players[14].x = baseX - 200;
+  players[14].y = 850;
+
+  ball.x = baseX + 30;
+  ball.y = 230;
+
+  draw();
 }
 
-function createScrumShape() {
-  createPlayer(1, 43, 38);
-  createPlayer(2, 46, 38);
-  createPlayer(3, 49, 38);
-  createPlayer(4, 44.5, 43);
-  createPlayer(5, 47.5, 43);
-  createPlayer(6, 42, 47);
-  createPlayer(7, 50, 47);
-  createPlayer(8, 46, 52);
+function setLineoutBottom() {
+  setupMode = "lineout-bottom";
+  const baseX = attackDirection === "rtl" ? 650 : 950;
 
-  createPlayer(9, 55, 48);
-  createPlayer(10, 62, 43);
-  createPlayer(12, 70, 48);
-  createPlayer(13, 78, 55);
-  createPlayer(11, 63, 30);
-  createPlayer(14, 91, 70);
-  createPlayer(15, 82, 62);
+  [1, 3, 4, 5, 6, 7, 8].forEach((num, i) => {
+    players[num].x = baseX;
+    players[num].y = 680 - i * 38;
+  });
+
+  players[2].x = baseX - 75;
+  players[2].y = 710;
+
+  players[9].x = baseX + 65;
+  players[9].y = 480;
+
+  players[10].x = baseX - 100;
+  players[10].y = 390;
+  players[12].x = baseX - 100;
+  players[12].y = 340;
+  players[11].x = baseX - 105;
+  players[11].y = 285;
+  players[13].x = baseX - 110;
+  players[13].y = 235;
+  players[15].x = baseX - 250;
+  players[15].y = 170;
+  players[14].x = baseX - 200;
+  players[14].y = 110;
+
+  ball.x = baseX + 30;
+  ball.y = 670;
+
+  draw();
 }
 
-function createGeneralPlayShape() {
-  createPlayer(1, 24, 28);
-  createPlayer(2, 72, 18);
-  createPlayer(3, 52, 28);
-  createPlayer(4, 56, 42);
-  createPlayer(5, 24, 60);
-  createPlayer(6, 40, 23);
-  createPlayer(7, 48, 37);
-  createPlayer(8, 74, 44);
-  createPlayer(9, 85, 34);
-  createPlayer(10, 32, 75);
-  createPlayer(11, 38, 47);
-  createPlayer(12, 64, 54);
-  createPlayer(13, 56, 72);
-  createPlayer(14, 67, 76);
-  createPlayer(15, 46, 65);
+function setScrum() {
+  setupMode = "scrum";
+  const baseX = attackDirection === "rtl" ? 760 : 840;
+  const baseY = 450;
+
+  players[1].x = baseX - 45; players[1].y = baseY;
+  players[2].x = baseX; players[2].y = baseY;
+  players[3].x = baseX + 45; players[3].y = baseY;
+  players[4].x = baseX - 25; players[4].y = baseY + 45;
+  players[5].x = baseX + 25; players[5].y = baseY + 45;
+  players[6].x = baseX - 70; players[6].y = baseY + 85;
+  players[7].x = baseX + 70; players[7].y = baseY + 85;
+  players[8].x = baseX; players[8].y = baseY + 110;
+
+  players[9].x = baseX + 130; players[9].y = baseY + 80;
+  players[10].x = baseX + 230; players[10].y = baseY + 40;
+  players[12].x = baseX + 340; players[12].y = baseY + 80;
+  players[13].x = baseX + 460; players[13].y = baseY + 130;
+  players[11].x = baseX + 230; players[11].y = baseY - 110;
+  players[14].x = baseX + 620; players[14].y = baseY + 230;
+  players[15].x = baseX + 520; players[15].y = baseY + 180;
+
+  ball.x = players[9].x + 30;
+  ball.y = players[9].y;
+
+  draw();
 }
 
-function init() {
-  createLineoutShape();
-  createBall(55, 42);
-  addStep();
+function setFreeBall() {
+  setupMode = "free";
+  draw();
 }
 
-init();
+document.getElementById("builderMainBtn").onclick = builderMainAction;
+document.getElementById("playAnimationBtn").onclick = playAnimation;
+document.getElementById("clearStepsBtn").onclick = clearSteps;
+document.getElementById("savePlayBtn").onclick = savePlay;
+document.getElementById("loadPlayBtn").onclick = openPlayFolder;
+document.getElementById("closePlayModal").onclick = () => document.getElementById("playModal").classList.add("hidden");
+
+document.getElementById("lineoutTopBtn").onclick = setLineoutTop;
+document.getElementById("lineoutBottomBtn").onclick = setLineoutBottom;
+document.getElementById("scrumBtn").onclick = setScrum;
+document.getElementById("freeBtn").onclick = setFreeBall;
+
+document.getElementById("attackDirection").onchange = e => {
+  attackDirection = e.target.value;
+  if (setupMode === "lineout-top") setLineoutTop();
+  if (setupMode === "lineout-bottom") setLineoutBottom();
+  if (setupMode === "scrum") setScrum();
+  draw();
+};
+
+document.getElementById("teamColor").onchange = e => setTeamColor(e.target.value);
+
+document.getElementById("playerSize").onchange = e => {
+  playerSize = e.target.value;
+  draw();
+};
+
+initPlayers();
+updateBuilderButton();
+draw();
