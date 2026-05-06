@@ -18,6 +18,7 @@
         <button id="qrBtn">QR Codes</button>
         <button id="startSimBtn">Start Rep</button>
         <button id="resetSimBtn">Reset</button>
+        <button id="logsBtn">Training Log</button>
       </div>
 
       <div class="toolGroup">
@@ -41,6 +42,12 @@
             <option value="15">15</option>
           </select>
         </label>
+
+        <select id="playerSize">
+          <option value="normal">Normal Size</option>
+          <option value="medium">2/3 Size</option>
+          <option value="small">Small Circle</option>
+        </select>
 
         <label class="speedLabel">
           Sim Speed
@@ -85,6 +92,16 @@
         <button id="closeScoreModal">Close</button>
       </div>
       <div id="scoreResult"></div>
+    </div>
+  </div>
+
+  <div id="logsModal" class="modal hidden">
+    <div class="modalCard">
+      <div class="modalHeader">
+        <h2>Training Log</h2>
+        <button id="closeLogsModal">Close</button>
+      </div>
+      <div id="logsList"></div>
     </div>
   </div>
 
