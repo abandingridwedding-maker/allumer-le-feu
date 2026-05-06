@@ -14,28 +14,11 @@
     <div class="tools">
       <div class="toolGroup">
         <button onclick="window.location.href='index.html'">Home</button>
-
-        <button id="builderMainBtn">
-          Start Builder
-        </button>
-
-        <button id="playAnimationBtn">
-          Play Animation
-        </button>
-
-        <button id="clearStepsBtn">
-          Clear
-        </button>
-      </div>
-
-      <div class="toolGroup">
-        <button id="savePlayBtn">
-          💾 Save
-        </button>
-
-        <button id="loadPlayBtn">
-          📂 Load
-        </button>
+        <button id="builderMainBtn">Start Builder</button>
+        <button id="playAnimationBtn">Play Animation</button>
+        <button id="clearStepsBtn">Clear</button>
+        <button id="savePlayBtn">💾 Save</button>
+        <button id="loadPlayBtn">📂 Load</button>
       </div>
 
       <div class="toolGroup">
@@ -46,11 +29,6 @@
       </div>
 
       <div class="toolGroup">
-        <select id="attackDirection">
-          <option value="rtl">Right → Left</option>
-          <option value="ltr">Left → Right</option>
-        </select>
-
         <select id="teamColor">
           <option value="red">Red</option>
           <option value="white">White</option>
@@ -69,14 +47,12 @@
 
   <canvas id="field" width="1600" height="900"></canvas>
 
-  <!-- SAVE / LOAD WINDOW -->
   <div id="playModal" class="modal hidden">
     <div class="modalCard">
       <div class="modalHeader">
         <h2>📂 Saved Plays</h2>
         <button id="closePlayModal">Close</button>
       </div>
-
       <div id="savedPlaysList"></div>
     </div>
   </div>
