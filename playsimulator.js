@@ -2,6 +2,7 @@ const socket = io();
 
 const canvas = document.getElementById("field");
 const ctx = canvas.getContext("2d");
+
 ctx.imageSmoothingEnabled = false;
 
 const W = canvas.width;
@@ -11,20 +12,22 @@ let selectedPlay = null;
 let selectedPlayer = 9;
 
 let players = {};
+let expectedPlayers = {};
+
 let ball = { x: 800, y: 450 };
 
-let expectedPlayers = {};
-let expectedBall = { x: 800, y: 450 };
-
 let simRunning = false;
-let simFinished = false;
 let countdownValue = null;
 
-let timingClicks = {};
-let connectedPlayers = {};
-let activePlayerTraces = {};
-
 const PLAYER_SPEED = 7;
+let simSpeedMultiplier = 0.5;
+let shadowGuideOn = true;
+
+let timingClicks = {};
+
+// =========================
+// DRAW
+// =========================
 
 function pixelText(text, x, y, size = 22, align = "center", color = "white") {
   ctx.save();
@@ -81,54 +84,27 @@ function drawPitch() {
 
   ctx.fillStyle = "#d71920";
   ctx.fillRect(0, 0, W, 52);
+
   ctx.fillStyle = "#111";
   ctx.fillRect(0, 52, W, 8);
 
   pixelText("TEAM-CLARITY PLAYER SIMULATOR", W / 2, 37, 30);
 }
 
-function drawBall(ballObj = ball) {
-  ctx.save();
-  ctx.translate(ballObj.x, ballObj.y);
-  ctx.rotate(-0.35);
-
-  ctx.fillStyle = "#4b2a1b";
-  ctx.fillRect(-22, -10, 44, 20);
-  ctx.fillRect(-16, -15, 32, 30);
-  ctx.fillRect(-8, -19, 16, 38);
-
-  ctx.fillStyle = "#9b552f";
-  ctx.fillRect(-16, -8, 32, 16);
-
-  ctx.fillStyle = "#fff";
-  ctx.fillRect(-18, -6, 5, 12);
-  ctx.fillRect(13, -6, 5, 12);
-
-  ctx.restore();
-}
-
 function drawPlayer(p, highlight = false, ghost = false) {
   ctx.save();
+
   ctx.translate(p.x, p.y);
   ctx.scale(0.55, 0.55);
-  ctx.globalAlpha = ghost ? 0.35 : 1;
+  ctx.globalAlpha = ghost ? 0.28 : 1;
 
-  ctx.fillStyle = ghost ? "#ffffff" : highlight ? "#ffd700" : p.color || "#d71920";
+  ctx.fillStyle = ghost
+    ? "#ffffff"
+    : highlight
+    ? "#ffd700"
+    : p.color || "#d71920";
+
   ctx.fillRect(-22, -24, 44, 50);
-
-  ctx.fillStyle = "#fff";
-  ctx.fillRect(-15, -11, 30, 5);
-  ctx.fillRect(-15, 2, 30, 5);
-
-  ctx.fillStyle = "#111";
-  ctx.fillRect(-16, 22, 11, 26);
-  ctx.fillRect(5, 22, 11, 26);
-
-  ctx.fillStyle = "#c88b62";
-  ctx.fillRect(-18, -56, 36, 34);
-
-  ctx.fillStyle = "#15100c";
-  ctx.fillRect(p.number <= 8 ? -27 : -20, -66, p.number <= 8 ? 54 : 40, 12);
 
   ctx.fillStyle = "#fff";
   ctx.fillRect(-18, -20, 36, 34);
@@ -144,83 +120,145 @@ function drawPlayer(p, highlight = false, ghost = false) {
   ctx.fillText(p.number, 0, -2);
 
   ctx.restore();
-
-  if (!ghost && connectedPlayers[p.number]) {
-    ctx.fillStyle = "#00ff7f";
-    ctx.beginPath();
-    ctx.arc(p.x + 18, p.y - 30, 7, 0, Math.PI * 2);
-    ctx.fill();
-  }
 }
 
-function drawFooter() {
-  ctx.fillStyle = "rgba(0,0,0,0.38)";
-  ctx.fillRect(0, H - 82, W, 82);
+function drawBall() {
+  ctx.save();
 
-  if (!selectedPlay) {
-    pixelText("LOAD A PLAY TO BEGIN", W / 2, H - 48, 24, "center", "#ffd700");
-    return;
-  }
+  ctx.translate(ball.x, ball.y);
+  ctx.rotate(-0.35);
 
-  if (simRunning) {
-    pixelText(`REP LIVE | PLAYER ${selectedPlayer} CONTROLLING`, W / 2, H - 48, 24, "center", "#ffd700");
-    return;
-  }
+  ctx.fillStyle = "#4b2a1b";
+  ctx.fillRect(-22, -10, 44, 20);
 
-  pixelText(`READY | PLAYER ${selectedPlayer} | SCAN QR THEN START REP`, W / 2, H - 48, 22, "center", "#ffd700");
+  ctx.fillStyle = "#fff";
+  ctx.fillRect(-18, -6, 5, 12);
+
+  ctx.restore();
 }
 
 function drawCountdown() {
   if (countdownValue === null) return;
 
-  ctx.fillStyle = "rgba(0,0,0,0.62)";
+  ctx.fillStyle = "rgba(0,0,0,.65)";
   ctx.fillRect(0, 0, W, H);
 
   const text = countdownValue === 0 ? "GO!" : String(countdownValue);
-  pixelText(text, W / 2, H / 2 + 30, 140, "center", countdownValue === 0 ? "#00ff7f" : "#ffd700");
+
+  pixelText(
+    text,
+    W / 2,
+    H / 2,
+    140,
+    "center",
+    countdownValue === 0 ? "#00ff7f" : "#ffd700"
+  );
+}
+
+function drawFooter() {
+  ctx.fillStyle = "rgba(0,0,0,.38)";
+  ctx.fillRect(0, H - 82, W, 82);
+
+  if (!selectedPlay) {
+    pixelText("LOAD A PLAY TO BEGIN", W / 2, H - 45, 22, "center", "#ffd700");
+    return;
+  }
+
+  if (simRunning) {
+    pixelText(
+      `REP LIVE | PLAYER ${selectedPlayer} | SPEED ${simSpeedMultiplier}x | SHADOW ${shadowGuideOn ? "ON" : "OFF"}`,
+      W / 2,
+      H - 45,
+      20,
+      "center",
+      "#ffd700"
+    );
+    return;
+  }
+
+  pixelText(
+    `READY | PLAYER ${selectedPlayer} | SPEED ${simSpeedMultiplier}x | SHADOW ${shadowGuideOn ? "ON" : "OFF"}`,
+    W / 2,
+    H - 45,
+    20,
+    "center",
+    "#ffd700"
+  );
 }
 
 function draw() {
   drawPitch();
 
-  Object.values(expectedPlayers).forEach(p => {
-    if (p.number === selectedPlayer) drawPlayer(p, false, true);
-  });
+  if (shadowGuideOn) {
+    Object.values(expectedPlayers).forEach(p => {
+      if (p.number === selectedPlayer) {
+        drawPlayer(p, false, true);
+      }
+    });
+  }
 
   Object.values(players).forEach(p => {
     drawPlayer(p, p.number === selectedPlayer, false);
   });
 
-  drawBall(ball);
+  drawBall();
   drawFooter();
   drawCountdown();
 }
+
+// =========================
+// STORAGE
+// =========================
 
 function getSavedPlays() {
   return JSON.parse(localStorage.getItem("teamClaritySavedPlays") || "[]");
 }
 
+function getTrainingLogs() {
+  return JSON.parse(localStorage.getItem("teamClarityTrainingLogs") || "[]");
+}
+
+function saveTrainingLog(log) {
+  const logs = getTrainingLogs();
+  logs.push(log);
+  localStorage.setItem("teamClarityTrainingLogs", JSON.stringify(logs));
+}
+
+// =========================
+// LOAD PLAY
+// =========================
+
 function openPlayFolder() {
   const modal = document.getElementById("playModal");
   const list = document.getElementById("savedPlaysList");
-  const plays = getSavedPlays();
 
   list.innerHTML = "";
 
+  const plays = getSavedPlays();
+
   if (plays.length === 0) {
-    list.innerHTML = `<div class="emptyFolder">📂 No saved plays found.</div>`;
+    list.innerHTML = `
+      <div class="emptyFolder">
+        📂 No saved plays found
+      </div>
+    `;
   }
 
   plays.forEach(play => {
     const item = document.createElement("div");
     item.className = "savedPlayItem";
+
     item.innerHTML = `
       <div>
         <div class="savedPlayName">📁 ${play.name}</div>
         <div class="savedPlayMeta">${play.steps.length} steps</div>
       </div>
-      <button data-load="${play.id}">Load</button>
+
+      <button data-load="${play.id}">
+        Load
+      </button>
     `;
+
     list.appendChild(item);
   });
 
@@ -228,15 +266,20 @@ function openPlayFolder() {
     btn.onclick = () => {
       const id = Number(btn.dataset.load);
       selectedPlay = plays.find(p => p.id === id);
+
       if (!selectedPlay) return;
 
-      loadStep(selectedPlay.steps[0], true);
+      loadStep(selectedPlay.steps[0]);
       modal.classList.add("hidden");
     };
   });
 
   modal.classList.remove("hidden");
 }
+
+// =========================
+// QR CODES
+// =========================
 
 async function openQrCodes() {
   const modal = document.getElementById("qrModal");
@@ -251,77 +294,33 @@ async function openQrCodes() {
   for (let i = 1; i <= 15; i++) {
     const item = document.createElement("div");
     item.className = "qrItem";
+
     item.innerHTML = `
       <div>Player ${i}</div>
       <img src="${data.qrs[i]}">
       <div>${data.baseUrl}/simcontroller.html?p=${i}</div>
     `;
+
     grid.appendChild(item);
   }
 }
 
-function loadStep(step, alsoExpected = false) {
+// =========================
+// STEP + SIM
+// =========================
+
+function loadStep(step) {
   players = JSON.parse(JSON.stringify(step.players));
+  expectedPlayers = JSON.parse(JSON.stringify(step.players));
   ball = JSON.parse(JSON.stringify(step.ball));
-
-  if (alsoExpected) {
-    expectedPlayers = JSON.parse(JSON.stringify(step.players));
-    expectedBall = JSON.parse(JSON.stringify(step.ball));
-  }
-
   draw();
-}
-
-function interpolateExpected(from, to, smooth) {
-  Object.values(expectedPlayers).forEach(p => {
-    const a = from.players[p.number];
-    const b = to.players[p.number];
-    if (!a || !b) return;
-
-    p.x = a.x + (b.x - a.x) * smooth;
-    p.y = a.y + (b.y - a.y) * smooth;
-  });
-
-  expectedBall.x = from.ball.x + (to.ball.x - from.ball.x) * smooth;
-  expectedBall.y = from.ball.y + (to.ball.y - from.ball.y) * smooth;
-
-  ball.x = expectedBall.x;
-  ball.y = expectedBall.y;
-
-  Object.values(players).forEach(p => {
-    if (p.number === selectedPlayer) return;
-
-    const ghost = expectedPlayers[p.number];
-    if (!ghost) return;
-
-    p.x = ghost.x;
-    p.y = ghost.y;
-  });
-}
-
-function animateExpectedBetweenSteps(from, to, duration = 1000) {
-  return new Promise(resolve => {
-    const start = performance.now();
-
-    function frame(now) {
-      const t = Math.min((now - start) / duration, 1);
-      const smooth = t * t * (3 - 2 * t);
-
-      interpolateExpected(from, to, smooth);
-      draw();
-
-      if (t < 1) requestAnimationFrame(frame);
-      else resolve();
-    }
-
-    requestAnimationFrame(frame);
-  });
 }
 
 async function countdown() {
   for (const value of [3, 2, 1, 0]) {
     countdownValue = value;
     draw();
+
     await new Promise(resolve => setTimeout(resolve, 700));
   }
 
@@ -330,16 +329,11 @@ async function countdown() {
 
 async function startSimulation() {
   if (!selectedPlay) {
-    alert("Load a play first.");
+    alert("Load a play first");
     return;
   }
 
-  simRunning = false;
-  simFinished = false;
   timingClicks = {};
-  activePlayerTraces = {};
-
-  loadStep(selectedPlay.steps[0], true);
 
   await countdown();
 
@@ -348,19 +342,41 @@ async function startSimulation() {
   const steps = selectedPlay.steps;
 
   for (let i = 1; i < steps.length; i++) {
-    await animateExpectedBetweenSteps(steps[i - 1], steps[i], 1000);
+    const step = steps[i];
+
+    expectedPlayers = JSON.parse(JSON.stringify(step.players));
+    ball = JSON.parse(JSON.stringify(step.ball));
+
+    Object.values(players).forEach(p => {
+      if (p.number === selectedPlayer) return;
+
+      const target = step.players[p.number];
+      if (!target) return;
+
+      p.x = target.x;
+      p.y = target.y;
+    });
+
+    draw();
+
+    await new Promise(resolve =>
+      setTimeout(resolve, 900 / simSpeedMultiplier)
+    );
   }
 
   simRunning = false;
-  simFinished = true;
   calculateScore();
 }
 
-function calculateScore() {
-  const finalStep = selectedPlay.steps[selectedPlay.steps.length - 1];
+// =========================
+// SCORING
+// =========================
 
-  const expected = finalStep.players[selectedPlayer];
+function calculateScore() {
+  const expected = expectedPlayers[selectedPlayer];
   const actual = players[selectedPlayer];
+
+  if (!expected || !actual) return;
 
   const dist = Math.hypot(expected.x - actual.x, expected.y - actual.y);
 
@@ -370,36 +386,104 @@ function calculateScore() {
   else if (dist < 90) positionScore = 3;
   else if (dist < 130) positionScore = 2;
 
-  const timingScore = timingClicks[selectedPlayer] ? 5 : 2;
-  const total = positionScore + timingScore;
+  let timingScore = 2;
+  if (timingClicks[selectedPlayer]) timingScore = 5;
+  else if (dist < 80) timingScore = 4;
+  else if (dist < 140) timingScore = 3;
+
+  let executionScore = 2;
+  if (dist < 35) executionScore = 5;
+  else if (dist < 75) executionScore = 4;
+  else if (dist < 120) executionScore = 3;
+
+  const rawTotal = positionScore + timingScore + executionScore;
+  const finalScore = Math.round((rawTotal / 15) * 10);
+
+  let performanceIcon = "🏆";
+  let performanceText = "Elite Rep";
+
+  if (finalScore >= 8) {
+    performanceIcon = "🏆";
+    performanceText = "Elite Rep";
+  } else if (finalScore >= 6) {
+    performanceIcon = "🔥";
+    performanceText = "Solid Rep";
+  } else {
+    performanceIcon = "🛠️";
+    performanceText = "Keep Working";
+  }
+
+  saveTrainingLog({
+    player: selectedPlayer,
+    play: selectedPlay?.name || "Unknown Play",
+    score: finalScore,
+    positioning: positionScore,
+    timing: timingScore,
+    execution: executionScore,
+    distance: Math.round(dist),
+    shadowGuide: shadowGuideOn,
+    speed: simSpeedMultiplier,
+    date: new Date().toLocaleString()
+  });
 
   document.getElementById("scoreResult").innerHTML = `
-    <div class="bigScore">${total}/10</div>
-    <div class="scoreLine">Positioning: ${positionScore}/5</div>
-    <div class="scoreLine">Timing: ${timingScore}/5</div>
-    <div class="scoreLine">Distance from target: ${Math.round(dist)} px</div>
+    <div style="display:flex; align-items:center; justify-content:space-between; gap:40px; flex-wrap:wrap;">
+      <div>
+        <div style="font-size:88px; line-height:1; margin-bottom:10px;">
+          ${performanceIcon}
+        </div>
+
+        <div style="font-size:26px; font-weight:900; color:#ffd700; margin-bottom:20px;">
+          ${performanceText}
+        </div>
+      </div>
+
+      <div style="flex:1; min-width:280px;">
+        <div style="font-size:72px; font-weight:900; color:#ffd700; margin-bottom:25px;">
+          ${finalScore}/10
+        </div>
+
+        <div style="font-size:22px; margin-bottom:12px;">
+          Positioning: ${positionScore}/5
+        </div>
+
+        <div style="font-size:22px; margin-bottom:12px;">
+          Timing: ${timingScore}/5
+        </div>
+
+        <div style="font-size:22px; margin-bottom:12px;">
+          Execution: ${executionScore}/5
+        </div>
+
+        <div style="font-size:18px; opacity:.8; margin-top:20px;">
+          Distance from target: ${Math.round(dist)} px
+        </div>
+
+        <div style="font-size:16px; opacity:.75; margin-top:12px;">
+          Shadow Guide: ${shadowGuideOn ? "ON" : "OFF"} | Speed: ${simSpeedMultiplier}x
+        </div>
+      </div>
+    </div>
   `;
 
   document.getElementById("scoreModal").classList.remove("hidden");
 }
 
-socket.on("sim-player-connected", data => {
-  connectedPlayers[data.number] = data.connected;
-  draw();
-});
+// =========================
+// SOCKETS
+// =========================
 
 socket.on("sim-player-move", data => {
   if (!simRunning) return;
 
-  const number = Number(data.number);
-  const p = players[number];
-  if (!p) return;
+  const player = players[Number(data.number)];
+  if (!player) return;
 
-  p.x += Number(data.dx || 0) * PLAYER_SPEED;
-  p.y += Number(data.dy || 0) * PLAYER_SPEED;
+  player.x += Number(data.dx || 0) * PLAYER_SPEED;
+  player.y += Number(data.dy || 0) * PLAYER_SPEED;
 
-  p.x = Math.max(40, Math.min(W - 40, p.x));
-  p.y = Math.max(70, Math.min(H - 70, p.y));
+  player.x = Math.max(40, Math.min(W - 40, player.x));
+  player.y = Math.max(70, Math.min(H - 70, player.y));
 
   draw();
 });
@@ -408,10 +492,24 @@ socket.on("sim-player-timing", data => {
   timingClicks[Number(data.number)] = Date.now();
 });
 
+// =========================
+// BUTTONS
+// =========================
+
 document.getElementById("loadPlayBtn").onclick = openPlayFolder;
 document.getElementById("qrBtn").onclick = openQrCodes;
-document.getElementById("closeQr").onclick = () => document.getElementById("qrModal").classList.add("hidden");
-document.getElementById("closePlayModal").onclick = () => document.getElementById("playModal").classList.add("hidden");
+
+document.getElementById("closeQr").onclick = () => {
+  document.getElementById("qrModal").classList.add("hidden");
+};
+
+document.getElementById("closePlayModal").onclick = () => {
+  document.getElementById("playModal").classList.add("hidden");
+};
+
+document.getElementById("closeScoreModal").onclick = () => {
+  document.getElementById("scoreModal").classList.add("hidden");
+};
 
 document.getElementById("playerNumber").onchange = e => {
   selectedPlayer = Number(e.target.value);
@@ -421,15 +519,35 @@ document.getElementById("playerNumber").onchange = e => {
 document.getElementById("startSimBtn").onclick = startSimulation;
 
 document.getElementById("resetSimBtn").onclick = () => {
-  if (selectedPlay) loadStep(selectedPlay.steps[0], true);
+  if (selectedPlay) loadStep(selectedPlay.steps[0]);
+
   simRunning = false;
-  simFinished = false;
   countdownValue = null;
   draw();
 };
 
-document.getElementById("closeScoreModal").onclick = () => {
-  document.getElementById("scoreModal").classList.add("hidden");
-};
+const simSpeedInput = document.getElementById("simSpeed");
+const simSpeedValue = document.getElementById("simSpeedValue");
+
+if (simSpeedInput && simSpeedValue) {
+  simSpeedInput.oninput = e => {
+    simSpeedMultiplier = Number(e.target.value);
+    simSpeedValue.textContent = simSpeedMultiplier + "x";
+    draw();
+  };
+}
+
+const shadowToggle = document.getElementById("shadowGuideToggle");
+
+if (shadowToggle) {
+  shadowToggle.onchange = e => {
+    shadowGuideOn = e.target.checked;
+    draw();
+  };
+}
+
+// =========================
+// START
+// =========================
 
 draw();
