@@ -811,3 +811,83 @@ window.addEventListener("load", () => {
     };
   }
 });
+// ================================
+// V2 PLAY BUILDER MODE
+// ================================
+let builderMode = false;
+let builderSteps = [];
+
+function togglePlayBuilderMode() {
+  builderMode = !builderMode;
+  alert(builderMode ? "Play Builder ON" : "Play Builder OFF");
+}
+
+function addBuilderStep() {
+  if (!state) return;
+
+  builderSteps.push({
+    players: JSON.parse(JSON.stringify(state.players)),
+    ball: JSON.parse(JSON.stringify(state.ball))
+  });
+
+  alert("Step saved: " + builderSteps.length);
+}
+
+function clearBuilderSteps() {
+  builderSteps = [];
+  alert("Play steps cleared");
+}
+
+function saveBuilderPlay() {
+  const playName = prompt("Play name?", "New Play");
+  if (!playName) return;
+
+  localStorage.setItem("teamClarityBuilderPlay", JSON.stringify({
+    name: playName,
+    steps: builderSteps
+  }));
+
+  alert("Play saved: " + playName);
+}
+
+function loadBuilderPlay() {
+  const saved = localStorage.getItem("teamClarityBuilderPlay");
+  if (!saved) {
+    alert("No saved play found");
+    return;
+  }
+
+  const play = JSON.parse(saved);
+  builderSteps = play.steps || [];
+
+  alert("Loaded: " + play.name + " | Steps: " + builderSteps.length);
+}
+
+function playBuilderSteps() {
+  if (!builderSteps || builderSteps.length < 2) {
+    alert("Add at least 2 steps first");
+    return;
+  }
+
+  let i = 0;
+
+  const interval = setInterval(() => {
+    const step = builderSteps[i];
+
+    Object.values(step.players).forEach(p => {
+      socket.emit("coach-move-player", {
+        number: p.number,
+        x: p.x,
+        y: p.y
+      });
+    });
+
+    socket.emit("coach-ball", step.ball);
+
+    i++;
+
+    if (i >= builderSteps.length) {
+      clearInterval(interval);
+    }
+  }, 900);
+}
