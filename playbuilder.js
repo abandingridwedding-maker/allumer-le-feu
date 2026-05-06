@@ -5,13 +5,27 @@ ctx.imageSmoothingEnabled = false;
 const W = canvas.width;
 const H = canvas.height;
 
+const FIELD = {
+  left: 70,
+  right: W - 70,
+  top: 95,
+  bottom: H - 125
+};
+
+const COLORS = {
+  red: "#d71920",
+  white: "#ffffff",
+  black: "#111111",
+  blue: "#1f6feb"
+};
+
 let setupMode = "free";
-let attackDirection = "rtl";
 let playerSize = "normal";
-let teamColor = "#d71920";
+let teamColorName = "red";
+let teamColor = COLORS.red;
 
 let players = {};
-let ball = { x: 820, y: 430 };
+let ball = { x: 950, y: 230 };
 
 let draggingType = null;
 let draggingPlayerNumber = null;
@@ -21,32 +35,14 @@ let builderStarted = false;
 let steps = [];
 let isAnimating = false;
 
-const COLORS = {
-  red: "#d71920",
-  white: "#ffffff",
-  black: "#111111",
-  blue: "#1f6feb"
-};
-
 const builderBtn = document.getElementById("builderMainBtn");
 
-function initPlayers() {
-  players = {};
-  for (let i = 1; i <= 15; i++) {
-    players[i] = {
-      number: i,
-      x: 300 + (i % 5) * 90,
-      y: 200 + Math.floor(i / 5) * 90,
-      color: teamColor
-    };
-  }
-  setLineoutTop();
+function clone(obj) {
+  return JSON.parse(JSON.stringify(obj));
 }
 
-function setTeamColor(value) {
-  teamColor = COLORS[value] || COLORS.red;
-  Object.values(players).forEach(p => p.color = teamColor);
-  draw();
+function clamp(v, min, max) {
+  return Math.max(min, Math.min(max, v));
 }
 
 function pixelText(text, x, y, size = 22, align = "center", color = "white") {
@@ -61,54 +57,311 @@ function pixelText(text, x, y, size = 22, align = "center", color = "white") {
   ctx.restore();
 }
 
+function setCanvasDragging(isDragging) {
+  canvas.classList.toggle("grabbing", isDragging);
+}
+
+function clearModeButtons() {
+  ["lineoutTopBtn", "lineoutBottomBtn", "scrumBtn", "freeBtn"].forEach(id => {
+    document.getElementById(id)?.classList.remove("modeActive");
+  });
+}
+
+function updateModeButtons() {
+  clearModeButtons();
+
+  if (setupMode === "lineout-top") document.getElementById("lineoutTopBtn")?.classList.add("modeActive");
+  if (setupMode === "lineout-bottom") document.getElementById("lineoutBottomBtn")?.classList.add("modeActive");
+  if (setupMode === "scrum") document.getElementById("scrumBtn")?.classList.add("modeActive");
+  if (setupMode === "free") document.getElementById("freeBtn")?.classList.add("modeActive");
+}
+
+function setMode(mode) {
+  setupMode = mode;
+  updateModeButtons();
+  draw();
+}
+
+/* =========================================
+   INIT + SET PIECES
+========================================= */
+
+function initPlayers() {
+  players = {};
+
+  for (let i = 1; i <= 15; i++) {
+    players[i] = {
+      number: i,
+      x: 500,
+      y: 300,
+      color: teamColor
+    };
+  }
+
+  setLineoutTop();
+}
+
+function applyTeamColor(value) {
+  teamColorName = value;
+  teamColor = COLORS[value] || COLORS.red;
+
+  Object.values(players).forEach(p => {
+    p.color = teamColor;
+  });
+
+  draw();
+}
+
+/*
+  TEAM-CLARITY V2 STANDARD:
+  Always right → left.
+  9 and backs stay to the RIGHT of the forwards.
+  Shape must remain visible and clean.
+*/
+
+function setLineoutTop() {
+  setupMode = "lineout-top";
+
+  const xForwards = 920;
+  const startY = 160;
+  const spacing = 42;
+
+  [1, 3, 4, 5, 6, 7, 8].forEach((n, i) => {
+    players[n].x = xForwards;
+    players[n].y = startY + i * spacing;
+  });
+
+  players[2].x = xForwards - 78;
+  players[2].y = startY - 2;
+
+  players[9].x = xForwards + 80;
+  players[9].y = startY + 4.4 * spacing;
+
+  players[10].x = xForwards + 190;
+  players[10].y = startY + 3.6 * spacing;
+
+  players[12].x = xForwards + 290;
+  players[12].y = startY + 4.4 * spacing;
+
+  players[13].x = xForwards + 405;
+  players[13].y = startY + 5.2 * spacing;
+
+  players[15].x = xForwards + 515;
+  players[15].y = startY + 6.1 * spacing;
+
+  players[14].x = xForwards + 620;
+  players[14].y = startY + 7.0 * spacing;
+
+  players[11].x = xForwards + 260;
+  players[11].y = startY + 1.5 * spacing;
+
+  ball.x = xForwards + 35;
+  ball.y = startY + 48;
+
+  clampAllToField();
+  updateModeButtons();
+  draw();
+}
+
+function setLineoutBottom() {
+  setupMode = "lineout-bottom";
+
+  const xForwards = 920;
+  const startY = 720;
+  const spacing = -42;
+
+  [1, 3, 4, 5, 6, 7, 8].forEach((n, i) => {
+    players[n].x = xForwards;
+    players[n].y = startY + i * spacing;
+  });
+
+  players[2].x = xForwards - 78;
+  players[2].y = startY + 2;
+
+  players[9].x = xForwards + 80;
+  players[9].y = startY + 4.4 * spacing;
+
+  players[10].x = xForwards + 190;
+  players[10].y = startY + 3.6 * spacing;
+
+  players[12].x = xForwards + 290;
+  players[12].y = startY + 4.4 * spacing;
+
+  players[13].x = xForwards + 405;
+  players[13].y = startY + 5.2 * spacing;
+
+  players[15].x = xForwards + 515;
+  players[15].y = startY + 6.1 * spacing;
+
+  players[14].x = xForwards + 620;
+  players[14].y = startY + 7.0 * spacing;
+
+  players[11].x = xForwards + 260;
+  players[11].y = startY + 1.5 * spacing;
+
+  ball.x = xForwards + 35;
+  ball.y = startY - 48;
+
+  clampAllToField();
+  updateModeButtons();
+  draw();
+}
+
+function setScrum() {
+  setupMode = "scrum";
+
+  const cx = 720;
+  const cy = 445;
+  const gap = 42;
+
+  players[1].x = cx - gap;
+  players[1].y = cy - gap;
+
+  players[2].x = cx;
+  players[2].y = cy - gap;
+
+  players[3].x = cx + gap;
+  players[3].y = cy - gap;
+
+  players[4].x = cx - 22;
+  players[4].y = cy;
+
+  players[5].x = cx + 22;
+  players[5].y = cy;
+
+  players[6].x = cx - 72;
+  players[6].y = cy + gap;
+
+  players[7].x = cx + 72;
+  players[7].y = cy + gap;
+
+  players[8].x = cx;
+  players[8].y = cy + gap + 20;
+
+  players[9].x = cx + 165;
+  players[9].y = cy + 18;
+
+  players[10].x = cx + 285;
+  players[10].y = cy + 48;
+
+  players[12].x = cx + 395;
+  players[12].y = cy + 90;
+
+  players[13].x = cx + 520;
+  players[13].y = cy + 140;
+
+  players[15].x = cx + 625;
+  players[15].y = cy + 205;
+
+  players[14].x = cx + 735;
+  players[14].y = cy + 255;
+
+  players[11].x = cx + 455;
+  players[11].y = cy - 120;
+
+  ball.x = cx + 112;
+  ball.y = cy + 12;
+
+  clampAllToField();
+  updateModeButtons();
+  draw();
+}
+
+function setFreeBall() {
+  setupMode = "free";
+  updateModeButtons();
+  draw();
+}
+
+function clampAllToField() {
+  Object.values(players).forEach(p => {
+    p.x = clamp(p.x, FIELD.left + 20, FIELD.right - 20);
+    p.y = clamp(p.y, FIELD.top + 20, FIELD.bottom - 20);
+  });
+
+  ball.x = clamp(ball.x, FIELD.left + 20, FIELD.right - 20);
+  ball.y = clamp(ball.y, FIELD.top + 20, FIELD.bottom - 20);
+}
+
+/* =========================================
+   FIELD DRAWING
+========================================= */
+
 function drawPitch() {
   ctx.fillStyle = "#6ec65f";
   ctx.fillRect(0, 0, W, H);
 
-  const left = 70;
-  const right = W - 70;
-  const top = 70;
-  const bottom = H - 70;
+  const left = FIELD.left;
+  const right = FIELD.right;
+  const top = FIELD.top;
+  const bottom = FIELD.bottom;
+
   const pw = right - left;
   const ph = bottom - top;
+
+  const X = p => left + pw * p;
+  const Y = p => top + ph * p;
 
   ctx.strokeStyle = "#fff";
   ctx.lineWidth = 7;
   ctx.strokeRect(left, top, pw, ph);
 
-  const X = pct => left + pw * pct;
-  const Y = pct => top + ph * pct;
-
   ctx.strokeStyle = "#fff";
   ctx.lineWidth = 5;
 
-  ctx.beginPath(); ctx.moveTo(X(0.06), top); ctx.lineTo(X(0.06), bottom); ctx.stroke();
-  ctx.beginPath(); ctx.moveTo(X(0.94), top); ctx.lineTo(X(0.94), bottom); ctx.stroke();
+  [0.06, 0.94].forEach(p => {
+    ctx.beginPath();
+    ctx.moveTo(X(p), top);
+    ctx.lineTo(X(p), bottom);
+    ctx.stroke();
+  });
 
   ctx.setLineDash([16, 14]);
-  ctx.beginPath(); ctx.moveTo(X(0.10), top); ctx.lineTo(X(0.10), bottom); ctx.stroke();
-  ctx.beginPath(); ctx.moveTo(X(0.90), top); ctx.lineTo(X(0.90), bottom); ctx.stroke();
+  [0.10, 0.90].forEach(p => {
+    ctx.beginPath();
+    ctx.moveTo(X(p), top);
+    ctx.lineTo(X(p), bottom);
+    ctx.stroke();
+  });
 
   ctx.setLineDash([]);
   ctx.lineWidth = 6;
-  ctx.beginPath(); ctx.moveTo(X(0.26), top); ctx.lineTo(X(0.26), bottom); ctx.stroke();
-  ctx.beginPath(); ctx.moveTo(X(0.74), top); ctx.lineTo(X(0.74), bottom); ctx.stroke();
+
+  [0.26, 0.74].forEach(p => {
+    ctx.beginPath();
+    ctx.moveTo(X(p), top);
+    ctx.lineTo(X(p), bottom);
+    ctx.stroke();
+  });
 
   ctx.setLineDash([20, 16]);
   ctx.lineWidth = 4;
-  ctx.beginPath(); ctx.moveTo(X(0.40), top); ctx.lineTo(X(0.40), bottom); ctx.stroke();
-  ctx.beginPath(); ctx.moveTo(X(0.60), top); ctx.lineTo(X(0.60), bottom); ctx.stroke();
+
+  [0.40, 0.60].forEach(p => {
+    ctx.beginPath();
+    ctx.moveTo(X(p), top);
+    ctx.lineTo(X(p), bottom);
+    ctx.stroke();
+  });
 
   ctx.setLineDash([]);
+
   ctx.lineWidth = 6;
-  ctx.beginPath(); ctx.moveTo(X(0.50), top); ctx.lineTo(X(0.50), bottom); ctx.stroke();
+  ctx.beginPath();
+  ctx.moveTo(X(0.50), top);
+  ctx.lineTo(X(0.50), bottom);
+  ctx.stroke();
 
   ctx.setLineDash([18, 16]);
   ctx.lineWidth = 4;
-  ctx.beginPath(); ctx.moveTo(left, Y(0.08)); ctx.lineTo(right, Y(0.08)); ctx.stroke();
-  ctx.beginPath(); ctx.moveTo(left, Y(0.92)); ctx.lineTo(right, Y(0.92)); ctx.stroke();
-  ctx.beginPath(); ctx.moveTo(left, Y(0.23)); ctx.lineTo(right, Y(0.23)); ctx.stroke();
-  ctx.beginPath(); ctx.moveTo(left, Y(0.77)); ctx.lineTo(right, Y(0.77)); ctx.stroke();
+
+  [0.08, 0.23, 0.77, 0.92].forEach(p => {
+    ctx.beginPath();
+    ctx.moveTo(left, Y(p));
+    ctx.lineTo(right, Y(p));
+    ctx.stroke();
+  });
+
   ctx.setLineDash([]);
 
   ctx.save();
@@ -119,8 +372,15 @@ function drawPitch() {
   ctx.shadowOffsetX = 3;
   ctx.shadowOffsetY = 3;
 
-  [["5m", 0.10], ["22m", 0.26], ["40m", 0.40], ["50m", 0.50], ["40m", 0.60], ["22m", 0.74], ["5m", 0.90]].forEach(([label, p]) => {
-    ctx.fillText(label, X(p), top - 14);
+  [
+    ["5m", 0.10],
+    ["22m", 0.26],
+    ["40m", 0.40],
+    ["50m", 0.50],
+    ["40m", 0.60],
+    ["22m", 0.74],
+    ["5m", 0.90]
+  ].forEach(([label, p]) => {
     ctx.fillText(label, X(p), bottom + 32);
   });
 
@@ -135,6 +395,7 @@ function drawPitch() {
   ctx.fillText("15m", right - 8, Y(0.23) - 8);
   ctx.fillText("15m", right - 8, Y(0.77) - 8);
   ctx.fillText("5m", right - 8, Y(0.92) - 8);
+
   ctx.restore();
 
   ctx.fillStyle = "#d71920";
@@ -170,11 +431,18 @@ function drawBall() {
 }
 
 function drawCirclePlayer(p) {
+  const radius = 16;
+
   ctx.save();
 
-  ctx.fillStyle = p.color;
+  ctx.fillStyle = "rgba(0,0,0,.25)";
   ctx.beginPath();
-  ctx.arc(p.x, p.y, 16, 0, Math.PI * 2);
+  ctx.ellipse(p.x + 3, p.y + 4, radius + 2, radius * 0.6, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.fillStyle = p.color || "#d71920";
+  ctx.beginPath();
+  ctx.arc(p.x, p.y, radius, 0, Math.PI * 2);
   ctx.fill();
 
   ctx.strokeStyle = "#fff";
@@ -190,12 +458,7 @@ function drawCirclePlayer(p) {
   ctx.restore();
 }
 
-function drawPlayer(p) {
-  if (playerSize === "small") {
-    drawCirclePlayer(p);
-    return;
-  }
-
+function drawPixelPlayer(p) {
   ctx.save();
   ctx.translate(p.x, p.y);
 
@@ -205,7 +468,7 @@ function drawPlayer(p) {
   ctx.fillStyle = "rgba(0,0,0,.25)";
   ctx.fillRect(-24, 30, 48, 8);
 
-  ctx.fillStyle = p.color;
+  ctx.fillStyle = p.color || "#d71920";
   ctx.fillRect(-22, -24, 44, 50);
 
   ctx.fillStyle = "#fff";
@@ -220,6 +483,7 @@ function drawPlayer(p) {
   ctx.fillRect(-18, -56, 36, 34);
 
   ctx.fillStyle = "#15100c";
+
   if (p.number <= 8) {
     ctx.fillRect(-27, -66, 54, 14);
     ctx.fillRect(-31, -54, 12, 22);
@@ -227,6 +491,10 @@ function drawPlayer(p) {
   } else {
     ctx.fillRect(-20, -66, 40, 12);
   }
+
+  ctx.fillStyle = "#2a1a12";
+  ctx.fillRect(-11, -37, 22, 8);
+  ctx.fillRect(-7, -30, 14, 5);
 
   ctx.fillStyle = "#000";
   ctx.fillRect(-9, -48, 5, 5);
@@ -248,10 +516,24 @@ function drawPlayer(p) {
   ctx.restore();
 }
 
+function drawPlayer(p) {
+  if (playerSize === "small") {
+    drawCirclePlayer(p);
+    return;
+  }
+
+  drawPixelPlayer(p);
+}
+
+/* =========================================
+   STEP ARROWS
+========================================= */
+
 function drawArrow(x1, y1, x2, y2, color = "#ffd700") {
   const dx = x2 - x1;
   const dy = y2 - y1;
   const dist = Math.hypot(dx, dy);
+
   if (dist < 8) return;
 
   const angle = Math.atan2(dy, dx);
@@ -272,8 +554,14 @@ function drawArrow(x1, y1, x2, y2, color = "#ffd700") {
   ctx.setLineDash([]);
   ctx.beginPath();
   ctx.moveTo(x2, y2);
-  ctx.lineTo(x2 - headLength * Math.cos(angle - Math.PI / 6), y2 - headLength * Math.sin(angle - Math.PI / 6));
-  ctx.lineTo(x2 - headLength * Math.cos(angle + Math.PI / 6), y2 - headLength * Math.sin(angle + Math.PI / 6));
+  ctx.lineTo(
+    x2 - headLength * Math.cos(angle - Math.PI / 6),
+    y2 - headLength * Math.sin(angle - Math.PI / 6)
+  );
+  ctx.lineTo(
+    x2 - headLength * Math.cos(angle + Math.PI / 6),
+    y2 - headLength * Math.sin(angle + Math.PI / 6)
+  );
   ctx.closePath();
   ctx.fill();
 
@@ -295,16 +583,22 @@ function drawStepLines() {
   drawArrow(a.ball.x, a.ball.y, b.ball.x, b.ball.y, "#ffd700");
 }
 
+/* =========================================
+   FOOTER
+========================================= */
+
 function drawFooter() {
-  ctx.fillStyle = "rgba(0,0,0,0.40)";
-  ctx.fillRect(0, H - 82, W, 82);
+  const footerTop = H - 70;
+
+  ctx.fillStyle = "rgba(0,0,0,0.42)";
+  ctx.fillRect(0, footerTop, W, 70);
 
   const status = builderStarted
     ? `BUILDER ACTIVE | NEXT: SAVE STEP ${steps.length + 1}`
     : "PLACE PLAYERS + BALL | CLICK START BUILDER";
 
-  pixelText(status, W / 2, H - 58, 18, "center", "#ffd700");
-  pixelText("Ball has click priority | Drag = fist cursor | Save/Load = 8-bit folder", W / 2, H - 28, 14, "center", "#ffffff");
+  pixelText(status, W / 2, footerTop + 28, 17, "center", "#ffd700");
+  pixelText("Ball has click priority | Drag = fist cursor | Save/Load = 8-bit folder", W / 2, footerTop + 54, 13, "center", "#ffffff");
 }
 
 function draw() {
@@ -315,8 +609,13 @@ function draw() {
   drawFooter();
 }
 
+/* =========================================
+   MOUSE / DRAGGING
+========================================= */
+
 function canvasPoint(e) {
   const rect = canvas.getBoundingClientRect();
+
   return {
     x: (e.clientX - rect.left) * (canvas.width / rect.width),
     y: (e.clientY - rect.top) * (canvas.height / rect.height)
@@ -324,22 +623,25 @@ function canvasPoint(e) {
 }
 
 function ballHitTest(p) {
-  return Math.hypot(ball.x - p.x, ball.y - p.y) < 42;
+  return Math.hypot(ball.x - p.x, ball.y - p.y) < 28;
 }
 
 function playerHitTest(p) {
   let closest = null;
-  let best = 9999;
+  let best = Infinity;
 
   Object.values(players).forEach(player => {
     const d = Math.hypot(player.x - p.x, player.y - p.y);
+
     if (d < best) {
       best = d;
       closest = player;
     }
   });
 
-  return best < 36 ? closest : null;
+  const radius = playerSize === "small" ? 18 : playerSize === "medium" ? 20 : 24;
+
+  return best <= radius ? closest : null;
 }
 
 canvas.addEventListener("mousedown", e => {
@@ -347,13 +649,12 @@ canvas.addEventListener("mousedown", e => {
 
   const p = canvasPoint(e);
 
-  // IMPORTANT: ball priority
   if (ballHitTest(p)) {
     draggingType = "ball";
     draggingPlayerNumber = null;
     dragOffset.x = p.x - ball.x;
     dragOffset.y = p.y - ball.y;
-    canvas.classList.add("grabbing");
+    setCanvasDragging(true);
     return;
   }
 
@@ -364,12 +665,12 @@ canvas.addEventListener("mousedown", e => {
     draggingPlayerNumber = player.number;
     dragOffset.x = p.x - player.x;
     dragOffset.y = p.y - player.y;
-    canvas.classList.add("grabbing");
+    setCanvasDragging(true);
     return;
   }
 
-  ball.x = p.x;
-  ball.y = p.y;
+  ball.x = clamp(p.x, FIELD.left + 20, FIELD.right - 20);
+  ball.y = clamp(p.y, FIELD.top + 20, FIELD.bottom - 20);
   draw();
 });
 
@@ -377,15 +678,15 @@ canvas.addEventListener("mousemove", e => {
   const p = canvasPoint(e);
 
   if (draggingType === "ball") {
-    ball.x = p.x - dragOffset.x;
-    ball.y = p.y - dragOffset.y;
+    ball.x = clamp(p.x - dragOffset.x, FIELD.left + 20, FIELD.right - 20);
+    ball.y = clamp(p.y - dragOffset.y, FIELD.top + 20, FIELD.bottom - 20);
     draw();
     return;
   }
 
   if (draggingType === "player" && draggingPlayerNumber) {
-    players[draggingPlayerNumber].x = p.x - dragOffset.x;
-    players[draggingPlayerNumber].y = p.y - dragOffset.y;
+    players[draggingPlayerNumber].x = clamp(p.x - dragOffset.x, FIELD.left + 20, FIELD.right - 20);
+    players[draggingPlayerNumber].y = clamp(p.y - dragOffset.y, FIELD.top + 20, FIELD.bottom - 20);
     draw();
   }
 });
@@ -393,28 +694,30 @@ canvas.addEventListener("mousemove", e => {
 window.addEventListener("mouseup", () => {
   draggingType = null;
   draggingPlayerNumber = null;
-  canvas.classList.remove("grabbing");
+  setCanvasDragging(false);
 });
+
+/* =========================================
+   BUILDER LOGIC
+========================================= */
 
 function captureStep() {
   return {
-    players: JSON.parse(JSON.stringify(players)),
-    ball: JSON.parse(JSON.stringify(ball)),
-    attackDirection,
+    players: clone(players),
+    ball: clone(ball),
     playerSize,
-    teamColor
+    teamColorName
   };
 }
 
 function applyStep(step) {
-  players = JSON.parse(JSON.stringify(step.players));
-  ball = JSON.parse(JSON.stringify(step.ball));
-  attackDirection = step.attackDirection || attackDirection;
+  players = clone(step.players);
+  ball = clone(step.ball);
   playerSize = step.playerSize || playerSize;
-  teamColor = step.teamColor || teamColor;
+  teamColorName = step.teamColorName || teamColorName;
 
-  document.getElementById("attackDirection").value = attackDirection;
   document.getElementById("playerSize").value = playerSize;
+  document.getElementById("teamColor").value = teamColorName;
 
   draw();
 }
@@ -460,6 +763,7 @@ function animateBetweenSteps(from, to, duration = 900) {
       Object.values(players).forEach(p => {
         const a = from.players[p.number];
         const b = to.players[p.number];
+
         if (!a || !b) return;
 
         p.x = a.x + (b.x - a.x) * smooth;
@@ -514,6 +818,7 @@ function savePlay() {
   }
 
   const name = prompt("Play name?", "New Play");
+
   if (!name) return;
 
   const plays = getSavedPlays();
@@ -534,6 +839,7 @@ function openPlayFolder() {
   const list = document.getElementById("savedPlaysList");
 
   const plays = getSavedPlays();
+
   list.innerHTML = "";
 
   if (plays.length === 0) {
@@ -549,6 +855,7 @@ function openPlayFolder() {
         <div class="savedPlayName">📁 ${play.name}</div>
         <div class="savedPlayMeta">${play.steps.length} steps | ${play.createdAt}</div>
       </div>
+
       <div>
         <button data-load="${play.id}">Load</button>
         <button data-delete="${play.id}">Delete</button>
@@ -562,11 +869,14 @@ function openPlayFolder() {
     btn.onclick = () => {
       const id = Number(btn.dataset.load);
       const play = getSavedPlays().find(p => p.id === id);
+
       if (!play) return;
 
-      steps = play.steps;
+      steps = play.steps || [];
       builderStarted = true;
-      applyStep(steps[0]);
+
+      if (steps[0]) applyStep(steps[0]);
+
       updateBuilderButton();
       modal.classList.add("hidden");
     };
@@ -583,106 +893,9 @@ function openPlayFolder() {
   modal.classList.remove("hidden");
 }
 
-function setLineoutTop() {
-  setupMode = "lineout-top";
-  const baseX = attackDirection === "rtl" ? 650 : 950;
-
-  [1, 3, 4, 5, 6, 7, 8].forEach((num, i) => {
-    players[num].x = baseX;
-    players[num].y = 220 + i * 38;
-  });
-
-  players[2].x = baseX - 75;
-  players[2].y = 190;
-
-  players[9].x = baseX + 65;
-  players[9].y = 420;
-
-  players[10].x = baseX - 100;
-  players[10].y = 500;
-  players[12].x = baseX - 100;
-  players[12].y = 560;
-  players[11].x = baseX - 105;
-  players[11].y = 620;
-  players[13].x = baseX - 110;
-  players[13].y = 680;
-  players[15].x = baseX - 250;
-  players[15].y = 790;
-  players[14].x = baseX - 200;
-  players[14].y = 850;
-
-  ball.x = baseX + 30;
-  ball.y = 230;
-
-  draw();
-}
-
-function setLineoutBottom() {
-  setupMode = "lineout-bottom";
-  const baseX = attackDirection === "rtl" ? 650 : 950;
-
-  [1, 3, 4, 5, 6, 7, 8].forEach((num, i) => {
-    players[num].x = baseX;
-    players[num].y = 680 - i * 38;
-  });
-
-  players[2].x = baseX - 75;
-  players[2].y = 710;
-
-  players[9].x = baseX + 65;
-  players[9].y = 480;
-
-  players[10].x = baseX - 100;
-  players[10].y = 390;
-  players[12].x = baseX - 100;
-  players[12].y = 340;
-  players[11].x = baseX - 105;
-  players[11].y = 285;
-  players[13].x = baseX - 110;
-  players[13].y = 235;
-  players[15].x = baseX - 250;
-  players[15].y = 170;
-  players[14].x = baseX - 200;
-  players[14].y = 110;
-
-  ball.x = baseX + 30;
-  ball.y = 670;
-
-  draw();
-}
-
-function setScrum() {
-  setupMode = "scrum";
-  const baseX = attackDirection === "rtl" ? 760 : 840;
-  const baseY = 450;
-
-  players[1].x = baseX - 45; players[1].y = baseY;
-  players[2].x = baseX; players[2].y = baseY;
-  players[3].x = baseX + 45; players[3].y = baseY;
-  players[4].x = baseX - 25; players[4].y = baseY + 45;
-  players[5].x = baseX + 25; players[5].y = baseY + 45;
-  players[6].x = baseX - 70; players[6].y = baseY + 85;
-  players[7].x = baseX + 70; players[7].y = baseY + 85;
-  players[8].x = baseX; players[8].y = baseY + 110;
-
-  players[9].x = baseX + 130; players[9].y = baseY + 80;
-  players[10].x = baseX + 230; players[10].y = baseY + 40;
-  players[12].x = baseX + 340; players[12].y = baseY + 80;
-  players[13].x = baseX + 460; players[13].y = baseY + 130;
-  players[11].x = baseX + 230; players[11].y = baseY - 110;
-  players[14].x = baseX + 620; players[14].y = baseY + 230;
-  players[15].x = baseX + 520; players[15].y = baseY + 180;
-
-  ball.x = players[9].x + 30;
-  ball.y = players[9].y;
-
-  draw();
-}
-
-function setFreeBall() {
-  setupMode = "free";
-  draw();
-}
+/* =========================================
+   BUTTON HOOKS
+========================================= */
 
 document.getElementById("builderMainBtn").onclick = builderMainAction;
 document.getElementById("playAnimationBtn").onclick = playAnimation;
@@ -696,15 +909,7 @@ document.getElementById("lineoutBottomBtn").onclick = setLineoutBottom;
 document.getElementById("scrumBtn").onclick = setScrum;
 document.getElementById("freeBtn").onclick = setFreeBall;
 
-document.getElementById("attackDirection").onchange = e => {
-  attackDirection = e.target.value;
-  if (setupMode === "lineout-top") setLineoutTop();
-  if (setupMode === "lineout-bottom") setLineoutBottom();
-  if (setupMode === "scrum") setScrum();
-  draw();
-};
-
-document.getElementById("teamColor").onchange = e => setTeamColor(e.target.value);
+document.getElementById("teamColor").onchange = e => applyTeamColor(e.target.value);
 
 document.getElementById("playerSize").onchange = e => {
   playerSize = e.target.value;
@@ -713,4 +918,5 @@ document.getElementById("playerSize").onchange = e => {
 
 initPlayers();
 updateBuilderButton();
+updateModeButtons();
 draw();
