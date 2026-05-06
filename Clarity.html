@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>TEAM-CLARITY — Live</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+
+<body>
+  <div id="topbar">
+    <div class="brand">🔥 TEAM-CLARITY</div>
+
+    <div class="tools">
+      <div class="toolGroup">
+        <button onclick="window.location.href='index.html'">Home</button>
+        <button id="qrBtn">QR Codes</button>
+
+        <select id="langToggle">
+          <option value="en">EN</option>
+          <option value="fr">FR</option>
+        </select>
+
+        <select id="sportMode">
+          <option value="rugby">Rugby</option>
+          <option value="football">Football</option>
+        </select>
+      </div>
+
+      <div class="toolGroup rugbyOnly">
+        <button id="lineoutTopBtn">Lineout Top</button>
+        <button id="lineoutBottomBtn">Lineout Bottom</button>
+        <button id="scrumBtn">Scrum</button>
+      </div>
+
+      <div class="toolGroup">
+        <button id="freeBtn">Free Ball</button>
+
+        <select id="attackDirection">
+          <option value="rtl">Right → Left</option>
+          <option value="ltr">Left → Right</option>
+        </select>
+
+        <select id="teamColor">
+          <option value="red">Red</option>
+          <option value="white">White</option>
+          <option value="black">Black</option>
+          <option value="blue">Blue</option>
+        </select>
+
+        <select id="playerGroup">
+          <option value="all">All Players</option>
+          <option value="forwards">Forwards Only</option>
+          <option value="backs">Backs Only</option>
+        </select>
+
+        <select id="playerSize">
+          <option value="normal">Normal Size</option>
+          <option value="medium">2/3 Size</option>
+          <option value="small">Small Circle</option>
+        </select>
+      </div>
+
+      <div class="toolGroup">
+        <button id="freezeBtn">Freeze</button>
+        <button id="resetBtn">Reset</button>
+
+        <label class="speedLabel">
+          Speed
+          <input id="speed" type="range" min="1" max="10" value="5" />
+        </label>
+      </div>
+    </div>
+  </div>
+
+  <canvas id="field" width="1600" height="900"></canvas>
+
+  <div id="qrModal" class="modal hidden">
+    <div class="modalCard">
+      <div class="modalHeader">
+        <h2 id="qrTitle">Scan to control players</h2>
+        <button id="closeQr">Close</button>
+      </div>
+      <div id="qrGrid"></div>
+    </div>
+  </div>
+
+  <div id="paywallOverlay" class="paywall hidden">
+    <div class="paywallCard">
+      <h1 id="paywallTitle">SESSION LIVE 🔴</h1>
+      <p id="paywallLine1">Your session is connected.</p>
+      <p id="paywallLine2">To keep players connected and continue managing your team:</p>
+
+      <div id="paywallPrice" class="price">€9.99 / year</div>
+
+      <button id="unlockBtn">Unlock Access</button>
+
+      <div class="promoBox">
+        <label id="promoLabel">Promo code:</label>
+        <input id="promoInput" placeholder="Enter code" />
+        <button id="promoBtn">Apply Promo Code</button>
+        <div id="promoMessage"></div>
+      </div>
+    </div>
+  </div>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="coach.js"></script>
+</body>
+</html>
