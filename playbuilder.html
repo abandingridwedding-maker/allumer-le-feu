@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>TEAM-CLARITY Play Builder</title>
+  <link rel="stylesheet" href="style.css">
+  <style>
+    body { margin:0; background:#111; color:white; font-family:Arial; }
+    .topbar { background:#d71920; padding:12px; display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
+    button, input, select { padding:8px 12px; border-radius:6px; border:2px solid white; background:#111; color:white; font-weight:bold; }
+    #field { position:relative; width:100vw; height:78vh; background:#62bd54; overflow:hidden; border-top:4px solid #111; }
+    .player { position:absolute; width:34px; height:34px; background:#111; border:3px solid white; border-radius:6px; text-align:center; line-height:34px; font-weight:bold; cursor:grab; }
+    .ball { position:absolute; width:22px; height:22px; background:#f4c542; border-radius:50%; border:2px solid #111; cursor:grab; z-index:10; }
+    .stepBox { background:#222; padding:10px; font-size:14px; }
+  </style>
+</head>
+<body>
+
+<div class="topbar">
+  <strong>🔥 TEAM-CLARITY V2 — PLAY BUILDER</strong>
+
+  <input id="playName" placeholder="Play name">
+
+  <select id="playType">
+    <option>Lineout</option>
+    <option>Scrum</option>
+    <option>General Play</option>
+  </select>
+
+  <button onclick="addStep()">Add Step</button>
+  <button onclick="playAnimation()">Play</button>
+  <button onclick="resetToStep(0)">Reset</button>
+  <button onclick="savePlay()">Save Play</button>
+  <button onclick="loadPlay()">Load Play</button>
+  <button onclick="window.location.href='controller.html'">Back to Coach</button>
+</div>
+
+<div id="field"></div>
+
+<div class="stepBox">
+  Step: <span id="stepCount">0</span> |
+  Drag players and ball, then click <b>Add Step</b>.  
+  Create 3–6 steps, then press <b>Play</b>.
+</div>
+
+<script src="playbuilder.js"></script>
+
+</body>
+</html>
