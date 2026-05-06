@@ -1,53 +1,53 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>TEAM-CLARITY — Coach Screen</title>
-<link rel="stylesheet" href="style.css" />
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>TEAM-CLARITY — Coach</title>
+  <link rel="stylesheet" href="style.css" />
 </head>
 
-<body class="coach">
+<body>
   <div id="topbar">
     <div class="brand">🔥 TEAM-CLARITY</div>
 
     <div class="tools">
+      <div class="toolGroup">
+        <button id="qrBtn">QR Codes</button>
 
-      <button id="qrBtn">QR Codes</button>
+        <select id="langToggle">
+          <option value="en">EN</option>
+          <option value="fr">FR</option>
+        </select>
 
-      <select id="langToggle">
-        <option value="en">EN</option>
-        <option value="fr">FR</option>
-      </select>
-
-      <select id="sportMode">
-        <option value="rugby">Rugby</option>
-        <option value="football">Football</option>
-      </select>
+        <select id="sportMode">
+          <option value="rugby">Rugby</option>
+          <option value="football">Football</option>
+        </select>
+      </div>
 
       <div class="toolGroup rugbyOnly">
         <button id="lineoutTopBtn">Lineout Top</button>
         <button id="lineoutBottomBtn">Lineout Bottom</button>
         <button id="scrumBtn">Scrum</button>
+      </div>
+
+      <div class="toolGroup">
         <button id="freeBtn">Free Ball</button>
 
         <select id="attackDirection">
           <option value="rtl">Right → Left</option>
           <option value="ltr">Left → Right</option>
         </select>
-      </div>
 
-      <div class="toolGroup sharedTools">
         <select id="teamColor">
-          <option value="#d71920">Red</option>
-          <option value="#111111">Black</option>
-          <option value="#0057ff">Blue</option>
-          <option value="#00a651">Green</option>
-          <option value="#ffffff">White</option>
-          <option value="#ffd700">Gold</option>
+          <option value="red">Red</option>
+          <option value="white">White</option>
+          <option value="black">Black</option>
+          <option value="blue">Blue</option>
         </select>
 
-        <select id="playerGroup" class="rugbyOnly">
+        <select id="playerGroup">
           <option value="all">All Players</option>
           <option value="forwards">Forwards Only</option>
           <option value="backs">Backs Only</option>
@@ -58,20 +58,30 @@
           <option value="medium">2/3 Size</option>
           <option value="small">Small Circle</option>
         </select>
+      </div>
 
+      <div class="toolGroup">
+        <button id="builderToggleBtn">Play Builder</button>
+        <button id="builderAddBtn" class="builderOnly hidden">Add Step</button>
+        <button id="builderPlayBtn" class="builderOnly hidden">Play Steps</button>
+        <button id="builderSaveBtn" class="builderOnly hidden">Save Play</button>
+        <button id="builderLoadBtn" class="builderOnly hidden">Load Play</button>
+        <button id="builderClearBtn" class="builderOnly hidden">Clear</button>
+      </div>
+
+      <div class="toolGroup">
         <button id="freezeBtn">Freeze</button>
         <button id="resetBtn">Reset</button>
 
         <label class="speedLabel">
           Speed
-          <input id="speed" type="range" min="1" max="9" step="0.2" value="4.2" />
+          <input id="speed" type="range" min="1" max="10" value="5" />
         </label>
       </div>
-
     </div>
   </div>
 
-  <canvas id="field" width="1400" height="820"></canvas>
+  <canvas id="field" width="1600" height="900"></canvas>
 
   <div id="qrModal" class="modal hidden">
     <div class="modalCard">
@@ -89,20 +99,20 @@
       <p id="paywallLine1">Your session is connected.</p>
       <p id="paywallLine2">To keep players connected and continue managing your team:</p>
 
-      <div class="price" id="paywallPrice">€9.99 / year</div>
+      <div id="paywallPrice" class="price">€9.99 / year</div>
 
       <button id="unlockBtn">Unlock Access</button>
 
       <div class="promoBox">
         <label id="promoLabel">Promo code:</label>
-        <input id="promoInput" type="text" placeholder="Enter code" />
+        <input id="promoInput" placeholder="Enter code" />
         <button id="promoBtn">Apply Promo Code</button>
         <div id="promoMessage"></div>
       </div>
     </div>
   </div>
 
-<script src="/socket.io/socket.io.js"></script>
-<script src="coach.js"></script>
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="coach.js"></script>
 </body>
 </html>
