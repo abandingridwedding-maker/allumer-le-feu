@@ -25,6 +25,13 @@ let sessionStartTime = null;
 
 const PLAYER_SPEED = 7;
 
+const FIELD = {
+  left: 70,
+  right: W - 70,
+  top: 95,
+  bottom: H - 125
+};
+
 function clone(obj) {
   return JSON.parse(JSON.stringify(obj));
 }
@@ -45,50 +52,76 @@ function drawPitch() {
   ctx.fillStyle = "#6ec65f";
   ctx.fillRect(0, 0, W, H);
 
-  const left = 70;
-  const right = W - 70;
-  const top = 70;
-  const bottom = H - 70;
+  const left = FIELD.left;
+  const right = FIELD.right;
+  const top = FIELD.top;
+  const bottom = FIELD.bottom;
   const pw = right - left;
   const ph = bottom - top;
+
+  const X = p => left + pw * p;
+  const Y = p => top + ph * p;
 
   ctx.strokeStyle = "#fff";
   ctx.lineWidth = 7;
   ctx.strokeRect(left, top, pw, ph);
 
-  const X = pct => left + pw * pct;
-  const Y = pct => top + ph * pct;
-
   ctx.strokeStyle = "#fff";
   ctx.lineWidth = 5;
 
-  ctx.beginPath(); ctx.moveTo(X(0.06), top); ctx.lineTo(X(0.06), bottom); ctx.stroke();
-  ctx.beginPath(); ctx.moveTo(X(0.94), top); ctx.lineTo(X(0.94), bottom); ctx.stroke();
+  [0.06, 0.94].forEach(p => {
+    ctx.beginPath();
+    ctx.moveTo(X(p), top);
+    ctx.lineTo(X(p), bottom);
+    ctx.stroke();
+  });
 
   ctx.setLineDash([16, 14]);
-  ctx.beginPath(); ctx.moveTo(X(0.10), top); ctx.lineTo(X(0.10), bottom); ctx.stroke();
-  ctx.beginPath(); ctx.moveTo(X(0.90), top); ctx.lineTo(X(0.90), bottom); ctx.stroke();
+  [0.10, 0.90].forEach(p => {
+    ctx.beginPath();
+    ctx.moveTo(X(p), top);
+    ctx.lineTo(X(p), bottom);
+    ctx.stroke();
+  });
 
   ctx.setLineDash([]);
   ctx.lineWidth = 6;
-  ctx.beginPath(); ctx.moveTo(X(0.26), top); ctx.lineTo(X(0.26), bottom); ctx.stroke();
-  ctx.beginPath(); ctx.moveTo(X(0.74), top); ctx.lineTo(X(0.74), bottom); ctx.stroke();
+
+  [0.26, 0.74].forEach(p => {
+    ctx.beginPath();
+    ctx.moveTo(X(p), top);
+    ctx.lineTo(X(p), bottom);
+    ctx.stroke();
+  });
 
   ctx.setLineDash([20, 16]);
   ctx.lineWidth = 4;
-  ctx.beginPath(); ctx.moveTo(X(0.40), top); ctx.lineTo(X(0.40), bottom); ctx.stroke();
-  ctx.beginPath(); ctx.moveTo(X(0.60), top); ctx.lineTo(X(0.60), bottom); ctx.stroke();
+
+  [0.40, 0.60].forEach(p => {
+    ctx.beginPath();
+    ctx.moveTo(X(p), top);
+    ctx.lineTo(X(p), bottom);
+    ctx.stroke();
+  });
 
   ctx.setLineDash([]);
+
   ctx.lineWidth = 6;
-  ctx.beginPath(); ctx.moveTo(X(0.50), top); ctx.lineTo(X(0.50), bottom); ctx.stroke();
+  ctx.beginPath();
+  ctx.moveTo(X(0.50), top);
+  ctx.lineTo(X(0.50), bottom);
+  ctx.stroke();
 
   ctx.setLineDash([18, 16]);
   ctx.lineWidth = 4;
-  ctx.beginPath(); ctx.moveTo(left, Y(0.08)); ctx.lineTo(right, Y(0.08)); ctx.stroke();
-  ctx.beginPath(); ctx.moveTo(left, Y(0.92)); ctx.lineTo(right, Y(0.92)); ctx.stroke();
-  ctx.beginPath(); ctx.moveTo(left, Y(0.23)); ctx.lineTo(right, Y(0.23)); ctx.stroke();
-  ctx.beginPath(); ctx.moveTo(left, Y(0.77)); ctx.lineTo(right, Y(0.77)); ctx.stroke();
+
+  [0.08, 0.23, 0.77, 0.92].forEach(p => {
+    ctx.beginPath();
+    ctx.moveTo(left, Y(p));
+    ctx.lineTo(right, Y(p));
+    ctx.stroke();
+  });
+
   ctx.setLineDash([]);
 
   ctx.save();
@@ -99,9 +132,16 @@ function drawPitch() {
   ctx.shadowOffsetX = 3;
   ctx.shadowOffsetY = 3;
 
-  [["5m", 0.10], ["22m", 0.26], ["40m", 0.40], ["50m", 0.50], ["40m", 0.60], ["22m", 0.74], ["5m", 0.90]].forEach(([label, p]) => {
-    ctx.fillText(label, X(p), top - 14);
-    ctx.fillText(label, X(p), bottom + 32);
+  [
+    ["5m", 0.10],
+    ["22m", 0.26],
+    ["40m", 0.40],
+    ["50m", 0.50],
+    ["40m", 0.60],
+    ["22m", 0.74],
+    ["5m", 0.90]
+  ].forEach(([label, p]) => {
+    ctx.fillText(label, X(p), bottom + 30);
   });
 
   ctx.textAlign = "left";
@@ -115,6 +155,7 @@ function drawPitch() {
   ctx.fillText("15m", right - 8, Y(0.23) - 8);
   ctx.fillText("15m", right - 8, Y(0.77) - 8);
   ctx.fillText("5m", right - 8, Y(0.92) - 8);
+
   ctx.restore();
 
   ctx.fillStyle = "#d71920";
@@ -254,26 +295,29 @@ function drawPlayer(p, highlight = false, ghost = false) {
 }
 
 function drawFooter() {
-  ctx.fillStyle = "rgba(0,0,0,0.38)";
-  ctx.fillRect(0, H - 82, W, 82);
+  const footerTop = H - 92;
+
+  ctx.fillStyle = "rgba(0,0,0,0.42)";
+  ctx.fillRect(0, footerTop, W, 92);
 
   if (!selectedPlay) {
-    pixelText("LOAD A PLAY TO BEGIN", W / 2, H - 48, 24, "center", "#ffd700");
-    pixelText("Choose a saved play from Play Builder, then scan QR codes for controllers", W / 2, H - 24, 14, "center", "#fff");
+    pixelText("LOAD A PLAY TO BEGIN", W / 2, footerTop + 34, 24, "center", "#ffd700");
+    pixelText("Choose a saved play from Play Builder, then scan QR codes for controllers", W / 2, footerTop + 70, 14, "center", "#fff");
     return;
   }
 
   const status = simRunning ? "REP LIVE" : "READY";
+
   pixelText(
     `${status} | PLAYER ${selectedPlayer} | SPEED ${simSpeedMultiplier}x | SHADOW ${shadowGuideOn ? "ON" : "OFF"}`,
     W / 2,
-    H - 48,
+    footerTop + 34,
     22,
     "center",
     "#ffd700"
   );
 
-  pixelText(selectedPlay.name || "Loaded Play", W / 2, H - 24, 14, "center", "#fff");
+  pixelText(selectedPlay.name || "Loaded Play", W / 2, footerTop + 70, 14, "center", "#fff");
 }
 
 function drawCountdown() {
@@ -603,8 +647,8 @@ socket.on("sim-player-move", data => {
   player.x += Number(data.dx || 0) * PLAYER_SPEED;
   player.y += Number(data.dy || 0) * PLAYER_SPEED;
 
-  player.x = Math.max(40, Math.min(W - 40, player.x));
-  player.y = Math.max(70, Math.min(H - 70, player.y));
+  player.x = Math.max(FIELD.left + 22, Math.min(FIELD.right - 22, player.x));
+  player.y = Math.max(FIELD.top + 24, Math.min(FIELD.bottom - 24, player.y));
 
   draw();
 });
