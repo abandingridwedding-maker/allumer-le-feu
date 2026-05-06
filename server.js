@@ -2,477 +2,361 @@ const express = require("express");
 const http = require("http");
 const { Server } = require("socket.io");
 const QRCode = require("qrcode");
-const path = require("path");
 
 const app = express();
 const server = http.createServer(app);
 const io = new Server(server);
 
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 10000;
 
 app.use(express.static(__dirname));
-app.use(express.static(path.join(__dirname, "public")));
 
-app.get("/", (req, res) => {
-  res.sendFile(path.join(__dirname, "index.html"));
-});
+const COLORS = {
+  red: "#d71920",
+  white: "#ffffff",
+  black: "#111111",
+  blue: "#1f6feb"
+};
 
-const FIELD_W = 1400;
-const FIELD_H = 820;
-
-const TOP_TOUCH = 70;
-const BOTTOM_TOUCH = FIELD_H - 70;
-const TOP_5M = 125;
-const TOP_15M = 220;
-const BOTTOM_15M = FIELD_H - 220;
-const BOTTOM_5M = FIELD_H - 125;
-
-let currentTeamColor = "#d71920";
-let currentDirection = "rtl";
-let currentSportMode = "rugby";
-
-function clamp(value, min, max) {
-  return Math.max(min, Math.min(max, value));
-}
-
-const controllers = {};
-
-function defaultPlayers() {
+function createInitialPlayers() {
   const players = {};
 
   for (let i = 1; i <= 15; i++) {
     players[i] = {
-      id: i,
       number: i,
-      x: 700,
-      y: 410,
-      vx: 0,
-      vy: 0,
-      connected: false,
-      frozen: false,
-      color: currentTeamColor,
-      name: `Player ${i}`
+      x: 250 + (i % 5) * 90,
+      y: 180 + Math.floor(i / 5) * 90,
+      color: COLORS.red,
+      connected: false
     };
-  }
-
-  for (const playerNumber of Object.values(controllers)) {
-    if (players[playerNumber]) {
-      players[playerNumber].connected = true;
-    }
   }
 
   return players;
 }
 
-let game = {
-  players: defaultPlayers(),
-  ball: {
-    x: 700,
-    y: 410,
-    targetX: 700,
-    targetY: 410,
-    carrier: null
-  },
+let state = {
+  players: createInitialPlayers(),
+  ball: { x: 820, y: 430, attachedTo: null },
   frozen: false,
-  speed: 4.2,
-  showGrid: false,
-  teamColor: currentTeamColor,
-  direction: currentDirection,
-  sportMode: currentSportMode,
-  message: "TEAM-CLARITY"
+  speed: 5,
+  sportMode: "rugby",
+  attackDirection: "rtl",
+  teamColor: "red"
 };
 
+let simulatorState = {
+  connectedPlayers: {},
+  active: false
+};
+
+function emitState() {
+  io.emit("state", state);
+}
+
+function resetState() {
+  state.players = createInitialPlayers();
+  state.ball = { x: 820, y: 430, attachedTo: null };
+  state.frozen = false;
+  emitState();
+}
+
+function setAllTeamColors(colorName) {
+  const color = COLORS[colorName] || COLORS.red;
+
+  Object.values(state.players).forEach(player => {
+    player.color = color;
+  });
+
+  state.teamColor = colorName;
+  emitState();
+}
+
+function movePlayer(number, x, y) {
+  const player = state.players[number];
+  if (!player) return;
+
+  player.x = x;
+  player.y = y;
+
+  if (state.ball.attachedTo === number) {
+    state.ball.x = x + 30;
+    state.ball.y = y - 20;
+  }
+
+  emitState();
+}
+
+function moveBall(x, y) {
+  state.ball.x = x;
+  state.ball.y = y;
+  state.ball.attachedTo = null;
+  emitState();
+}
+
+function setLineout({ side, x, y, direction }) {
+  const dir = direction || state.attackDirection;
+  const baseX = x || 650;
+  const baseY = side === "bottom" ? 650 : 210;
+  const spacing = side === "bottom" ? -38 : 38;
+
+  [1, 3, 4, 5, 6, 7, 8].forEach((num, i) => {
+    state.players[num].x = baseX;
+    state.players[num].y = baseY + i * spacing;
+  });
+
+  state.players[2].x = baseX - 80;
+  state.players[2].y = baseY - spacing;
+
+  state.players[9].x = baseX + 70;
+  state.players[9].y = baseY + spacing * 5;
+
+  if (dir === "rtl") {
+    state.players[10].x = baseX - 130;
+    state.players[12].x = baseX - 180;
+    state.players[13].x = baseX - 250;
+    state.players[11].x = baseX - 120;
+    state.players[15].x = baseX - 360;
+    state.players[14].x = baseX - 470;
+  } else {
+    state.players[10].x = baseX + 130;
+    state.players[12].x = baseX + 180;
+    state.players[13].x = baseX + 250;
+    state.players[11].x = baseX + 120;
+    state.players[15].x = baseX + 360;
+    state.players[14].x = baseX + 470;
+  }
+
+  state.players[10].y = baseY + spacing * 4;
+  state.players[12].y = baseY + spacing * 5;
+  state.players[13].y = baseY + spacing * 6;
+  state.players[11].y = baseY + spacing * 2;
+  state.players[15].y = baseY + spacing * 7;
+  state.players[14].y = baseY + spacing * 8;
+
+  state.ball.x = baseX + 40;
+  state.ball.y = baseY;
+  state.ball.attachedTo = null;
+
+  emitState();
+}
+
+function setScrum({ x, y, direction }) {
+  const dir = direction || state.attackDirection;
+  const baseX = x || 760;
+  const baseY = y || 450;
+  const sign = dir === "rtl" ? 1 : -1;
+
+  state.players[1].x = baseX - 45; state.players[1].y = baseY;
+  state.players[2].x = baseX; state.players[2].y = baseY;
+  state.players[3].x = baseX + 45; state.players[3].y = baseY;
+  state.players[4].x = baseX - 25; state.players[4].y = baseY + 45;
+  state.players[5].x = baseX + 25; state.players[5].y = baseY + 45;
+  state.players[6].x = baseX - 70; state.players[6].y = baseY + 85;
+  state.players[7].x = baseX + 70; state.players[7].y = baseY + 85;
+  state.players[8].x = baseX; state.players[8].y = baseY + 115;
+
+  state.players[9].x = baseX + sign * 130; state.players[9].y = baseY + 80;
+  state.players[10].x = baseX + sign * 240; state.players[10].y = baseY + 35;
+  state.players[12].x = baseX + sign * 340; state.players[12].y = baseY + 80;
+  state.players[13].x = baseX + sign * 460; state.players[13].y = baseY + 135;
+  state.players[11].x = baseX + sign * 250; state.players[11].y = baseY - 110;
+  state.players[14].x = baseX + sign * 620; state.players[14].y = baseY + 230;
+  state.players[15].x = baseX + sign * 520; state.players[15].y = baseY + 180;
+
+  state.ball.x = state.players[9].x + sign * 30;
+  state.ball.y = state.players[9].y;
+  state.ball.attachedTo = null;
+
+  emitState();
+}
+
 app.get("/api/qrs", async (req, res) => {
-  const host = req.get("host");
-  const protocol = req.headers["x-forwarded-proto"] || req.protocol;
-  const baseUrl = `${protocol}://${host}`;
+  const baseUrl = `${req.protocol}://${req.get("host")}`;
   const qrs = {};
 
   for (let i = 1; i <= 15; i++) {
-    const url = `${baseUrl}/controller.html?p=${i}`;
-    qrs[i] = await QRCode.toDataURL(url);
+    qrs[i] = await QRCode.toDataURL(`${baseUrl}/controller.html?p=${i}`);
   }
 
   res.json({ baseUrl, qrs });
 });
 
-function stopAllPlayers() {
-  for (const p of Object.values(game.players)) {
-    p.vx = 0;
-    p.vy = 0;
-  }
-}
+app.get("/api/sim-qrs", async (req, res) => {
+  const baseUrl = `${req.protocol}://${req.get("host")}`;
+  const qrs = {};
 
-function setPlayer(number, x, y) {
-  if (!game.players[number]) return;
-
-  game.players[number].x = clamp(x, 35, FIELD_W - 35);
-  game.players[number].y = clamp(y, 35, FIELD_H - 35);
-  game.players[number].vx = 0;
-  game.players[number].vy = 0;
-}
-
-function setBall(x, y) {
-  const safeX = clamp(Number(x), 35, FIELD_W - 35);
-  const safeY = clamp(Number(y), 35, FIELD_H - 35);
-
-  game.ball.x = safeX;
-  game.ball.y = safeY;
-  game.ball.targetX = safeX;
-  game.ball.targetY = safeY;
-  game.ball.carrier = null;
-}
-
-function moveBallTo(x, y) {
-  game.ball.targetX = clamp(Number(x), 35, FIELD_W - 35);
-  game.ball.targetY = clamp(Number(y), 35, FIELD_H - 35);
-  game.ball.carrier = null;
-}
-
-function applyTeamColor(color) {
-  currentTeamColor = color;
-  game.teamColor = color;
-
-  for (const p of Object.values(game.players)) {
-    p.color = color;
-  }
-}
-
-function setAttackDirection(direction) {
-  currentDirection = direction === "ltr" ? "ltr" : "rtl";
-  game.direction = currentDirection;
-}
-
-function setupFootballDefault() {
-  stopAllPlayers();
-
-  currentSportMode = "football";
-  game.sportMode = "football";
-
-  setPlayer(1, 170, FIELD_H / 2);
-
-  setPlayer(2, 360, 190);
-  setPlayer(3, 330, 330);
-  setPlayer(4, 330, 490);
-  setPlayer(5, 360, 630);
-
-  setPlayer(6, 570, 300);
-  setPlayer(8, 570, 520);
-  setPlayer(10, 720, FIELD_H / 2);
-
-  setPlayer(7, 900, 230);
-  setPlayer(9, 1010, FIELD_H / 2);
-  setPlayer(11, 900, 590);
-
-  for (let i = 12; i <= 15; i++) {
-    setPlayer(i, -100, -100);
+  for (let i = 1; i <= 15; i++) {
+    qrs[i] = await QRCode.toDataURL(`${baseUrl}/simcontroller.html?p=${i}`);
   }
 
-  setBall(720, FIELD_H / 2);
-
-  game.message = "FOOTBALL MODE";
-}
-
-function setupLineout(side, rawX, direction = currentDirection) {
-  stopAllPlayers();
-
-  currentSportMode = "rugby";
-  game.sportMode = "rugby";
-
-  setAttackDirection(direction);
-
-  const isRTL = currentDirection === "rtl";
-  const isTop = side === "top";
-
-  const x = isRTL
-    ? clamp(rawX, 360, FIELD_W - 520)
-    : clamp(rawX, 520, FIELD_W - 360);
-
-  const touchY = isTop ? TOP_TOUCH : BOTTOM_TOUCH;
-  const lineoutYStart = isTop ? TOP_5M + 8 : BOTTOM_5M - 8;
-  const lineoutStep = isTop ? 14 : -14;
-
-  setBall(x, touchY);
-
-  setPlayer(2, x, touchY);
-
-  const forwards = [3, 1, 4, 5, 6, 7, 8];
-
-  forwards.forEach((num, idx) => {
-    setPlayer(num, x, lineoutYStart + idx * lineoutStep);
-  });
-
-  const dir = isRTL ? 1 : -1;
-
-  setPlayer(9, x + dir * 90, isTop ? TOP_15M + 35 : BOTTOM_15M - 35);
-
-  setPlayer(10, x + dir * 185, isTop ? TOP_15M + 25 : BOTTOM_15M - 25);
-  setPlayer(12, x + dir * 320, isTop ? TOP_15M + 95 : BOTTOM_15M - 95);
-  setPlayer(13, x + dir * 455, isTop ? TOP_15M + 165 : BOTTOM_15M - 165);
-  setPlayer(15, x + dir * 590, isTop ? TOP_15M + 235 : BOTTOM_15M - 235);
-  setPlayer(14, x + dir * 720, isTop ? BOTTOM_5M - 15 : TOP_5M + 15);
-
-  setPlayer(11, x + dir * 160, isTop ? TOP_5M + 25 : BOTTOM_5M - 25);
-
-  game.message = isRTL
-    ? "LINEOUT RIGHT TO LEFT"
-    : "LINEOUT LEFT TO RIGHT";
-
-  io.emit("state", game);
-}
-
-function setupScrum(rawX, rawY, direction = currentDirection) {
-  stopAllPlayers();
-
-  currentSportMode = "rugby";
-  game.sportMode = "rugby";
-
-  setAttackDirection(direction);
-
-  const isRTL = currentDirection === "rtl";
-
-  const x = isRTL
-    ? clamp(rawX, 360, FIELD_W - 520)
-    : clamp(rawX, 520, FIELD_W - 360);
-
-  const y = clamp(rawY, 235, FIELD_H - 235);
-
-  setBall(x, y);
-
-  if (isRTL) {
-    setPlayer(3, x, y - 45);
-    setPlayer(2, x, y);
-    setPlayer(1, x, y + 45);
-
-    setPlayer(5, x + 45, y - 25);
-    setPlayer(4, x + 45, y + 25);
-
-    setPlayer(6, x + 90, y - 55);
-    setPlayer(7, x + 90, y + 55);
-    setPlayer(8, x + 115, y);
-
-    setPlayer(9, x + 165, y + 35);
-
-    setPlayer(10, x + 245, y - 75);
-    setPlayer(12, x + 365, TOP_15M + 15);
-    setPlayer(13, x + 500, TOP_5M + 15);
-    setPlayer(15, x + 365, BOTTOM_15M - 15);
-    setPlayer(14, x + 500, BOTTOM_5M - 15);
-    setPlayer(11, x + 240, y + 100);
-  } else {
-    setPlayer(1, x, y - 45);
-    setPlayer(2, x, y);
-    setPlayer(3, x, y + 45);
-
-    setPlayer(4, x - 45, y - 25);
-    setPlayer(5, x - 45, y + 25);
-
-    setPlayer(6, x - 90, y - 55);
-    setPlayer(7, x - 90, y + 55);
-    setPlayer(8, x - 115, y);
-
-    setPlayer(9, x - 165, y + 35);
-
-    setPlayer(10, x - 245, y - 75);
-    setPlayer(12, x - 365, TOP_15M + 15);
-    setPlayer(13, x - 500, TOP_5M + 15);
-    setPlayer(15, x - 365, BOTTOM_15M - 15);
-    setPlayer(14, x - 500, BOTTOM_5M - 15);
-    setPlayer(11, x - 240, y + 100);
-  }
-
-  game.message = isRTL ? "SCRUM RIGHT TO LEFT" : "SCRUM LEFT TO RIGHT";
-
-  io.emit("state", game);
-}
-
-setupLineout("top", 620, "rtl");
+  res.json({ baseUrl, qrs });
+});
 
 io.on("connection", socket => {
-  socket.emit("state", game);
+  socket.emit("state", state);
 
-  socket.on("join-player", number => {
-    number = Number(number);
+  socket.on("coach-reset", resetState);
 
-    if (!game.players[number]) return;
-
-    controllers[socket.id] = number;
-    game.players[number].connected = true;
-
-    io.emit("state", game);
+  socket.on("coach-freeze", frozen => {
+    state.frozen = frozen;
+    emitState();
   });
 
-  socket.on("move", data => {
-    const number = controllers[socket.id];
-
-    if (!number || !game.players[number]) return;
-
-    const p = game.players[number];
-
-    p.vx = Math.max(-1, Math.min(1, Number(data.x) || 0));
-    p.vy = Math.max(-1, Math.min(1, Number(data.y) || 0));
+  socket.on("coach-speed", speed => {
+    state.speed = Number(speed);
+    emitState();
   });
 
-  socket.on("coach-ball", data => {
-    moveBallTo(data.x, data.y);
-    io.emit("state", game);
+  socket.on("coach-sport-mode", mode => {
+    state.sportMode = mode;
+    emitState();
+  });
+
+  socket.on("coach-attack-direction", direction => {
+    state.attackDirection = direction;
+    emitState();
+  });
+
+  socket.on("coach-team-color", colorName => {
+    setAllTeamColors(colorName);
   });
 
   socket.on("coach-move-player", data => {
-    const number = Number(data.number);
+    if (!data) return;
+    movePlayer(Number(data.number), Number(data.x), Number(data.y));
+  });
 
-    if (!game.players[number]) return;
-
-    game.players[number].x = clamp(Number(data.x), 35, FIELD_W - 35);
-    game.players[number].y = clamp(Number(data.y), 35, FIELD_H - 35);
-    game.players[number].vx = 0;
-    game.players[number].vy = 0;
-
-    if (game.ball.carrier === number) {
-      game.ball.x = game.players[number].x + 30;
-      game.ball.y = game.players[number].y + 5;
-      game.ball.targetX = game.ball.x;
-      game.ball.targetY = game.ball.y;
-    }
-
-    io.emit("state", game);
+  socket.on("coach-ball", data => {
+    if (!data) return;
+    moveBall(Number(data.x), Number(data.y));
   });
 
   socket.on("coach-attach-ball", number => {
     number = Number(number);
+    const player = state.players[number];
+    if (!player) return;
 
-    if (game.players[number]) {
-      game.ball.carrier = number;
-      game.ball.x = game.players[number].x + 30;
-      game.ball.y = game.players[number].y + 5;
-      game.ball.targetX = game.ball.x;
-      game.ball.targetY = game.ball.y;
-    }
-
-    io.emit("state", game);
+    state.ball.attachedTo = number;
+    state.ball.x = player.x + 30;
+    state.ball.y = player.y - 20;
+    emitState();
   });
 
   socket.on("coach-setpiece", data => {
-    if (!data || !data.type) return;
+    if (!data) return;
 
     if (data.type === "lineout") {
-      setupLineout(data.side, Number(data.x), data.direction);
+      setLineout(data);
     }
 
     if (data.type === "scrum") {
-      setupScrum(Number(data.x), Number(data.y), data.direction);
+      setScrum(data);
     }
   });
 
-  socket.on("coach-sport-mode", mode => {
-    currentSportMode = mode === "football" ? "football" : "rugby";
-    game.sportMode = currentSportMode;
+  socket.on("player-join", number => {
+    number = Number(number);
+    if (state.players[number]) {
+      state.players[number].connected = true;
+      emitState();
+    }
+  });
 
-    if (currentSportMode === "football") {
-      setupFootballDefault();
+  socket.on("controller-join", number => {
+    number = Number(number);
+    if (state.players[number]) {
+      state.players[number].connected = true;
+      emitState();
+    }
+  });
+
+  socket.on("join-player", number => {
+    number = Number(number);
+    if (state.players[number]) {
+      state.players[number].connected = true;
+      emitState();
+    }
+  });
+
+  socket.on("player-move", data => {
+    if (!data) return;
+
+    const number = Number(data.number);
+    const player = state.players[number];
+
+    if (!player || state.frozen) return;
+
+    const speed = state.speed || 5;
+
+    if (typeof data.x === "number" && typeof data.y === "number") {
+      player.x = data.x;
+      player.y = data.y;
     } else {
-      setupLineout("top", 620, currentDirection);
+      player.x += Number(data.dx || 0) * speed;
+      player.y += Number(data.dy || 0) * speed;
     }
 
-    io.emit("state", game);
-  });
-
-  socket.on("coach-attack-direction", direction => {
-    setAttackDirection(direction);
-    io.emit("state", game);
-  });
-
-  socket.on("coach-team-color", color => {
-    applyTeamColor(color);
-    io.emit("state", game);
-  });
-
-  socket.on("coach-reset", () => {
-    game.players = defaultPlayers();
-    applyTeamColor(currentTeamColor);
-
-    for (const playerNumber of Object.values(controllers)) {
-      if (game.players[playerNumber]) {
-        game.players[playerNumber].connected = true;
-      }
+    if (state.ball.attachedTo === number) {
+      state.ball.x = player.x + 30;
+      state.ball.y = player.y - 20;
     }
 
-    game.frozen = false;
+    emitState();
+  });
 
-    if (currentSportMode === "football") {
-      setupFootballDefault();
-    } else {
-      setupLineout("top", 620, currentDirection);
+  socket.on("player-disconnect-number", number => {
+    number = Number(number);
+    if (state.players[number]) {
+      state.players[number].connected = false;
+      emitState();
     }
-
-    io.emit("state", game);
   });
 
-  socket.on("coach-freeze", value => {
-    game.frozen = !!value;
-    io.emit("state", game);
+  // ================================
+  // PLAYER SIMULATOR SOCKETS
+  // ================================
+
+  socket.on("sim-player-join", number => {
+    number = Number(number);
+
+    simulatorState.connectedPlayers[number] = true;
+
+    io.emit("sim-player-connected", {
+      number,
+      connected: true
+    });
   });
 
-  socket.on("coach-speed", value => {
-    game.speed = Math.max(1, Math.min(9, Number(value) || 4.2));
-    io.emit("state", game);
+  socket.on("sim-player-move", data => {
+    if (!data) return;
+
+    io.emit("sim-player-move", {
+      number: Number(data.number),
+      dx: Number(data.dx || 0),
+      dy: Number(data.dy || 0),
+      x: typeof data.x === "number" ? data.x : null,
+      y: typeof data.y === "number" ? data.y : null
+    });
+  });
+
+  socket.on("sim-player-timing", data => {
+    if (!data) return;
+
+    io.emit("sim-player-timing", {
+      number: Number(data.number)
+    });
+  });
+
+  socket.on("sim-reset", () => {
+    simulatorState.connectedPlayers = {};
+    io.emit("sim-reset");
   });
 
   socket.on("disconnect", () => {
-    const number = controllers[socket.id];
-
-    delete controllers[socket.id];
-
-    if (number && game.players[number]) {
-      game.players[number].connected = false;
-      game.players[number].vx = 0;
-      game.players[number].vy = 0;
-    }
-
-    io.emit("state", game);
+    // Live player disconnect is not forced here because phones can refresh/reconnect.
   });
 });
 
-setInterval(() => {
-  if (!game.frozen) {
-    for (const p of Object.values(game.players)) {
-      const len = Math.hypot(p.vx, p.vy);
-
-      if (len > 0.05) {
-        p.x += (p.vx / len) * game.speed;
-        p.y += (p.vy / len) * game.speed;
-
-        p.x = clamp(p.x, 35, FIELD_W - 35);
-        p.y = clamp(p.y, 35, FIELD_H - 35);
-      }
-    }
-
-    if (game.ball.carrier && game.players[game.ball.carrier]) {
-      const c = game.players[game.ball.carrier];
-
-      game.ball.x = c.x + 30;
-      game.ball.y = c.y + 5;
-      game.ball.targetX = game.ball.x;
-      game.ball.targetY = game.ball.y;
-    } else if (game.ball.targetX !== undefined && game.ball.targetY !== undefined) {
-      const dx = game.ball.targetX - game.ball.x;
-      const dy = game.ball.targetY - game.ball.y;
-      const dist = Math.hypot(dx, dy);
-
-      if (dist > 2) {
-        const ballSpeed = 18;
-        game.ball.x += (dx / dist) * Math.min(ballSpeed, dist);
-        game.ball.y += (dy / dist) * Math.min(ballSpeed, dist);
-      } else {
-        game.ball.x = game.ball.targetX;
-        game.ball.y = game.ball.targetY;
-      }
-    }
-  }
-
-  io.emit("state", game);
-}, 1000 / 30);
-
-server.listen(PORT, "0.0.0.0", () => {
-  console.log("🔥 TEAM-CLARITY is running on port " + PORT);
+server.listen(PORT, () => {
+  console.log(`🔥 TEAM-CLARITY is running on port ${PORT}`);
 });
