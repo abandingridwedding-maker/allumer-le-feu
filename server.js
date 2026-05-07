@@ -5,46 +5,67 @@ const { Server } = require("socket.io");
 
 const app = express();
 const server = http.createServer(app);
+
 const io = new Server(server, {
-  cors: { origin: "*" }
+  cors: {
+    origin: "*"
+  }
 });
 
 const PORT = process.env.PORT || 3000;
 
-app.use(express.static(path.join(__dirname, "public")));
-app.use(express.json());
+/* =========================================
+   STATIC FILES
+========================================= */
+
+app.use(express.static(__dirname));
+
+/* =========================================
+   SESSION STORAGE
+========================================= */
 
 const sessions = new Map();
+
+/* =========================================
+   HELPERS
+========================================= */
 
 function createSessionId() {
   return Math.random().toString(36).substring(2, 8).toUpperCase();
 }
 
+function clamp(value, min, max) {
+  return Math.min(max, Math.max(min, value));
+}
+
 function createDefaultSession(sessionId) {
   return {
     id: sessionId,
-    createdAt: Date.now(),
-    updatedAt: Date.now(),
-    coachSocketId: null,
+
     frozen: false,
-    mode: "rugby",
+
     layout: "lineout",
+
     attackDirection: "right-to-left",
+
     playerSize: "large",
+
     teamColor: "red",
+
     players: {},
+
     ball: {
       x: 72,
       y: 50,
       holder: null,
       visible: true
     },
+
     simulator: {
       active: false,
       currentPlay: null,
-      currentTime: 0,
       isPlaying: false,
-      score: null
+      currentTime: 0
     }
   };
 }
@@ -63,7 +84,6 @@ function publicSession(session) {
   return {
     id: session.id,
     frozen: session.frozen,
-    mode: session.mode,
     layout: session.layout,
     attackDirection: session.attackDirection,
     playerSize: session.playerSize,
@@ -74,110 +94,162 @@ function publicSession(session) {
   };
 }
 
-function updateSession(session) {
-  session.updatedAt = Date.now();
+function broadcastSession(session) {
   io.to(session.id).emit("session:update", publicSession(session));
 }
+
+/* =========================================
+   DEFAULT RUGBY SHAPES
+========================================= */
 
 function applyLayout(session, layout) {
   session.layout = layout;
 
-  const rightToLeft = session.attackDirection === "right-to-left";
+  const rtl = session.attackDirection === "right-to-left";
 
-  const lineoutPlayers = {
-    1: { x: 78, y: 14 },
-    2: { x: 78, y: 10 },
-    3: { x: 78, y: 18 },
-    4: { x: 72, y: 12 },
-    5: { x: 68, y: 16 },
-    6: { x: 64, y: 20 },
-    7: { x: 60, y: 12 },
-    8: { x: 56, y: 16 },
-    9: { x: 70, y: 25 },
-    10: { x: 63, y: 35 },
-    11: { x: 43, y: 72 },
-    12: { x: 55, y: 45 },
-    13: { x: 48, y: 55 },
-    14: { x: 32, y: 82 },
-    15: { x: 42, y: 36 }
-  };
+  let basePlayers = {};
 
-  const scrumPlayers = {
-    1: { x: 72, y: 45 },
-    2: { x: 72, y: 50 },
-    3: { x: 72, y: 55 },
-    4: { x: 76, y: 47 },
-    5: { x: 76, y: 53 },
-    6: { x: 80, y: 44 },
-    7: { x: 80, y: 56 },
-    8: { x: 82, y: 50 },
-    9: { x: 86, y: 50 },
-    10: { x: 67, y: 42 },
-    11: { x: 38, y: 18 },
-    12: { x: 58, y: 48 },
-    13: { x: 49, y: 55 },
-    14: { x: 30, y: 82 },
-    15: { x: 43, y: 38 }
-  };
+  if (layout === "scrum") {
+    basePlayers = {
+      1: { x: 72, y: 45 },
+      2: { x: 72, y: 50 },
+      3: { x: 72, y: 55 },
 
-  const shape = layout === "scrum" ? scrumPlayers : lineoutPlayers;
+      4: { x: 76, y: 47 },
+      5: { x: 76, y: 53 },
+
+      6: { x: 80, y: 44 },
+      7: { x: 80, y: 56 },
+      8: { x: 82, y: 50 },
+
+      9: { x: 86, y: 50 },
+
+      10: { x: 66, y: 40 },
+
+      11: { x: 35, y: 15 },
+      12: { x: 54, y: 45 },
+      13: { x: 46, y: 55 },
+      14: { x: 28, y: 85 },
+      15: { x: 42, y: 38 }
+    };
+  } else {
+    basePlayers = {
+      1: { x: 78, y: 14 },
+      2: { x: 78, y: 10 },
+      3: { x: 78, y: 18 },
+
+      4: { x: 72, y: 12 },
+      5: { x: 68, y: 16 },
+
+      6: { x: 64, y: 20 },
+      7: { x: 60, y: 12 },
+      8: { x: 56, y: 16 },
+
+      9: { x: 70, y: 25 },
+
+      10: { x: 63, y: 35 },
+
+      11: { x: 43, y: 72 },
+      12: { x: 55, y: 45 },
+      13: { x: 48, y: 55 },
+      14: { x: 32, y: 82 },
+      15: { x: 42, y: 36 }
+    };
+  }
 
   for (let i = 1; i <= 15; i++) {
     const existing = session.players[i] || {};
-    const base = shape[i];
+    const base = basePlayers[i];
 
     session.players[i] = {
       id: String(i),
       number: i,
       role: String(i),
+
       connected: existing.connected || false,
+
       socketId: existing.socketId || null,
+
       controllerId: existing.controllerId || null,
-      color: existing.color || session.teamColor,
-      x: rightToLeft ? base.x : 100 - base.x,
+
+      color: session.teamColor,
+
+      x: rtl ? base.x : 100 - base.x,
+
       y: base.y
     };
   }
-
-  session.ball = {
-    x: rightToLeft ? 76 : 24,
-    y: layout === "scrum" ? 50 : 14,
-    holder: layout === "scrum" ? "9" : "2",
-    visible: true
-  };
 }
 
+/* =========================================
+   SOCKET.IO
+========================================= */
+
 io.on("connection", (socket) => {
-  console.log("Connected:", socket.id);
+
+  console.log("CONNECTED:", socket.id);
+
+  /* =========================
+     CREATE SESSION
+  ========================= */
 
   socket.on("coach:createSession", () => {
+
     const sessionId = createSessionId();
+
     const session = getOrCreateSession(sessionId);
 
     session.coachSocketId = socket.id;
+
     applyLayout(session, session.layout);
 
-    socket.join(sessionId);
+    socket.join(session.id);
 
-    socket.emit("coach:sessionCreated", publicSession(session));
-    updateSession(session);
+    socket.emit(
+      "coach:sessionCreated",
+      publicSession(session)
+    );
+
+    broadcastSession(session);
   });
 
+  /* =========================
+     JOIN SESSION
+  ========================= */
+
   socket.on("coach:joinSession", ({ sessionId }) => {
+
     const session = getOrCreateSession(sessionId);
 
     session.coachSocketId = socket.id;
+
     socket.join(session.id);
 
-    socket.emit("coach:sessionJoined", publicSession(session));
-    updateSession(session);
+    socket.emit(
+      "coach:sessionJoined",
+      publicSession(session)
+    );
+
+    broadcastSession(session);
   });
 
-  socket.on("player:joinSession", ({ sessionId, playerNumber, controllerId }) => {
+  /* =========================
+     PLAYER JOIN
+  ========================= */
+
+  socket.on("player:joinSession", (data) => {
+
+    const {
+      sessionId,
+      playerNumber,
+      controllerId
+    } = data;
+
     const session = getOrCreateSession(sessionId);
-    const number = String(playerNumber);
 
     socket.join(session.id);
+
+    const number = String(playerNumber);
 
     if (!session.players[number]) {
       session.players[number] = {
@@ -185,21 +257,20 @@ io.on("connection", (socket) => {
         number: Number(number),
         role: number,
         x: 50,
-        y: 50,
-        color: session.teamColor
+        y: 50
       };
     }
 
-    session.players[number] = {
-      ...session.players[number],
-      connected: true,
-      socketId: socket.id,
-      controllerId: controllerId || socket.id
-    };
+    session.players[number].connected = true;
+
+    session.players[number].socketId = socket.id;
+
+    session.players[number].controllerId =
+      controllerId || socket.id;
 
     socket.data.sessionId = session.id;
+
     socket.data.playerNumber = number;
-    socket.data.controllerId = controllerId || socket.id;
 
     socket.emit("player:joined", {
       sessionId: session.id,
@@ -207,188 +278,194 @@ io.on("connection", (socket) => {
       session: publicSession(session)
     });
 
-    updateSession(session);
+    broadcastSession(session);
   });
 
-  socket.on("coach:setLayout", ({ sessionId, layout }) => {
-    const session = getOrCreateSession(sessionId);
-    applyLayout(session, layout);
-    updateSession(session);
+  /* =========================
+     LAYOUT
+  ========================= */
+
+  socket.on("coach:setLayout", (data) => {
+
+    const session =
+      getOrCreateSession(data.sessionId);
+
+    applyLayout(session, data.layout);
+
+    broadcastSession(session);
   });
 
-  socket.on("coach:reset", ({ sessionId }) => {
-    const session = getOrCreateSession(sessionId);
+  /* =========================
+     RESET
+  ========================= */
+
+  socket.on("coach:reset", (data) => {
+
+    const session =
+      getOrCreateSession(data.sessionId);
+
     applyLayout(session, session.layout);
-    updateSession(session);
+
+    broadcastSession(session);
   });
 
-  socket.on("coach:setAttackDirection", ({ sessionId, attackDirection }) => {
-    const session = getOrCreateSession(sessionId);
-    session.attackDirection = attackDirection || "right-to-left";
+  /* =========================
+     FREEZE
+  ========================= */
+
+  socket.on("coach:freeze", (data) => {
+
+    const session =
+      getOrCreateSession(data.sessionId);
+
+    session.frozen = !!data.frozen;
+
+    broadcastSession(session);
+  });
+
+  /* =========================
+     ATTACK DIRECTION
+  ========================= */
+
+  socket.on("coach:setAttackDirection", (data) => {
+
+    const session =
+      getOrCreateSession(data.sessionId);
+
+    session.attackDirection =
+      data.attackDirection;
+
     applyLayout(session, session.layout);
-    updateSession(session);
+
+    broadcastSession(session);
   });
 
-  socket.on("coach:setPlayerSize", ({ sessionId, playerSize }) => {
-    const session = getOrCreateSession(sessionId);
-    session.playerSize = playerSize || "large";
-    updateSession(session);
+  /* =========================
+     PLAYER SIZE
+  ========================= */
+
+  socket.on("coach:setPlayerSize", (data) => {
+
+    const session =
+      getOrCreateSession(data.sessionId);
+
+    session.playerSize = data.playerSize;
+
+    broadcastSession(session);
   });
 
-  socket.on("coach:setTeamColor", ({ sessionId, teamColor }) => {
-    const session = getOrCreateSession(sessionId);
-    session.teamColor = teamColor || "red";
+  /* =========================
+     TEAM COLOUR
+  ========================= */
 
-    Object.keys(session.players).forEach((id) => {
-      session.players[id].color = session.teamColor;
+  socket.on("coach:setTeamColor", (data) => {
+
+    const session =
+      getOrCreateSession(data.sessionId);
+
+    session.teamColor = data.teamColor;
+
+    Object.values(session.players).forEach((p) => {
+      p.color = data.teamColor;
     });
 
-    updateSession(session);
+    broadcastSession(session);
   });
 
-  socket.on("coach:freeze", ({ sessionId, frozen }) => {
-    const session = getOrCreateSession(sessionId);
-    session.frozen = !!frozen;
-    updateSession(session);
-  });
+  /* =========================
+     MOVE PLAYER
+  ========================= */
 
-  socket.on("coach:movePlayer", ({ sessionId, playerNumber, x, y }) => {
-    const session = getOrCreateSession(sessionId);
-    const number = String(playerNumber);
+  socket.on("coach:movePlayer", (data) => {
+
+    const session =
+      getOrCreateSession(data.sessionId);
 
     if (session.frozen) return;
 
+    const number = String(data.playerNumber);
+
     if (!session.players[number]) return;
 
-    session.players[number].x = clamp(Number(x), 0, 100);
-    session.players[number].y = clamp(Number(y), 0, 100);
+    session.players[number].x =
+      clamp(data.x, 0, 100);
 
-    updateSession(session);
+    session.players[number].y =
+      clamp(data.y, 0, 100);
+
+    broadcastSession(session);
   });
 
-  socket.on("player:move", ({ sessionId, playerNumber, x, y }) => {
-    const session = getOrCreateSession(sessionId);
-    const number = String(playerNumber);
+  /* =========================
+     MOVE BALL
+  ========================= */
 
-    if (session.frozen) return;
-    if (!session.players[number]) return;
+  socket.on("coach:moveBall", (data) => {
 
-    session.players[number].x = clamp(Number(x), 0, 100);
-    session.players[number].y = clamp(Number(y), 0, 100);
-
-    updateSession(session);
-  });
-
-  socket.on("coach:moveBall", ({ sessionId, x, y, holder }) => {
-    const session = getOrCreateSession(sessionId);
+    const session =
+      getOrCreateSession(data.sessionId);
 
     session.ball = {
-      x: clamp(Number(x), 0, 100),
-      y: clamp(Number(y), 0, 100),
-      holder: holder || null,
+      x: clamp(data.x, 0, 100),
+      y: clamp(data.y, 0, 100),
+      holder: data.holder || null,
       visible: true
     };
 
-    updateSession(session);
+    broadcastSession(session);
   });
 
-  socket.on("simulator:loadPlay", ({ sessionId, play }) => {
-    const session = getOrCreateSession(sessionId);
-
-    session.simulator.active = true;
-    session.simulator.currentPlay = play;
-    session.simulator.currentTime = 0;
-    session.simulator.isPlaying = false;
-    session.simulator.score = null;
-
-    io.to(session.id).emit("simulator:loadPlay", play);
-    updateSession(session);
-  });
-
-  socket.on("simulator:start", ({ sessionId, playId }) => {
-    const session = getOrCreateSession(sessionId);
-
-    session.simulator.active = true;
-    session.simulator.isPlaying = true;
-
-    io.to(session.id).emit("simulator:start", { playId });
-    updateSession(session);
-  });
-
-  socket.on("simulator:pause", ({ sessionId }) => {
-    const session = getOrCreateSession(sessionId);
-
-    session.simulator.isPlaying = false;
-
-    io.to(session.id).emit("simulator:pause", {});
-    updateSession(session);
-  });
-
-  socket.on("simulator:resume", ({ sessionId }) => {
-    const session = getOrCreateSession(sessionId);
-
-    session.simulator.isPlaying = true;
-
-    io.to(session.id).emit("simulator:resume", {});
-    updateSession(session);
-  });
-
-  socket.on("simulator:reset", ({ sessionId }) => {
-    const session = getOrCreateSession(sessionId);
-
-    session.simulator.currentTime = 0;
-    session.simulator.isPlaying = false;
-    session.simulator.score = null;
-
-    io.to(session.id).emit("simulator:reset", {});
-    updateSession(session);
-  });
-
-  socket.on("simulator:finish", ({ sessionId, score, positionScore, timingScore }) => {
-    const session = getOrCreateSession(sessionId);
-
-    session.simulator.isPlaying = false;
-    session.simulator.score = {
-      total: score,
-      position: positionScore,
-      timing: timingScore
-    };
-
-    updateSession(session);
-  });
+  /* =========================
+     DISCONNECT
+  ========================= */
 
   socket.on("disconnect", () => {
-    console.log("Disconnected:", socket.id);
 
-    const { sessionId, playerNumber } = socket.data || {};
+    console.log("DISCONNECTED:", socket.id);
+
+    const {
+      sessionId,
+      playerNumber
+    } = socket.data || {};
+
     if (!sessionId || !playerNumber) return;
 
     const session = sessions.get(sessionId);
+
     if (!session) return;
 
-    const player = session.players[String(playerNumber)];
+    const player =
+      session.players[playerNumber];
+
     if (!player) return;
 
     player.connected = false;
+
     player.socketId = null;
 
-    updateSession(session);
+    broadcastSession(session);
   });
 });
 
-app.get("/health", (req, res) => {
-  res.json({ status: "ok", sessions: sessions.size });
+/* =========================================
+   ROUTES
+========================================= */
+
+app.get("/", (req, res) => {
+  res.sendFile(
+    path.join(__dirname, "clarity.html")
+  );
 });
 
-app.get("*", (req, res) => {
-  res.sendFile(path.join(__dirname, "public", "clarity.html"));
-});
-
-function clamp(value, min, max) {
-  if (Number.isNaN(value)) return min;
-  return Math.min(max, Math.max(min, value));
-}
+/* =========================================
+   START SERVER
+========================================= */
 
 server.listen(PORT, () => {
-  console.log(`TEAM-CLARITY V2 running on port ${PORT}`);
+  console.log(`
+==================================
+TEAM-CLARITY V2 RUNNING
+PORT: ${PORT}
+==================================
+`);
 });
