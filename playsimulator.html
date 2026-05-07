@@ -63,7 +63,13 @@
     </div>
   </div>
 
-  <canvas id="field" width="1600" height="900"></canvas>
+  <div id="pitchWrapper">
+    <canvas id="field" width="1600" height="900"></canvas>
+    <div id="lineoutNotesPanel" class="hidden">
+      <div class="notesTitle">📋 Lineout Notes</div>
+      <textarea id="lineoutNotes" placeholder="Lineout notes loaded from play..."></textarea>
+    </div>
+  </div>
 
   <div id="playModal" class="modal hidden">
     <div class="modalCard">
