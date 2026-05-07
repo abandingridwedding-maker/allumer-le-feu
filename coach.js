@@ -1,884 +1,520 @@
-const socket = io();
+/* TEAM-CLARITY V2 - coach.js */
 
-const canvas = document.getElementById("field");
-const ctx = canvas.getContext("2d");
-ctx.imageSmoothingEnabled = false;
+(function () {
+  "use strict";
 
-const W = canvas.width;
-const H = canvas.height;
+  const socket = window.socket || io();
 
-let state = null;
-let setupMode = "free";
-let playerGroup = "all";
-let playerSize = "normal";
-let sportMode = "rugby";
-let currentLang = "en";
-
-let draggingBall = false;
-let draggingPlayerNumber = null;
-
-const FIELD = {
-  left: 70,
-  right: W - 70,
-  top: 95,
-  bottom: H - 145
-};
-
-const TEXT = {
-  en: {
-    slogan: "CLARITY CREATES INTENSITY",
-    qrCodes: "QR Codes",
-    qrTitle: "Scan to control players",
-    close: "Close",
-    rugby: "Rugby",
-    football: "Football",
-    lineoutTop: "Lineout Top",
-    lineoutBottom: "Lineout Bottom",
-    scrum: "Scrum",
-    freeBall: "Free Ball",
-    allPlayers: "All Players",
-    forwardsOnly: "Forwards Only",
-    backsOnly: "Backs Only",
-    normalSize: "Normal Size",
-    mediumSize: "2/3 Size",
-    smallCircle: "Small Circle",
-    freeze: "Freeze",
-    reset: "Reset",
-    speed: "Speed",
-    freeBallMode: "FREE BALL MODE",
-    lineoutTopMode: "LINEOUT TOP",
-    lineoutBottomMode: "LINEOUT BOTTOM",
-    scrumMode: "SCRUM",
-    footballMode: "FOOTBALL MODE",
-    attack: "ATTACK: RIGHT → LEFT",
-    footer: "Click player = drag | Click grass = move ball | Double-click player = attach ball",
-    session: "SESSION LIVE 🔴",
-    message1: "Your session is connected.",
-    message2: "To keep players connected and continue managing your team:",
-    price: "€9.99 / year",
-    unlock: "Unlock Access",
-    promo: "Promo code:",
-    promoPlaceholder: "Enter code",
-    applyPromo: "Apply Promo Code",
-    invalid: "Invalid promo code."
-  },
-
-  fr: {
-    slogan: "LA CLARTÉ CRÉE L’INTENSITÉ",
-    qrCodes: "QR Codes",
-    qrTitle: "Scanner pour contrôler les joueurs",
-    close: "Fermer",
-    rugby: "Rugby",
-    football: "Football",
-    lineoutTop: "Touche haut",
-    lineoutBottom: "Touche bas",
-    scrum: "Mêlée",
-    freeBall: "Ballon libre",
-    allPlayers: "Tous les joueurs",
-    forwardsOnly: "Avants seulement",
-    backsOnly: "Arrières seulement",
-    normalSize: "Taille normale",
-    mediumSize: "Taille 2/3",
-    smallCircle: "Petit cercle",
-    freeze: "Bloquer",
-    reset: "Réinitialiser",
-    speed: "Vitesse",
-    freeBallMode: "BALLON LIBRE",
-    lineoutTopMode: "TOUCHE HAUT",
-    lineoutBottomMode: "TOUCHE BAS",
-    scrumMode: "MÊLÉE",
-    footballMode: "MODE FOOTBALL",
-    attack: "ATTAQUE : DROITE → GAUCHE",
-    footer: "Cliquer joueur = glisser | Cliquer terrain = ballon | Double-clic joueur = attacher ballon",
-    session: "SESSION ACTIVE 🔴",
-    message1: "Votre session est connectée.",
-    message2: "Pour garder les joueurs connectés et continuer à gérer votre équipe :",
-    price: "9,99€ / an",
-    unlock: "Débloquer l’accès",
-    promo: "Code promo :",
-    promoPlaceholder: "Entrer le code",
-    applyPromo: "Appliquer le code promo",
-    invalid: "Code promo invalide."
-  }
-};
-
-function t(key) {
-  return TEXT[currentLang][key] || TEXT.en[key] || key;
-}
-
-function safeText(id, value) {
-  const el = document.getElementById(id);
-  if (el) el.textContent = value;
-}
-
-function safeOption(selector, value) {
-  const el = document.querySelector(selector);
-  if (el) el.textContent = value;
-}
-
-function setCanvasDragging(isDragging) {
-  canvas.classList.toggle("grabbing", isDragging);
-}
-
-function applyTranslations() {
-  safeText("qrBtn", t("qrCodes"));
-  safeText("qrTitle", t("qrTitle"));
-  safeText("closeQr", t("close"));
-
-  safeOption('#sportMode option[value="rugby"]', t("rugby"));
-  safeOption('#sportMode option[value="football"]', t("football"));
-
-  safeText("lineoutTopBtn", t("lineoutTop"));
-  safeText("lineoutBottomBtn", t("lineoutBottom"));
-  safeText("scrumBtn", t("scrum"));
-  safeText("freeBtn", t("freeBall"));
-
-  safeOption('#playerGroup option[value="all"]', t("allPlayers"));
-  safeOption('#playerGroup option[value="forwards"]', t("forwardsOnly"));
-  safeOption('#playerGroup option[value="backs"]', t("backsOnly"));
-
-  safeOption('#playerSize option[value="normal"]', t("normalSize"));
-  safeOption('#playerSize option[value="medium"]', t("mediumSize"));
-  safeOption('#playerSize option[value="small"]', t("smallCircle"));
-
-  safeText("freezeBtn", t("freeze"));
-  safeText("resetBtn", t("reset"));
-
-  const speedLabel = document.querySelector(".speedLabel");
-  if (speedLabel && speedLabel.childNodes[0]) {
-    speedLabel.childNodes[0].nodeValue = t("speed") + " ";
-  }
-
-  safeText("paywallTitle", t("session"));
-  safeText("paywallLine1", t("message1"));
-  safeText("paywallLine2", t("message2"));
-  safeText("paywallPrice", t("price"));
-  safeText("unlockBtn", t("unlock"));
-  safeText("promoLabel", t("promo"));
-  safeText("promoBtn", t("applyPromo"));
-
-  const promoInput = document.getElementById("promoInput");
-  if (promoInput) promoInput.placeholder = t("promoPlaceholder");
-}
-
-/* ================================
-   ACTIVE BUTTONS
-================================ */
-
-function clearModeButtons() {
-  ["lineoutTopBtn", "lineoutBottomBtn", "scrumBtn", "freeBtn"].forEach(id => {
-    document.getElementById(id)?.classList.remove("modeActive");
-  });
-}
-
-function updateModeButtons() {
-  clearModeButtons();
-
-  if (setupMode === "lineout-top") document.getElementById("lineoutTopBtn")?.classList.add("modeActive");
-  if (setupMode === "lineout-bottom") document.getElementById("lineoutBottomBtn")?.classList.add("modeActive");
-  if (setupMode === "scrum") document.getElementById("scrumBtn")?.classList.add("modeActive");
-  if (setupMode === "free") document.getElementById("freeBtn")?.classList.add("modeActive");
-}
-
-function setMode(mode) {
-  setupMode = mode;
-  updateModeButtons();
-  draw();
-}
-
-function updateToolVisibility() {
-  document.querySelectorAll(".rugbyOnly").forEach(item => {
-    item.classList.toggle("hidden", sportMode !== "rugby");
-  });
-
-  if (sportMode === "football") setupMode = "free";
-
-  updateModeButtons();
-}
-
-/* ================================
-   SOCKET STATE
-================================ */
-
-socket.on("state", serverState => {
-  state = serverState;
-
-  if (state.sportMode) sportMode = state.sportMode;
-
-  updateToolVisibility();
-  draw();
-});
-
-/* ================================
-   DOM CONTROLS
-================================ */
-
-document.getElementById("langToggle").onchange = e => {
-  currentLang = e.target.value;
-  localStorage.setItem("teamClarityLang", currentLang);
-  applyTranslations();
-  draw();
-};
-
-document.getElementById("sportMode").onchange = e => {
-  sportMode = e.target.value;
-  socket.emit("coach-sport-mode", sportMode);
-  updateToolVisibility();
-  draw();
-};
-
-document.getElementById("lineoutTopBtn").onclick = () => setMode("lineout-top");
-document.getElementById("lineoutBottomBtn").onclick = () => setMode("lineout-bottom");
-document.getElementById("scrumBtn").onclick = () => setMode("scrum");
-document.getElementById("freeBtn").onclick = () => setMode("free");
-
-document.getElementById("teamColor").onchange = e => {
-  socket.emit("coach-team-color", e.target.value);
-};
-
-document.getElementById("playerGroup").onchange = e => {
-  playerGroup = e.target.value;
-  draw();
-};
-
-document.getElementById("playerSize").onchange = e => {
-  playerSize = e.target.value;
-  draw();
-};
-
-document.getElementById("resetBtn").onclick = () => {
-  socket.emit("coach-reset");
-  setMode("free");
-};
-
-document.getElementById("freezeBtn").onclick = () => {
-  if (!state) return;
-  socket.emit("coach-freeze", !state.frozen);
-};
-
-document.getElementById("speed").oninput = e => {
-  socket.emit("coach-speed", Number(e.target.value));
-};
-
-/* ================================
-   MOUSE / TOUCH GEOMETRY
-================================ */
-
-function mousePoint(e) {
-  const rect = canvas.getBoundingClientRect();
-
-  return {
-    x: (e.clientX - rect.left) * (canvas.width / rect.width),
-    y: (e.clientY - rect.top) * (canvas.height / rect.height)
+  const app = {
+    sessionId: null,
+    mode: "coach",
+    canvas: null,
+    ctx: null,
+    players: {},
+    ball: { x: 72, y: 50, visible: true, holder: null },
+    layout: "lineout",
+    attackDirection: "right-to-left",
+    playerSize: "large",
+    teamColor: "red",
+    frozen: false,
+    draggingPlayer: null,
+    draggingBall: false
   };
-}
 
-function shouldShowPlayer(number) {
-  if (sportMode === "football" && number > 11) return false;
+  document.addEventListener("DOMContentLoaded", init);
 
-  if (sportMode === "rugby") {
-    if (playerGroup === "all") return true;
-    if (playerGroup === "forwards") return number >= 1 && number <= 8;
-    if (playerGroup === "backs") return number >= 9 && number <= 15;
-  }
+  function init() {
+    app.canvas = document.getElementById("fieldCanvas");
+    app.ctx = app.canvas.getContext("2d");
 
-  return true;
-}
+    resizeCanvas();
+    window.addEventListener("resize", resizeCanvas);
 
-function playerHitRadius() {
-  if (playerSize === "small") return 18;
-  if (playerSize === "medium") return 20;
-  return 24;
-}
+    bindUI();
+    bindCanvas();
+    bindSocket();
 
-function getClosestPlayer(point) {
-  if (!state || !state.players) return null;
+    const params = new URLSearchParams(window.location.search);
+    const sessionFromUrl = params.get("session");
 
-  let closest = null;
-  let best = Infinity;
-  const radius = playerHitRadius();
-
-  Object.values(state.players).forEach(player => {
-    if (!shouldShowPlayer(player.number)) return;
-
-    const d = Math.hypot(player.x - point.x, player.y - point.y);
-
-    if (d < best) {
-      best = d;
-      closest = player;
+    if (sessionFromUrl) {
+      app.sessionId = sessionFromUrl;
+      socket.emit("coach:joinSession", { sessionId: app.sessionId });
+    } else {
+      socket.emit("coach:createSession");
     }
-  });
 
-  return best <= radius ? closest : null;
-}
+    requestAnimationFrame(draw);
+  }
 
-function isBallHit(point) {
-  if (!state || !state.ball) return false;
-  return Math.hypot(state.ball.x - point.x, state.ball.y - point.y) <= 28;
-}
+  function bindUI() {
+    byId("coachModeBtn")?.addEventListener("click", () => setMode("coach"));
+    byId("playerModeBtn")?.addEventListener("click", () => setMode("player"));
 
-/* ================================
-   CANVAS INTERACTION
-================================ */
-
-canvas.addEventListener("mousedown", e => {
-  const p = mousePoint(e);
-
-  if (sportMode === "rugby" && setupMode === "lineout-top") {
-    socket.emit("coach-setpiece", {
-      type: "lineout",
-      side: "top",
-      x: p.x,
-      y: p.y
+    byId("lineoutBtn")?.addEventListener("click", () => {
+      socket.emit("coach:setLayout", { sessionId: app.sessionId, layout: "lineout" });
     });
 
-    setMode("free");
-    return;
-  }
-
-  if (sportMode === "rugby" && setupMode === "lineout-bottom") {
-    socket.emit("coach-setpiece", {
-      type: "lineout",
-      side: "bottom",
-      x: p.x,
-      y: p.y
+    byId("scrumBtn")?.addEventListener("click", () => {
+      socket.emit("coach:setLayout", { sessionId: app.sessionId, layout: "scrum" });
     });
 
-    setMode("free");
-    return;
-  }
-
-  if (sportMode === "rugby" && setupMode === "scrum") {
-    socket.emit("coach-setpiece", {
-      type: "scrum",
-      x: p.x,
-      y: p.y
+    byId("resetBtn")?.addEventListener("click", () => {
+      socket.emit("coach:reset", { sessionId: app.sessionId });
     });
 
-    setMode("free");
-    return;
-  }
-
-  if (isBallHit(p)) {
-    draggingBall = true;
-    draggingPlayerNumber = null;
-    socket.emit("coach-ball", p);
-    setCanvasDragging(true);
-    return;
-  }
-
-  const player = getClosestPlayer(p);
-
-  if (player) {
-    draggingPlayerNumber = player.number;
-    draggingBall = false;
-
-    socket.emit("coach-move-player", {
-      number: player.number,
-      x: p.x,
-      y: p.y
+    byId("freezeBtn")?.addEventListener("click", () => {
+      app.frozen = !app.frozen;
+      socket.emit("coach:freeze", { sessionId: app.sessionId, frozen: app.frozen });
     });
 
-    setCanvasDragging(true);
-    return;
-  }
-
-  draggingBall = true;
-  draggingPlayerNumber = null;
-  socket.emit("coach-ball", p);
-  setCanvasDragging(true);
-});
-
-canvas.addEventListener("mousemove", e => {
-  const p = mousePoint(e);
-
-  if (draggingPlayerNumber) {
-    socket.emit("coach-move-player", {
-      number: draggingPlayerNumber,
-      x: p.x,
-      y: p.y
+    byId("attackDirectionSelect")?.addEventListener("change", (e) => {
+      socket.emit("coach:setAttackDirection", {
+        sessionId: app.sessionId,
+        attackDirection: e.target.value
+      });
     });
-    return;
+
+    byId("playerSizeSelect")?.addEventListener("change", (e) => {
+      socket.emit("coach:setPlayerSize", {
+        sessionId: app.sessionId,
+        playerSize: e.target.value
+      });
+    });
+
+    byId("teamColorSelect")?.addEventListener("change", (e) => {
+      socket.emit("coach:setTeamColor", {
+        sessionId: app.sessionId,
+        teamColor: e.target.value
+      });
+    });
+
+    byId("copySessionBtn")?.addEventListener("click", copySessionLink);
+
+    byId("joinSessionBtn")?.addEventListener("click", () => {
+      const playerNumber = byId("playerNumberSelect")?.value;
+      if (!playerNumber) return alert("Select your player number first.");
+
+      const controllerId = getControllerId();
+
+      socket.emit("player:joinSession", {
+        sessionId: app.sessionId,
+        playerNumber,
+        controllerId
+      });
+    });
   }
 
-  if (draggingBall) {
-    socket.emit("coach-ball", p);
+  function bindSocket() {
+    socket.on("coach:sessionCreated", applySession);
+    socket.on("coach:sessionJoined", applySession);
+    socket.on("session:update", applySession);
+    socket.on("player:joined", (data) => applySession(data.session));
+
+    socket.on("simulator:loadPlay", (play) => {
+      if (window.PlaySimulator) window.PlaySimulator.loadPlay(play);
+    });
+
+    socket.on("simulator:start", () => {
+      if (window.PlaySimulator) window.PlaySimulator.start();
+    });
+
+    socket.on("simulator:pause", () => {
+      if (window.PlaySimulator) window.PlaySimulator.pause();
+    });
+
+    socket.on("simulator:resume", () => {
+      if (window.PlaySimulator) window.PlaySimulator.resume();
+    });
+
+    socket.on("simulator:reset", () => {
+      if (window.PlaySimulator) window.PlaySimulator.reset();
+    });
   }
-});
 
-canvas.addEventListener("mouseup", () => {
-  draggingBall = false;
-  draggingPlayerNumber = null;
-  setCanvasDragging(false);
-});
+  function applySession(session) {
+    if (!session) return;
 
-canvas.addEventListener("mouseleave", () => {
-  draggingBall = false;
-  draggingPlayerNumber = null;
-  setCanvasDragging(false);
-});
+    app.sessionId = session.id;
+    app.players = session.players || {};
+    app.ball = session.ball || app.ball;
+    app.layout = session.layout || app.layout;
+    app.attackDirection = session.attackDirection || app.attackDirection;
+    app.playerSize = session.playerSize || app.playerSize;
+    app.teamColor = session.teamColor || app.teamColor;
+    app.frozen = !!session.frozen;
 
-canvas.addEventListener("dblclick", e => {
-  const p = mousePoint(e);
-  const player = getClosestPlayer(p);
+    window.players = app.players;
 
-  if (player) socket.emit("coach-attach-ball", player.number);
-});
+    updateSessionUI();
+  }
 
-/* ================================
-   QR MODAL
-================================ */
+  function updateSessionUI() {
+    const code = byId("sessionCodeText");
+    if (code) code.textContent = app.sessionId || "----";
 
-document.getElementById("qrBtn").onclick = async () => {
-  const modal = document.getElementById("qrModal");
-  const grid = document.getElementById("qrGrid");
+    const freezeBtn = byId("freezeBtn");
+    if (freezeBtn) freezeBtn.textContent = app.frozen ? "Unfreeze" : "Freeze";
 
-  modal.classList.remove("hidden");
-  grid.innerHTML = "";
+    updateQR();
+  }
 
-  const res = await fetch("/api/qrs");
-  const data = await res.json();
+  function updateQR() {
+    const box = byId("qrCodeBox");
+    if (!box || !app.sessionId) return;
 
-  const maxPlayers = sportMode === "football" ? 11 : 15;
+    const url = getSessionUrl();
 
-  for (let i = 1; i <= maxPlayers; i++) {
-    const item = document.createElement("div");
-    item.className = "qrItem";
-
-    item.innerHTML = `
-      <div>Player ${i}</div>
-      <img src="${data.qrs[i]}" />
-      <div>${data.baseUrl}/controller.html?p=${i}</div>
+    box.innerHTML = `
+      <img
+        src="https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(url)}"
+        alt="Session QR Code"
+      />
     `;
-
-    grid.appendChild(item);
-  }
-};
-
-document.getElementById("closeQr").onclick = () => {
-  document.getElementById("qrModal").classList.add("hidden");
-};
-
-/* ================================
-   DRAW HELPERS
-================================ */
-
-function pixelText(text, x, y, size = 22, align = "center", color = "white") {
-  ctx.save();
-  ctx.font = `900 ${size}px Courier New`;
-  ctx.textAlign = align;
-  ctx.fillStyle = color;
-  ctx.shadowColor = "#000";
-  ctx.shadowOffsetX = 4;
-  ctx.shadowOffsetY = 4;
-  ctx.fillText(text, x, y);
-  ctx.restore();
-}
-
-/* ================================
-   FIELD
-================================ */
-
-function drawRugbyPitch() {
-  ctx.fillStyle = "#6ec65f";
-  ctx.fillRect(0, 0, W, H);
-
-  const left = FIELD.left;
-  const right = FIELD.right;
-  const top = FIELD.top;
-  const bottom = FIELD.bottom;
-
-  const pw = right - left;
-  const ph = bottom - top;
-
-  const X = p => left + pw * p;
-  const Y = p => top + ph * p;
-
-  ctx.strokeStyle = "#fff";
-  ctx.lineWidth = 7;
-  ctx.strokeRect(left, top, pw, ph);
-
-  ctx.strokeStyle = "#fff";
-  ctx.lineWidth = 5;
-
-  [0.06, 0.94].forEach(p => {
-    ctx.beginPath();
-    ctx.moveTo(X(p), top);
-    ctx.lineTo(X(p), bottom);
-    ctx.stroke();
-  });
-
-  ctx.setLineDash([16, 14]);
-
-  [0.10, 0.90].forEach(p => {
-    ctx.beginPath();
-    ctx.moveTo(X(p), top);
-    ctx.lineTo(X(p), bottom);
-    ctx.stroke();
-  });
-
-  ctx.setLineDash([]);
-  ctx.lineWidth = 6;
-
-  [0.26, 0.74].forEach(p => {
-    ctx.beginPath();
-    ctx.moveTo(X(p), top);
-    ctx.lineTo(X(p), bottom);
-    ctx.stroke();
-  });
-
-  ctx.setLineDash([20, 16]);
-  ctx.lineWidth = 4;
-
-  [0.40, 0.60].forEach(p => {
-    ctx.beginPath();
-    ctx.moveTo(X(p), top);
-    ctx.lineTo(X(p), bottom);
-    ctx.stroke();
-  });
-
-  ctx.setLineDash([]);
-
-  ctx.lineWidth = 6;
-  ctx.beginPath();
-  ctx.moveTo(X(0.50), top);
-  ctx.lineTo(X(0.50), bottom);
-  ctx.stroke();
-
-  ctx.setLineDash([18, 16]);
-  ctx.lineWidth = 4;
-
-  [0.08, 0.23, 0.77, 0.92].forEach(p => {
-    ctx.beginPath();
-    ctx.moveTo(left, Y(p));
-    ctx.lineTo(right, Y(p));
-    ctx.stroke();
-  });
-
-  ctx.setLineDash([]);
-
-  ctx.save();
-  ctx.fillStyle = "#fff";
-  ctx.font = "900 18px Courier New";
-  ctx.textAlign = "center";
-  ctx.shadowColor = "#000";
-  ctx.shadowOffsetX = 3;
-  ctx.shadowOffsetY = 3;
-
-  [
-    ["5m", 0.10],
-    ["22m", 0.26],
-    ["40m", 0.40],
-    ["50m", 0.50],
-    ["40m", 0.60],
-    ["22m", 0.74],
-    ["5m", 0.90]
-  ].forEach(([label, p]) => {
-    ctx.fillText(label, X(p), bottom + 30);
-  });
-
-  ctx.textAlign = "left";
-  ctx.fillText("5m", left + 8, Y(0.08) - 8);
-  ctx.fillText("15m", left + 8, Y(0.23) - 8);
-  ctx.fillText("15m", left + 8, Y(0.77) - 8);
-  ctx.fillText("5m", left + 8, Y(0.92) - 8);
-
-  ctx.textAlign = "right";
-  ctx.fillText("5m", right - 8, Y(0.08) - 8);
-  ctx.fillText("15m", right - 8, Y(0.23) - 8);
-  ctx.fillText("15m", right - 8, Y(0.77) - 8);
-  ctx.fillText("5m", right - 8, Y(0.92) - 8);
-
-  ctx.restore();
-
-  ctx.fillStyle = "#d71920";
-  ctx.fillRect(0, 0, W, 52);
-
-  ctx.fillStyle = "#111";
-  ctx.fillRect(0, 52, W, 8);
-
-  pixelText(t("slogan"), W / 2, 37, 30, "center", "#fff");
-}
-
-function drawFootballPitch() {
-  ctx.fillStyle = "#2f9e44";
-  ctx.fillRect(0, 0, W, H);
-
-  ctx.fillStyle = "#111";
-  ctx.fillRect(0, 0, W, 60);
-
-  pixelText("TEAM-CLARITY | FOOTBALL MODE", W / 2, 39, 30, "center", "#fff");
-}
-
-/* ================================
-   BALL / PLAYERS
-================================ */
-
-function drawBall(ball) {
-  ctx.save();
-  ctx.translate(ball.x, ball.y);
-
-  if (sportMode === "football") {
-    ctx.fillStyle = "#fff";
-    ctx.beginPath();
-    ctx.arc(0, 0, 16, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.strokeStyle = "#111";
-    ctx.lineWidth = 3;
-    ctx.stroke();
-    ctx.restore();
-    return;
   }
 
-  ctx.rotate(-0.35);
-
-  ctx.fillStyle = "#4b2a1b";
-  ctx.fillRect(-22, -10, 44, 20);
-  ctx.fillRect(-16, -15, 32, 30);
-  ctx.fillRect(-8, -19, 16, 38);
-
-  ctx.fillStyle = "#9b552f";
-  ctx.fillRect(-16, -8, 32, 16);
-  ctx.fillRect(-10, -12, 20, 24);
-
-  ctx.fillStyle = "#fff";
-  ctx.fillRect(-18, -6, 5, 12);
-  ctx.fillRect(13, -6, 5, 12);
-  ctx.fillRect(-2, -10, 4, 20);
-  ctx.fillRect(-10, -2, 20, 4);
-
-  ctx.restore();
-}
-
-function drawCirclePlayer(p) {
-  const radius = 16;
-
-  ctx.save();
-
-  ctx.fillStyle = "rgba(0,0,0,.25)";
-  ctx.beginPath();
-  ctx.ellipse(p.x + 3, p.y + 4, radius + 2, radius * 0.6, 0, 0, Math.PI * 2);
-  ctx.fill();
-
-  ctx.fillStyle = p.color || "#d71920";
-  ctx.beginPath();
-  ctx.arc(p.x, p.y, radius, 0, Math.PI * 2);
-  ctx.fill();
-
-  ctx.strokeStyle = "#fff";
-  ctx.lineWidth = 4;
-  ctx.stroke();
-
-  ctx.fillStyle = p.color === "#ffffff" ? "#111" : "#fff";
-  ctx.font = "900 18px Courier New";
-  ctx.textAlign = "center";
-  ctx.textBaseline = "middle";
-  ctx.fillText(p.number, p.x, p.y + 1);
-
-  ctx.restore();
-
-  ctx.fillStyle = p.connected ? "#00ff7f" : "#ffdf4d";
-  ctx.beginPath();
-  ctx.arc(p.x + 15, p.y - 15, 5, 0, Math.PI * 2);
-  ctx.fill();
-}
-
-function drawPixelPlayer(p) {
-  ctx.save();
-  ctx.translate(p.x, p.y);
-
-  const s = playerSize === "medium" ? 0.37 : 0.55;
-  ctx.scale(s, s);
-
-  ctx.fillStyle = "rgba(0,0,0,.25)";
-  ctx.fillRect(-24, 30, 48, 8);
-
-  ctx.fillStyle = p.color || "#d71920";
-  ctx.fillRect(-22, -24, 44, 50);
-
-  ctx.fillStyle = "#fff";
-  ctx.fillRect(-15, -11, 30, 5);
-  ctx.fillRect(-15, 2, 30, 5);
-
-  ctx.fillStyle = "#111";
-  ctx.fillRect(-16, 22, 11, 26);
-  ctx.fillRect(5, 22, 11, 26);
-
-  ctx.fillStyle = "#c88b62";
-  ctx.fillRect(-18, -56, 36, 34);
-
-  ctx.fillStyle = "#15100c";
-
-  if (p.number <= 8) {
-    ctx.fillRect(-27, -66, 54, 14);
-    ctx.fillRect(-31, -54, 12, 22);
-    ctx.fillRect(19, -54, 12, 22);
-  } else {
-    ctx.fillRect(-20, -66, 40, 12);
+  function getSessionUrl() {
+    return `${window.location.origin}/clarity.html?session=${app.sessionId}`;
   }
 
-  ctx.fillStyle = "#2a1a12";
-  ctx.fillRect(-11, -37, 22, 8);
-  ctx.fillRect(-7, -30, 14, 5);
+  async function copySessionLink() {
+    if (!app.sessionId) return;
 
-  ctx.fillStyle = "#000";
-  ctx.fillRect(-9, -48, 5, 5);
-  ctx.fillRect(5, -48, 5, 5);
-
-  ctx.fillStyle = "#fff";
-  ctx.fillRect(-18, -20, 36, 34);
-
-  ctx.strokeStyle = "#111";
-  ctx.lineWidth = 3;
-  ctx.strokeRect(-18, -20, 36, 34);
-
-  ctx.fillStyle = "#111";
-  ctx.font = "900 28px Courier New";
-  ctx.textAlign = "center";
-  ctx.textBaseline = "middle";
-  ctx.fillText(p.number, 0, -2);
-
-  ctx.restore();
-
-  ctx.fillStyle = p.connected ? "#00ff7f" : "#ffdf4d";
-  ctx.beginPath();
-  ctx.arc(p.x + 18, p.y - 30, 7, 0, Math.PI * 2);
-  ctx.fill();
-}
-
-function drawPlayer(p) {
-  if (!shouldShowPlayer(p.number)) return;
-
-  if (playerSize === "small") {
-    drawCirclePlayer(p);
-    return;
-  }
-
-  drawPixelPlayer(p);
-}
-
-/* ================================
-   MAIN DRAW
-================================ */
-
-function drawFooter() {
-  const footerTop = H - 72;
-
-  ctx.fillStyle = "rgba(0,0,0,0.42)";
-  ctx.fillRect(0, footerTop, W, 72);
-
-  let modeText = "";
-
-  if (sportMode === "football") {
-    modeText = t("footballMode");
-  } else if (setupMode === "lineout-top") {
-    modeText = `${t("lineoutTopMode")} | CLICK FIELD TO PLACE`;
-  } else if (setupMode === "lineout-bottom") {
-    modeText = `${t("lineoutBottomMode")} | CLICK FIELD TO PLACE`;
-  } else if (setupMode === "scrum") {
-    modeText = `${t("scrumMode")} | CLICK FIELD TO PLACE`;
-  } else {
-    modeText = `${t("freeBallMode")} | ${t("attack")}`;
-  }
-
-  pixelText(modeText, W / 2, footerTop + 28, 18, "center", "#ffd700");
-  pixelText(t("footer"), W / 2, footerTop + 54, 13, "center", "#ffffff");
-}
-
-function draw() {
-  if (!state) return;
-
-  if (sportMode === "football") {
-    drawFootballPitch();
-  } else {
-    drawRugbyPitch();
-  }
-
-  Object.values(state.players).forEach(drawPlayer);
-  drawBall(state.ball);
-
-  if (state.frozen) {
-    ctx.fillStyle = "rgba(0,0,0,.35)";
-    ctx.fillRect(0, 0, W, H);
-    pixelText(t("freeze"), W / 2, H / 2, 90, "center", "#fff");
-  }
-
-  drawFooter();
-}
-
-/* ================================
-   PAYWALL
-================================ */
-
-const STRIPE_PAYMENT_LINK = "https://buy.stripe.com/28EeVdesG4TgcBz7D06Vq00";
-const PAYWALL_WAIT_TIME = 5 * 60 * 1000;
-
-let promoUnlockedThisPageLoad = false;
-
-function hasValidAccess() {
-  if (localStorage.getItem("subscriptionActive") === "true") return true;
-  return promoUnlockedThisPageLoad === true;
-}
-
-function showPaywall() {
-  if (hasValidAccess()) return;
-
-  const overlay = document.getElementById("paywallOverlay");
-  if (overlay) overlay.classList.remove("hidden");
-}
-
-function hidePaywall() {
-  const overlay = document.getElementById("paywallOverlay");
-  if (overlay) overlay.classList.add("hidden");
-}
-
-function unlockPromoForThisPageLoadOnly() {
-  promoUnlockedThisPageLoad = true;
-  hidePaywall();
-}
-
-/* ================================
-   STARTUP
-================================ */
-
-window.addEventListener("load", () => {
-  const savedLang = localStorage.getItem("teamClarityLang");
-
-  if (savedLang === "fr" || savedLang === "en") {
-    currentLang = savedLang;
-    document.getElementById("langToggle").value = currentLang;
-  }
-
-  applyTranslations();
-  updateToolVisibility();
-  updateModeButtons();
-
-  if (!hasValidAccess()) {
-    setTimeout(showPaywall, PAYWALL_WAIT_TIME);
-  }
-
-  const unlockBtn = document.getElementById("unlockBtn");
-
-  if (unlockBtn) {
-    unlockBtn.onclick = () => {
-      window.location.href = STRIPE_PAYMENT_LINK;
-    };
-  }
-
-  const promoBtn = document.getElementById("promoBtn");
-
-  if (promoBtn) {
-    promoBtn.onclick = () => {
-      const input = document.getElementById("promoInput");
-      const message = document.getElementById("promoMessage");
-      const code = (input?.value || "").trim().toUpperCase();
-
-      if (code === "AZRUGBY") {
-        unlockPromoForThisPageLoadOnly();
-      } else if (message) {
-        message.textContent = t("invalid");
-        message.style.color = "#ff5555";
+    try {
+      await navigator.clipboard.writeText(getSessionUrl());
+      const btn = byId("copySessionBtn");
+      if (btn) {
+        btn.textContent = "Copied";
+        setTimeout(() => (btn.textContent = "Copy Link"), 1200);
       }
+    } catch {
+      alert(getSessionUrl());
+    }
+  }
+
+  function setMode(mode) {
+    app.mode = mode;
+
+    byId("coachModeBtn")?.classList.toggle("active", mode === "coach");
+    byId("playerModeBtn")?.classList.toggle("active", mode === "player");
+    byId("playerJoinPanel")?.classList.toggle("hidden", mode !== "player");
+  }
+
+  function bindCanvas() {
+    app.canvas.addEventListener("pointerdown", onPointerDown);
+    app.canvas.addEventListener("pointermove", onPointerMove);
+    app.canvas.addEventListener("pointerup", onPointerUp);
+    app.canvas.addEventListener("pointerleave", onPointerUp);
+  }
+
+  function onPointerDown(e) {
+    const point = eventToNorm(e);
+
+    if (isNearBall(point)) {
+      app.draggingBall = true;
+      return;
+    }
+
+    const hit = getPlayerAt(point);
+    if (hit) {
+      app.draggingPlayer = hit.number;
+    }
+  }
+
+  function onPointerMove(e) {
+    if (!app.draggingPlayer && !app.draggingBall) return;
+
+    const point = eventToNorm(e);
+
+    if (app.draggingBall) {
+      app.ball.x = point.x;
+      app.ball.y = point.y;
+
+      socket.emit("coach:moveBall", {
+        sessionId: app.sessionId,
+        x: point.x,
+        y: point.y,
+        holder: null
+      });
+
+      return;
+    }
+
+    if (app.draggingPlayer) {
+      const player = app.players[String(app.draggingPlayer)];
+      if (!player) return;
+
+      player.x = point.x;
+      player.y = point.y;
+
+      socket.emit("coach:movePlayer", {
+        sessionId: app.sessionId,
+        playerNumber: app.draggingPlayer,
+        x: point.x,
+        y: point.y
+      });
+    }
+  }
+
+  function onPointerUp() {
+    app.draggingPlayer = null;
+    app.draggingBall = false;
+  }
+
+  function resizeCanvas() {
+    const parent = app.canvas.parentElement;
+    const rect = parent.getBoundingClientRect();
+
+    app.canvas.width = rect.width * window.devicePixelRatio;
+    app.canvas.height = rect.height * window.devicePixelRatio;
+
+    app.canvas.style.width = `${rect.width}px`;
+    app.canvas.style.height = `${rect.height}px`;
+
+    app.ctx.setTransform(window.devicePixelRatio, 0, 0, window.devicePixelRatio, 0, 0);
+  }
+
+  function draw() {
+    clear();
+    drawRugbyField();
+    drawPlayers();
+    drawBall();
+
+    requestAnimationFrame(draw);
+  }
+
+  function clear() {
+    const w = cssWidth();
+    const h = cssHeight();
+
+    app.ctx.clearRect(0, 0, w, h);
+  }
+
+  function drawRugbyField() {
+    const ctx = app.ctx;
+    const w = cssWidth();
+    const h = cssHeight();
+
+    ctx.fillStyle = "#147a3d";
+    ctx.fillRect(0, 0, w, h);
+
+    drawGrassStripes();
+
+    ctx.strokeStyle = "rgba(255,255,255,0.92)";
+    ctx.lineWidth = 2;
+
+    ctx.strokeRect(0, 0, w, h);
+
+    const horizontalMarks = [
+      { y: 100, label: "OUR TRYLINE" },
+      { y: 88, label: "5M" },
+      { y: 66, label: "22M" },
+      { y: 36, label: "40M" },
+      { y: 0, label: "50M" }
+    ];
+
+    horizontalMarks.forEach((m) => {
+      const y = normToCanvas({ x: 0, y: m.y }).y;
+
+      ctx.beginPath();
+      ctx.moveTo(0, y);
+      ctx.lineTo(w, y);
+      ctx.stroke();
+
+      ctx.fillStyle = "rgba(255,255,255,0.88)";
+      ctx.font = "bold 13px Arial";
+      ctx.fillText(m.label, 10, y + (m.y === 0 ? 18 : -8));
+      ctx.fillText(m.label, w - 70, y + (m.y === 0 ? 18 : -8));
+    });
+
+    const widthMarks = [
+      { x: 5, label: "5M" },
+      { x: 15, label: "15M" },
+      { x: 85, label: "15M" },
+      { x: 95, label: "5M" }
+    ];
+
+    widthMarks.forEach((m) => {
+      const x = normToCanvas({ x: m.x, y: 0 }).x;
+
+      ctx.setLineDash([8, 8]);
+      ctx.beginPath();
+      ctx.moveTo(x, 0);
+      ctx.lineTo(x, h);
+      ctx.stroke();
+      ctx.setLineDash([]);
+
+      ctx.save();
+      ctx.translate(x + 4, h - 20);
+      ctx.rotate(-Math.PI / 2);
+      ctx.fillStyle = "rgba(255,255,255,0.85)";
+      ctx.font = "bold 12px Arial";
+      ctx.fillText(m.label, 0, 0);
+      ctx.restore();
+    });
+
+    drawHashMarks();
+  }
+
+  function drawGrassStripes() {
+    const ctx = app.ctx;
+    const w = cssWidth();
+    const h = cssHeight();
+
+    for (let i = 0; i < 10; i++) {
+      ctx.fillStyle = i % 2 === 0 ? "rgba(255,255,255,0.035)" : "rgba(0,0,0,0.035)";
+      ctx.fillRect(0, (h / 10) * i, w, h / 10);
+    }
+  }
+
+  function drawHashMarks() {
+    const ctx = app.ctx;
+
+    ctx.strokeStyle = "rgba(255,255,255,0.7)";
+    ctx.lineWidth = 1.5;
+
+    for (let y = 10; y <= 95; y += 10) {
+      [5, 15, 85, 95].forEach((x) => {
+        const p = normToCanvas({ x, y });
+        ctx.beginPath();
+        ctx.moveTo(p.x - 5, p.y);
+        ctx.lineTo(p.x + 5, p.y);
+        ctx.stroke();
+      });
+    }
+  }
+
+  function drawPlayers() {
+    Object.values(app.players).forEach(drawPlayer);
+  }
+
+  function drawPlayer(player) {
+    const ctx = app.ctx;
+    const p = normToCanvas(player);
+    const radius = getPlayerRadius();
+
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, radius, 0, Math.PI * 2);
+    ctx.fillStyle = getColor(player.color || app.teamColor);
+    ctx.fill();
+
+    ctx.lineWidth = 3;
+    ctx.strokeStyle = player.connected ? "#ffffff" : "rgba(255,255,255,0.45)";
+    ctx.stroke();
+
+    ctx.fillStyle = player.color === "white" ? "#111" : "#fff";
+    ctx.font = `bold ${Math.max(11, radius)}px Arial`;
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText(player.number, p.x, p.y + 1);
+
+    if (player.connected) {
+      ctx.beginPath();
+      ctx.arc(p.x + radius * 0.72, p.y - radius * 0.72, 4, 0, Math.PI * 2);
+      ctx.fillStyle = "#00ff88";
+      ctx.fill();
+    }
+  }
+
+  function drawBall() {
+    if (!app.ball || !app.ball.visible) return;
+
+    const ctx = app.ctx;
+    const p = normToCanvas(app.ball);
+
+    ctx.save();
+    ctx.translate(p.x, p.y);
+    ctx.rotate(-0.35);
+
+    ctx.beginPath();
+    ctx.ellipse(0, 0, 12, 7, 0, 0, Math.PI * 2);
+    ctx.fillStyle = "#f4c16e";
+    ctx.fill();
+
+    ctx.lineWidth = 2;
+    ctx.strokeStyle = "#4a2b12";
+    ctx.stroke();
+
+    ctx.restore();
+  }
+
+  function getPlayerAt(point) {
+    const radiusNorm = 4;
+
+    return Object.values(app.players).find((p) => {
+      const d = Math.hypot(p.x - point.x, p.y - point.y);
+      return d <= radiusNorm;
+    });
+  }
+
+  function isNearBall(point) {
+    if (!app.ball) return false;
+    return Math.hypot(app.ball.x - point.x, app.ball.y - point.y) <= 4;
+  }
+
+  function eventToNorm(e) {
+    const rect = app.canvas.getBoundingClientRect();
+
+    const x = ((e.clientX - rect.left) / rect.width) * 100;
+    const y = ((e.clientY - rect.top) / rect.height) * 100;
+
+    return {
+      x: clamp(x, 0, 100),
+      y: clamp(y, 0, 100)
     };
   }
-});
+
+  function normToCanvas(point) {
+    return {
+      x: (point.x / 100) * cssWidth(),
+      y: (point.y / 100) * cssHeight()
+    };
+  }
+
+  function cssWidth() {
+    return app.canvas.clientWidth;
+  }
+
+  function cssHeight() {
+    return app.canvas.clientHeight;
+  }
+
+  function getPlayerRadius() {
+    if (app.playerSize === "small") return 12;
+    if (app.playerSize === "medium") return 17;
+    return 25;
+  }
+
+  function getColor(color) {
+    const map = {
+      red: "#d8222a",
+      black: "#111111",
+      white: "#f5f5f5",
+      blue: "#1d5fd1",
+      green: "#118b4f"
+    };
+
+    return map[color] || map.red;
+  }
+
+  function getControllerId() {
+    let id = localStorage.getItem("teamClarityControllerId");
+
+    if (!id) {
+      id = "controller_" + Math.random().toString(36).slice(2) + Date.now().toString(36);
+      localStorage.setItem("teamClarityControllerId", id);
+    }
+
+    return id;
+  }
+
+  function byId(id) {
+    return document.getElementById(id);
+  }
+
+  function clamp(value, min, max) {
+    return Math.min(max, Math.max(min, value));
+  }
+
+  window.TeamClarityCoach = app;
+})();
