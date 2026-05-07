@@ -3,103 +3,201 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>TEAM-CLARITY — Live</title>
-  <link rel="stylesheet" href="style.css" />
+  <title>TEAM-CLARITY V2</title>
+
+  <link rel="stylesheet" href="/style.css" />
+
+  <script src="/socket.io/socket.io.js"></script>
 </head>
 
 <body>
-  <div id="topbar">
-    <div class="brand">🔥 TEAM-CLARITY</div>
+  <div id="app" class="app-shell">
 
-    <div class="tools">
-      <div class="toolGroup">
-        <button onclick="window.location.href='index.html'">Home</button>
-        <button id="qrBtn">QR Codes</button>
-
-        <select id="langToggle">
-          <option value="en">EN</option>
-          <option value="fr">FR</option>
-        </select>
-
-        <select id="sportMode">
-          <option value="rugby">Rugby</option>
-          <option value="football">Football</option>
-        </select>
+    <header class="top-bar">
+      <div class="brand-block">
+        <div class="brand-icon">🔥</div>
+        <div>
+          <h1>TEAM-CLARITY</h1>
+          <p>Live rugby clarity simulator</p>
+        </div>
       </div>
 
-      <div class="toolGroup rugbyOnly">
-        <button id="lineoutTopBtn">Lineout Top</button>
-        <button id="lineoutBottomBtn">Lineout Bottom</button>
-        <button id="scrumBtn">Scrum</button>
+      <div class="top-actions">
+        <button id="coachModeBtn" class="tc-btn active">Coach</button>
+        <button id="playerModeBtn" class="tc-btn">Player</button>
       </div>
+    </header>
 
-      <div class="toolGroup">
-        <button id="freeBtn">Free Ball</button>
+    <main class="main-layout">
 
-        <select id="teamColor">
-          <option value="red">Red</option>
-          <option value="white">White</option>
-          <option value="black">Black</option>
-          <option value="blue">Blue</option>
+      <section class="field-section">
+        <canvas id="fieldCanvas"></canvas>
+
+        <div id="fieldOverlay" class="field-overlay">
+          <div id="sessionBadge" class="session-badge">
+            Session: <span id="sessionCodeText">----</span>
+          </div>
+        </div>
+      </section>
+
+      <aside class="control-panel">
+
+        <section class="panel-card">
+          <h2>Session</h2>
+
+          <div class="session-box">
+            <div id="qrCodeBox" class="qr-box">
+              <span>QR</span>
+            </div>
+
+            <div class="session-info">
+              <p>Players scan to join this live session.</p>
+              <button id="copySessionBtn" class="tc-btn full">Copy Link</button>
+            </div>
+          </div>
+        </section>
+
+        <section class="panel-card">
+          <h2>Coach Controls</h2>
+
+          <div class="control-grid">
+            <button id="lineoutBtn" class="tc-btn">Lineout</button>
+            <button id="scrumBtn" class="tc-btn">Scrum</button>
+            <button id="resetBtn" class="tc-btn">Reset</button>
+            <button id="freezeBtn" class="tc-btn">Freeze</button>
+          </div>
+
+          <div class="control-row">
+            <label>Attack Direction</label>
+            <select id="attackDirectionSelect">
+              <option value="right-to-left">Right → Left</option>
+              <option value="left-to-right">Left → Right</option>
+            </select>
+          </div>
+
+          <div class="control-row">
+            <label>Player Size</label>
+            <select id="playerSizeSelect">
+              <option value="large">Full Size</option>
+              <option value="medium">2/3 Size</option>
+              <option value="small">1/2 Size</option>
+            </select>
+          </div>
+
+          <div class="control-row">
+            <label>Kit Colour</label>
+            <select id="teamColorSelect">
+              <option value="red">Red</option>
+              <option value="black">Black</option>
+              <option value="white">White</option>
+              <option value="blue">Blue</option>
+              <option value="green">Green</option>
+            </select>
+          </div>
+        </section>
+
+        <section class="panel-card">
+          <h2>Play Simulator</h2>
+
+          <div id="simulatorPanel" class="simulator-panel">
+            <div class="simulator-card">
+              <div class="simulator-title">No play loaded</div>
+              <div class="simulator-progress">
+                <div class="simulator-progress-bar" style="width:0%"></div>
+              </div>
+              <div class="simulator-meta">
+                <span>0%</span>
+                <span>Speed: 1x</span>
+              </div>
+              <div class="simulator-score">No score yet</div>
+            </div>
+          </div>
+
+          <div class="control-grid">
+            <button id="simStartBtn" class="tc-btn">Start</button>
+            <button id="simPauseBtn" class="tc-btn">Pause</button>
+            <button id="simResetBtn" class="tc-btn">Reset Sim</button>
+          </div>
+
+          <div class="control-row">
+            <label>Role</label>
+            <select id="simRoleSelect">
+              <option value="">Select role</option>
+              <option value="1">1</option>
+              <option value="2">2</option>
+              <option value="3">3</option>
+              <option value="4">4</option>
+              <option value="5">5</option>
+              <option value="6">6</option>
+              <option value="7">7</option>
+              <option value="8">8</option>
+              <option value="9">9</option>
+              <option value="10">10</option>
+              <option value="11">11</option>
+              <option value="12">12</option>
+              <option value="13">13</option>
+              <option value="14">14</option>
+              <option value="15">15</option>
+            </select>
+          </div>
+
+          <div class="control-row">
+            <label>Speed</label>
+            <select id="simSpeedSelect">
+              <option value="0.5">0.5x</option>
+              <option value="1" selected>1x</option>
+              <option value="1.5">1.5x</option>
+              <option value="2">2x</option>
+            </select>
+          </div>
+        </section>
+
+      </aside>
+    </main>
+
+    <section id="playerJoinPanel" class="player-join-panel hidden">
+      <div class="join-card">
+        <h2>Join TEAM-CLARITY</h2>
+        <p>Select your player number and connect to the live coach session.</p>
+
+        <select id="playerNumberSelect">
+          <option value="">Select number</option>
+          <option value="1">1</option>
+          <option value="2">2</option>
+          <option value="3">3</option>
+          <option value="4">4</option>
+          <option value="5">5</option>
+          <option value="6">6</option>
+          <option value="7">7</option>
+          <option value="8">8</option>
+          <option value="9">9</option>
+          <option value="10">10</option>
+          <option value="11">11</option>
+          <option value="12">12</option>
+          <option value="13">13</option>
+          <option value="14">14</option>
+          <option value="15">15</option>
         </select>
 
-        <select id="playerGroup">
-          <option value="all">All Players</option>
-          <option value="forwards">Forwards Only</option>
-          <option value="backs">Backs Only</option>
-        </select>
-
-        <select id="playerSize">
-          <option value="normal">Normal Size</option>
-          <option value="medium">2/3 Size</option>
-          <option value="small">Small Circle</option>
-        </select>
+        <button id="joinSessionBtn" class="tc-btn full">Join Session</button>
       </div>
+    </section>
 
-      <div class="toolGroup">
-        <button id="freezeBtn">Freeze</button>
-        <button id="resetBtn">Reset</button>
-
-        <label class="speedLabel">
-          Speed
-          <input id="speed" type="range" min="1" max="10" value="5" />
-        </label>
-      </div>
-    </div>
   </div>
 
-  <canvas id="field" width="1600" height="900"></canvas>
+  <script>
+    window.socket = io();
 
-  <div id="qrModal" class="modal hidden">
-    <div class="modalCard">
-      <div class="modalHeader">
-        <h2 id="qrTitle">Scan to control players</h2>
-        <button id="closeQr">Close</button>
-      </div>
-      <div id="qrGrid"></div>
-    </div>
-  </div>
+    window.TEAM_CLARITY_CONFIG = {
+      version: "v2",
+      defaultDirection: "right-to-left",
+      fieldMode: "rugby",
+      normalizedCoordinates: true
+    };
+  </script>
 
-  <div id="paywallOverlay" class="paywall hidden">
-    <div class="paywallCard">
-      <h1 id="paywallTitle">SESSION LIVE 🔴</h1>
-      <p id="paywallLine1">Your session is connected.</p>
-      <p id="paywallLine2">To keep players connected and continue managing your team:</p>
+  <script src="/coach.js"></script>
+  <script src="/playsimulator.js"></script>
 
-      <div id="paywallPrice" class="price">€9.99 / year</div>
-
-      <button id="unlockBtn">Unlock Access</button>
-
-      <div class="promoBox">
-        <label id="promoLabel">Promo code:</label>
-        <input id="promoInput" placeholder="Enter code" />
-        <button id="promoBtn">Apply Promo Code</button>
-        <div id="promoMessage"></div>
-      </div>
-    </div>
-  </div>
-
-  <script src="/socket.io/socket.io.js"></script>
-  <script src="coach.js"></script>
 </body>
 </html>
