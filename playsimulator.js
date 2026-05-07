@@ -23,14 +23,48 @@ let countdownValue = null;
 let timingClicks = {};
 let sessionStartTime = null;
 
+let pitchType = "full";
+let FIELD = getFieldConfig("full");
+
 const PLAYER_SPEED = 7;
 
-const FIELD = {
-  left: 70,
-  right: W - 70,
-  top: 95,
-  bottom: H - 125
-};
+/* =========================================
+   FIELD CONFIG
+========================================= */
+
+function getFieldConfig(type) {
+  if (type === "half") {
+    return {
+      type,
+      left: 70,
+      right: W - 70,
+      top: 95,
+      bottom: H - 145
+    };
+  }
+
+  if (type === "lineout") {
+    return {
+      type,
+      left: 90,
+      right: W - 90,
+      top: 135,
+      bottom: H - 165
+    };
+  }
+
+  return {
+    type: "full",
+    left: 70,
+    right: W - 70,
+    top: 95,
+    bottom: H - 145
+  };
+}
+
+function updateFieldConfig() {
+  FIELD = getFieldConfig(pitchType);
+}
 
 function clone(obj) {
   return JSON.parse(JSON.stringify(obj));
@@ -48,14 +82,47 @@ function pixelText(text, x, y, size = 22, align = "center", color = "white") {
   ctx.restore();
 }
 
+/* =========================================
+   FIELD DRAWING
+========================================= */
+
 function drawPitch() {
+  if (pitchType === "half") {
+    drawHalfPitch();
+    return;
+  }
+
+  if (pitchType === "lineout") {
+    drawLineoutPitch();
+    return;
+  }
+
+  drawFullPitch();
+}
+
+function drawBaseGrass() {
   ctx.fillStyle = "#6ec65f";
   ctx.fillRect(0, 0, W, H);
+}
+
+function drawHeader(title) {
+  ctx.fillStyle = "#d71920";
+  ctx.fillRect(0, 0, W, 52);
+
+  ctx.fillStyle = "#111";
+  ctx.fillRect(0, 52, W, 8);
+
+  pixelText(title, W / 2, 37, 30, "center", "#fff");
+}
+
+function drawFullPitch() {
+  drawBaseGrass();
 
   const left = FIELD.left;
   const right = FIELD.right;
   const top = FIELD.top;
   const bottom = FIELD.bottom;
+
   const pw = right - left;
   const ph = bottom - top;
 
@@ -77,6 +144,7 @@ function drawPitch() {
   });
 
   ctx.setLineDash([16, 14]);
+
   [0.10, 0.90].forEach(p => {
     ctx.beginPath();
     ctx.moveTo(X(p), top);
@@ -85,6 +153,7 @@ function drawPitch() {
   });
 
   ctx.setLineDash([]);
+
   ctx.lineWidth = 6;
 
   [0.26, 0.74].forEach(p => {
@@ -95,6 +164,7 @@ function drawPitch() {
   });
 
   ctx.setLineDash([20, 16]);
+
   ctx.lineWidth = 4;
 
   [0.40, 0.60].forEach(p => {
@@ -107,12 +177,14 @@ function drawPitch() {
   ctx.setLineDash([]);
 
   ctx.lineWidth = 6;
+
   ctx.beginPath();
   ctx.moveTo(X(0.50), top);
   ctx.lineTo(X(0.50), bottom);
   ctx.stroke();
 
   ctx.setLineDash([18, 16]);
+
   ctx.lineWidth = 4;
 
   [0.08, 0.23, 0.77, 0.92].forEach(p => {
@@ -124,10 +196,143 @@ function drawPitch() {
 
   ctx.setLineDash([]);
 
+  drawFullPitchLabels(X, Y, left, right, bottom);
+  drawHeader("TEAM-CLARITY PLAYER SIMULATOR");
+}
+
+function drawHalfPitch() {
+  drawBaseGrass();
+
+  const left = FIELD.left;
+  const right = FIELD.right;
+  const top = FIELD.top;
+  const bottom = FIELD.bottom;
+
+  const pw = right - left;
+  const ph = bottom - top;
+
+  const Y = p => top + ph * p;
+
+  ctx.strokeStyle = "#fff";
+  ctx.lineWidth = 7;
+  ctx.strokeRect(left, top, pw, ph);
+
+  ctx.lineWidth = 8;
+  ctx.beginPath();
+  ctx.moveTo(left, top);
+  ctx.lineTo(right, top);
+  ctx.stroke();
+
+  ctx.lineWidth = 5;
+
+  [
+    ["5m", 0.11, true],
+    ["22m", 0.43, false],
+    ["40m", 0.78, true],
+    ["50m", 0.96, false]
+  ].forEach(([label, p, dashed]) => {
+
+    if (dashed) ctx.setLineDash([18, 14]);
+    else ctx.setLineDash([]);
+
+    ctx.beginPath();
+    ctx.moveTo(left, Y(p));
+    ctx.lineTo(right, Y(p));
+    ctx.stroke();
+
+    ctx.save();
+    ctx.fillStyle = "#fff";
+    ctx.font = "900 18px Courier New";
+    ctx.textAlign = "left";
+    ctx.shadowColor = "#000";
+    ctx.shadowOffsetX = 3;
+    ctx.shadowOffsetY = 3;
+    ctx.fillText(label, left + 14, Y(p) - 8);
+    ctx.restore();
+  });
+
+  ctx.setLineDash([]);
+
+  drawHeader("TEAM-CLARITY HALF FIELD");
+}
+
+function drawLineoutPitch() {
+  drawBaseGrass();
+
+  const left = FIELD.left;
+  const right = FIELD.right;
+  const top = FIELD.top;
+  const bottom = FIELD.bottom;
+
+  const touchX = left;
+  const fiveX = left + 180;
+  const fifteenX = left + 430;
+  const beyondX = left + 560;
+
+  ctx.strokeStyle = "#fff";
+
+  ctx.lineWidth = 7;
+  ctx.strokeRect(left, top, right - left, bottom - top);
+
+  ctx.lineWidth = 8;
+  ctx.beginPath();
+  ctx.moveTo(touchX, top);
+  ctx.lineTo(touchX, bottom);
+  ctx.stroke();
+
+  ctx.lineWidth = 6;
+  ctx.beginPath();
+  ctx.moveTo(fiveX, top);
+  ctx.lineTo(fiveX, bottom);
+  ctx.stroke();
+
+  ctx.setLineDash([18, 14]);
+  ctx.lineWidth = 5;
+
+  ctx.beginPath();
+  ctx.moveTo(fifteenX, top);
+  ctx.lineTo(fifteenX, bottom);
+  ctx.stroke();
+
+  ctx.setLineDash([]);
+
+  ctx.setLineDash([12, 12]);
+
+  ctx.lineWidth = 3;
+
+  ctx.beginPath();
+  ctx.moveTo(beyondX, top);
+  ctx.lineTo(beyondX, bottom);
+  ctx.stroke();
+
+  ctx.setLineDash([]);
+
   ctx.save();
+
+  ctx.fillStyle = "#fff";
+  ctx.font = "900 20px Courier New";
+  ctx.textAlign = "center";
+  ctx.shadowColor = "#000";
+  ctx.shadowOffsetX = 3;
+  ctx.shadowOffsetY = 3;
+
+  ctx.fillText("TOUCH", touchX + 55, bottom + 30);
+  ctx.fillText("5m", fiveX, bottom + 30);
+  ctx.fillText("15m", fifteenX, bottom + 30);
+  ctx.fillText("+", beyondX, bottom + 30);
+
+  ctx.restore();
+
+  drawHeader("TEAM-CLARITY LINEOUT FIELD");
+}
+
+function drawFullPitchLabels(X, Y, left, right, bottom) {
+  ctx.save();
+
   ctx.fillStyle = "#fff";
   ctx.font = "900 18px Courier New";
   ctx.textAlign = "center";
+
   ctx.shadowColor = "#000";
   ctx.shadowOffsetX = 3;
   ctx.shadowOffsetY = 3;
@@ -145,30 +350,29 @@ function drawPitch() {
   });
 
   ctx.textAlign = "left";
+
   ctx.fillText("5m", left + 8, Y(0.08) - 8);
   ctx.fillText("15m", left + 8, Y(0.23) - 8);
   ctx.fillText("15m", left + 8, Y(0.77) - 8);
   ctx.fillText("5m", left + 8, Y(0.92) - 8);
 
   ctx.textAlign = "right";
+
   ctx.fillText("5m", right - 8, Y(0.08) - 8);
   ctx.fillText("15m", right - 8, Y(0.23) - 8);
   ctx.fillText("15m", right - 8, Y(0.77) - 8);
   ctx.fillText("5m", right - 8, Y(0.92) - 8);
 
   ctx.restore();
-
-  ctx.fillStyle = "#d71920";
-  ctx.fillRect(0, 0, W, 52);
-
-  ctx.fillStyle = "#111";
-  ctx.fillRect(0, 52, W, 8);
-
-  pixelText("TEAM-CLARITY PLAYER SIMULATOR", W / 2, 37, 30, "center", "#fff");
 }
+
+/* =========================================
+   BALL / PLAYERS
+========================================= */
 
 function drawBall(ballObj = ball) {
   ctx.save();
+
   ctx.translate(ballObj.x, ballObj.y);
   ctx.rotate(-0.35);
 
@@ -203,6 +407,7 @@ function drawCirclePlayer(p, highlight = false, ghost = false) {
   ctx.fill();
 
   ctx.fillStyle = ghost ? "#ffffff" : highlight ? "#ffd700" : p.color || "#d71920";
+
   ctx.beginPath();
   ctx.arc(p.x, p.y, radius, 0, Math.PI * 2);
   ctx.fill();
@@ -221,15 +426,18 @@ function drawCirclePlayer(p, highlight = false, ghost = false) {
 }
 
 function drawPlayer(p, highlight = false, ghost = false) {
+
   if (playerSize === "small") {
     drawCirclePlayer(p, highlight, ghost);
     return;
   }
 
   ctx.save();
+
   ctx.translate(p.x, p.y);
 
   const s = playerSize === "medium" ? 0.37 : 0.55;
+
   ctx.scale(s, s);
   ctx.globalAlpha = ghost ? 0.28 : 1;
 
@@ -287,12 +495,18 @@ function drawPlayer(p, highlight = false, ghost = false) {
     ctx.save();
     ctx.strokeStyle = "#ffd700";
     ctx.lineWidth = 4;
+
     ctx.beginPath();
     ctx.arc(p.x, p.y - 8, 32, 0, Math.PI * 2);
     ctx.stroke();
+
     ctx.restore();
   }
 }
+
+/* =========================================
+   FOOTER / COUNTDOWN
+========================================= */
 
 function drawFooter() {
   const footerTop = H - 92;
@@ -302,22 +516,38 @@ function drawFooter() {
 
   if (!selectedPlay) {
     pixelText("LOAD A PLAY TO BEGIN", W / 2, footerTop + 34, 24, "center", "#ffd700");
-    pixelText("Choose a saved play from Play Builder, then scan QR codes for controllers", W / 2, footerTop + 70, 14, "center", "#fff");
+
+    pixelText(
+      "Choose a saved play from Play Builder, then scan QR codes for controllers",
+      W / 2,
+      footerTop + 70,
+      14,
+      "center",
+      "#fff"
+    );
+
     return;
   }
 
   const status = simRunning ? "REP LIVE" : "READY";
 
   pixelText(
-    `${status} | PLAYER ${selectedPlayer} | SPEED ${simSpeedMultiplier}x | SHADOW ${shadowGuideOn ? "ON" : "OFF"}`,
+    `${status} | PLAYER ${selectedPlayer} | SPEED ${simSpeedMultiplier}x | SHADOW ${shadowGuideOn ? "ON" : "OFF"} | ${pitchType.toUpperCase()} FIELD`,
     W / 2,
     footerTop + 34,
-    22,
+    18,
     "center",
     "#ffd700"
   );
 
-  pixelText(selectedPlay.name || "Loaded Play", W / 2, footerTop + 70, 14, "center", "#fff");
+  pixelText(
+    selectedPlay.name || "Loaded Play",
+    W / 2,
+    footerTop + 70,
+    14,
+    "center",
+    "#fff"
+  );
 }
 
 function drawCountdown() {
@@ -354,6 +584,10 @@ function draw() {
   drawCountdown();
 }
 
+/* =========================================
+   PLAY STORAGE
+========================================= */
+
 function getSavedPlays() {
   return JSON.parse(localStorage.getItem("teamClaritySavedPlays") || "[]");
 }
@@ -368,9 +602,14 @@ function saveTrainingLog(log) {
   localStorage.setItem("teamClarityTrainingLogs", JSON.stringify(logs));
 }
 
+/* =========================================
+   LOAD PLAYS
+========================================= */
+
 function openPlayFolder() {
   const modal = document.getElementById("playModal");
   const list = document.getElementById("savedPlaysList");
+
   const plays = getSavedPlays();
 
   list.innerHTML = "";
@@ -381,13 +620,17 @@ function openPlayFolder() {
 
   plays.forEach(play => {
     const item = document.createElement("div");
+
     item.className = "savedPlayItem";
 
     item.innerHTML = `
       <div>
         <div class="savedPlayName">📁 ${play.name}</div>
-        <div class="savedPlayMeta">${play.steps.length} steps</div>
+        <div class="savedPlayMeta">
+          ${play.steps.length} steps | ${play.pitchType || "full"} field
+        </div>
       </div>
+
       <button data-load="${play.id}">Load</button>
     `;
 
@@ -396,18 +639,29 @@ function openPlayFolder() {
 
   list.querySelectorAll("[data-load]").forEach(btn => {
     btn.onclick = () => {
+
       const id = Number(btn.dataset.load);
+
       selectedPlay = plays.find(p => p.id === id);
 
       if (!selectedPlay || !selectedPlay.steps || selectedPlay.steps.length === 0) return;
 
+      pitchType = selectedPlay.pitchType || selectedPlay.steps?.[0]?.pitchType || "full";
+
+      updateFieldConfig();
+
       loadStep(selectedPlay.steps[0], true);
+
       modal.classList.add("hidden");
     };
   });
 
   modal.classList.remove("hidden");
 }
+
+/* =========================================
+   QR
+========================================= */
 
 async function openQrCodes() {
   const modal = document.getElementById("qrModal");
@@ -420,20 +674,29 @@ async function openQrCodes() {
   const data = await res.json();
 
   for (let i = 1; i <= 15; i++) {
+
     const item = document.createElement("div");
+
     item.className = "qrItem";
+
     item.innerHTML = `
       <div>Player ${i}</div>
       <img src="${data.qrs[i]}">
       <div>${data.baseUrl}/simcontroller.html?p=${i}</div>
     `;
+
     grid.appendChild(item);
   }
 }
 
+/* =========================================
+   LOGS
+========================================= */
+
 function openLogs() {
   const modal = document.getElementById("logsModal");
   const list = document.getElementById("logsList");
+
   const logs = getTrainingLogs().slice().reverse();
 
   list.innerHTML = "";
@@ -444,24 +707,44 @@ function openLogs() {
 
   logs.forEach(log => {
     const item = document.createElement("div");
+
     item.className = "savedPlayItem";
+
     item.innerHTML = `
       <div>
-        <div class="savedPlayName">Player ${log.player} — ${log.score}/10</div>
-        <div class="savedPlayMeta">${log.play} | ${log.date}</div>
+        <div class="savedPlayName">
+          Player ${log.player} — ${log.score}/10
+        </div>
+
         <div class="savedPlayMeta">
-          Positioning ${log.positioning}/5 | Timing ${log.timing}/5 | Execution ${log.execution}/5 |
-          Shadow ${log.shadowGuide ? "ON" : "OFF"} | Speed ${log.speed}x
+          ${log.play} | ${log.date}
+        </div>
+
+        <div class="savedPlayMeta">
+          Positioning ${log.positioning}/5 |
+          Timing ${log.timing}/5 |
+          Execution ${log.execution}/5
         </div>
       </div>
     `;
+
     list.appendChild(item);
   });
 
   modal.classList.remove("hidden");
 }
 
+/* =========================================
+   PLAY LOGIC
+========================================= */
+
 function loadStep(step, resetExpected = false) {
+
+  if (step.pitchType) {
+    pitchType = step.pitchType;
+    updateFieldConfig();
+  }
+
   players = clone(step.players);
   ball = clone(step.ball);
 
@@ -473,9 +756,13 @@ function loadStep(step, resetExpected = false) {
 }
 
 async function countdown() {
+
   for (const value of [3, 2, 1, 0]) {
+
     countdownValue = value;
+
     draw();
+
     await new Promise(resolve => setTimeout(resolve, 700));
   }
 
@@ -483,9 +770,11 @@ async function countdown() {
 }
 
 function interpolateStep(from, to, t) {
+
   const smooth = t * t * (3 - 2 * t);
 
   Object.values(expectedPlayers).forEach(p => {
+
     const a = from.players[p.number];
     const b = to.players[p.number];
 
@@ -496,9 +785,11 @@ function interpolateStep(from, to, t) {
   });
 
   Object.values(players).forEach(p => {
+
     if (p.number === selectedPlayer) return;
 
     const target = expectedPlayers[p.number];
+
     if (!target) return;
 
     p.x = target.x;
@@ -510,13 +801,17 @@ function interpolateStep(from, to, t) {
 }
 
 function animateBetweenSteps(from, to, duration) {
+
   return new Promise(resolve => {
+
     const start = performance.now();
 
     function frame(now) {
+
       const t = Math.min((now - start) / duration, 1);
 
       interpolateStep(from, to, t);
+
       draw();
 
       if (t < 1) {
@@ -531,6 +826,7 @@ function animateBetweenSteps(from, to, duration) {
 }
 
 async function startSimulation() {
+
   if (!selectedPlay || !selectedPlay.steps || selectedPlay.steps.length < 2) {
     alert("Load a play with at least 2 steps first.");
     return;
@@ -553,11 +849,18 @@ async function startSimulation() {
   }
 
   simRunning = false;
+
   calculateScore();
 }
 
+/* =========================================
+   SCORING
+========================================= */
+
 function calculateScore() {
+
   const finalStep = selectedPlay.steps[selectedPlay.steps.length - 1];
+
   const expected = finalStep.players[selectedPlayer];
   const actual = players[selectedPlayer];
 
@@ -566,24 +869,30 @@ function calculateScore() {
   const dist = Math.hypot(expected.x - actual.x, expected.y - actual.y);
 
   let positionScore = 1;
+
   if (dist < 25) positionScore = 5;
   else if (dist < 55) positionScore = 4;
   else if (dist < 90) positionScore = 3;
   else if (dist < 130) positionScore = 2;
 
   let timingScore = 2;
+
   if (timingClicks[selectedPlayer]) timingScore = 5;
   else if (dist < 80) timingScore = 4;
   else if (dist < 140) timingScore = 3;
 
   let executionScore = 2;
+
   if (dist < 35) executionScore = 5;
   else if (dist < 75) executionScore = 4;
   else if (dist < 120) executionScore = 3;
 
   const rawTotal = positionScore + timingScore + executionScore;
   const finalScore = Math.round((rawTotal / 15) * 10);
-  const timeSpentSeconds = sessionStartTime ? Math.round((Date.now() - sessionStartTime) / 1000) : 0;
+
+  const timeSpentSeconds = sessionStartTime
+    ? Math.round((Date.now() - sessionStartTime) / 1000)
+    : 0;
 
   let performanceIcon = "🏆";
   let performanceText = "Elite Rep";
@@ -609,26 +918,53 @@ function calculateScore() {
     distance: Math.round(dist),
     shadowGuide: shadowGuideOn,
     speed: simSpeedMultiplier,
+    pitchType,
     timeSpentSeconds,
     date: new Date().toLocaleString()
   });
 
   document.getElementById("scoreResult").innerHTML = `
     <div style="display:flex; align-items:center; justify-content:space-between; gap:40px; flex-wrap:wrap;">
+
       <div>
-        <div style="font-size:88px; line-height:1; margin-bottom:10px;">${performanceIcon}</div>
-        <div style="font-size:26px; font-weight:900; color:#ffd700; margin-bottom:20px;">${performanceText}</div>
+        <div style="font-size:88px; line-height:1; margin-bottom:10px;">
+          ${performanceIcon}
+        </div>
+
+        <div style="font-size:26px; font-weight:900; color:#ffd700; margin-bottom:20px;">
+          ${performanceText}
+        </div>
       </div>
 
       <div style="flex:1; min-width:280px;">
-        <div style="font-size:72px; font-weight:900; color:#ffd700; margin-bottom:25px;">${finalScore}/10</div>
-        <div style="font-size:22px; margin-bottom:12px;">Positioning: ${positionScore}/5</div>
-        <div style="font-size:22px; margin-bottom:12px;">Timing: ${timingScore}/5</div>
-        <div style="font-size:22px; margin-bottom:12px;">Execution: ${executionScore}/5</div>
-        <div style="font-size:18px; opacity:.8; margin-top:20px;">Distance from target: ${Math.round(dist)} px</div>
-        <div style="font-size:16px; opacity:.75; margin-top:12px;">
-          Time: ${timeSpentSeconds}s | Shadow: ${shadowGuideOn ? "ON" : "OFF"} | Speed: ${simSpeedMultiplier}x
+
+        <div style="font-size:72px; font-weight:900; color:#ffd700; margin-bottom:25px;">
+          ${finalScore}/10
         </div>
+
+        <div style="font-size:22px; margin-bottom:12px;">
+          Positioning: ${positionScore}/5
+        </div>
+
+        <div style="font-size:22px; margin-bottom:12px;">
+          Timing: ${timingScore}/5
+        </div>
+
+        <div style="font-size:22px; margin-bottom:12px;">
+          Execution: ${executionScore}/5
+        </div>
+
+        <div style="font-size:18px; opacity:.8; margin-top:20px;">
+          Distance from target: ${Math.round(dist)} px
+        </div>
+
+        <div style="font-size:16px; opacity:.75; margin-top:12px;">
+          ${pitchType.toUpperCase()} FIELD |
+          Time: ${timeSpentSeconds}s |
+          Shadow: ${shadowGuideOn ? "ON" : "OFF"} |
+          Speed: ${simSpeedMultiplier}x
+        </div>
+
       </div>
     </div>
   `;
@@ -636,7 +972,12 @@ function calculateScore() {
   document.getElementById("scoreModal").classList.remove("hidden");
 }
 
+/* =========================================
+   PHONE CONTROL
+========================================= */
+
 socket.on("sim-player-move", data => {
+
   if (!simRunning) return;
 
   const number = Number(data.number);
@@ -657,14 +998,29 @@ socket.on("sim-player-timing", data => {
   timingClicks[Number(data.number)] = Date.now();
 });
 
+/* =========================================
+   UI HOOKS
+========================================= */
+
 document.getElementById("loadPlayBtn").onclick = openPlayFolder;
 document.getElementById("qrBtn").onclick = openQrCodes;
 document.getElementById("logsBtn").onclick = openLogs;
 
-document.getElementById("closeQr").onclick = () => document.getElementById("qrModal").classList.add("hidden");
-document.getElementById("closePlayModal").onclick = () => document.getElementById("playModal").classList.add("hidden");
-document.getElementById("closeScoreModal").onclick = () => document.getElementById("scoreModal").classList.add("hidden");
-document.getElementById("closeLogsModal").onclick = () => document.getElementById("logsModal").classList.add("hidden");
+document.getElementById("closeQr").onclick = () => {
+  document.getElementById("qrModal").classList.add("hidden");
+};
+
+document.getElementById("closePlayModal").onclick = () => {
+  document.getElementById("playModal").classList.add("hidden");
+};
+
+document.getElementById("closeScoreModal").onclick = () => {
+  document.getElementById("scoreModal").classList.add("hidden");
+};
+
+document.getElementById("closeLogsModal").onclick = () => {
+  document.getElementById("logsModal").classList.add("hidden");
+};
 
 document.getElementById("playerNumber").onchange = e => {
   selectedPlayer = Number(e.target.value);
@@ -679,17 +1035,24 @@ document.getElementById("playerSize").onchange = e => {
 document.getElementById("startSimBtn").onclick = startSimulation;
 
 document.getElementById("resetSimBtn").onclick = () => {
-  if (selectedPlay) loadStep(selectedPlay.steps[0], true);
+
+  if (selectedPlay) {
+    loadStep(selectedPlay.steps[0], true);
+  }
 
   simRunning = false;
   countdownValue = null;
   timingClicks = {};
+
   draw();
 };
 
 document.getElementById("simSpeed").oninput = e => {
   simSpeedMultiplier = Number(e.target.value);
-  document.getElementById("simSpeedValue").textContent = simSpeedMultiplier + "x";
+
+  document.getElementById("simSpeedValue").textContent =
+    simSpeedMultiplier + "x";
+
   draw();
 };
 
