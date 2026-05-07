@@ -1,453 +1,394 @@
 const express = require("express");
 const http = require("http");
+const path = require("path");
 const { Server } = require("socket.io");
-const QRCode = require("qrcode");
 
 const app = express();
 const server = http.createServer(app);
-
 const io = new Server(server, {
   cors: { origin: "*" }
 });
 
-app.use(express.static(__dirname));
+const PORT = process.env.PORT || 3000;
 
-const FIELD = {
-  width: 1600,
-  height: 900,
-  topMargin: 120,
-  bottomMargin: 145,
-  sideMargin: 70
-};
+app.use(express.static(path.join(__dirname, "public")));
+app.use(express.json());
 
-const COLORS = {
-  red: "#d71920",
-  white: "#ffffff",
-  black: "#111111",
-  blue: "#1f6feb"
-};
+const sessions = new Map();
 
-const state = {
-  sportMode: "rugby",
-  frozen: false,
-  speed: 1,
-  ball: { x: 950, y: 230 },
-  players: {}
-};
-
-const controllerSockets = {};
-const simulatorSockets = {};
-
-function clamp(v, min, max) {
-  return Math.max(min, Math.min(max, v));
+function createSessionId() {
+  return Math.random().toString(36).substring(2, 8).toUpperCase();
 }
 
-function playableLeft() {
-  return FIELD.sideMargin + 22;
+function createDefaultSession(sessionId) {
+  return {
+    id: sessionId,
+    createdAt: Date.now(),
+    updatedAt: Date.now(),
+    coachSocketId: null,
+    frozen: false,
+    mode: "rugby",
+    layout: "lineout",
+    attackDirection: "right-to-left",
+    playerSize: "large",
+    teamColor: "red",
+    players: {},
+    ball: {
+      x: 72,
+      y: 50,
+      holder: null,
+      visible: true
+    },
+    simulator: {
+      active: false,
+      currentPlay: null,
+      currentTime: 0,
+      isPlaying: false,
+      score: null
+    }
+  };
 }
 
-function playableRight() {
-  return FIELD.width - FIELD.sideMargin - 22;
+function getOrCreateSession(sessionId) {
+  const id = sessionId || createSessionId();
+
+  if (!sessions.has(id)) {
+    sessions.set(id, createDefaultSession(id));
+  }
+
+  return sessions.get(id);
 }
 
-function playableTop() {
-  return FIELD.topMargin + 24;
+function publicSession(session) {
+  return {
+    id: session.id,
+    frozen: session.frozen,
+    mode: session.mode,
+    layout: session.layout,
+    attackDirection: session.attackDirection,
+    playerSize: session.playerSize,
+    teamColor: session.teamColor,
+    players: session.players,
+    ball: session.ball,
+    simulator: session.simulator
+  };
 }
 
-function playableBottom() {
-  return FIELD.height - FIELD.bottomMargin - 24;
+function updateSession(session) {
+  session.updatedAt = Date.now();
+  io.to(session.id).emit("session:update", publicSession(session));
 }
 
-function emitState() {
-  io.emit("state", state);
-}
+function applyLayout(session, layout) {
+  session.layout = layout;
 
-function clampAll() {
-  Object.values(state.players).forEach(p => {
-    p.x = clamp(p.x, playableLeft(), playableRight());
-    p.y = clamp(p.y, playableTop(), playableBottom());
-  });
+  const rightToLeft = session.attackDirection === "right-to-left";
 
-  state.ball.x = clamp(state.ball.x, playableLeft(), playableRight());
-  state.ball.y = clamp(state.ball.y, playableTop(), playableBottom());
-}
+  const lineoutPlayers = {
+    1: { x: 78, y: 14 },
+    2: { x: 78, y: 10 },
+    3: { x: 78, y: 18 },
+    4: { x: 72, y: 12 },
+    5: { x: 68, y: 16 },
+    6: { x: 64, y: 20 },
+    7: { x: 60, y: 12 },
+    8: { x: 56, y: 16 },
+    9: { x: 70, y: 25 },
+    10: { x: 63, y: 35 },
+    11: { x: 43, y: 72 },
+    12: { x: 55, y: 45 },
+    13: { x: 48, y: 55 },
+    14: { x: 32, y: 82 },
+    15: { x: 42, y: 36 }
+  };
 
-function initPlayers() {
-  state.players = {};
+  const scrumPlayers = {
+    1: { x: 72, y: 45 },
+    2: { x: 72, y: 50 },
+    3: { x: 72, y: 55 },
+    4: { x: 76, y: 47 },
+    5: { x: 76, y: 53 },
+    6: { x: 80, y: 44 },
+    7: { x: 80, y: 56 },
+    8: { x: 82, y: 50 },
+    9: { x: 86, y: 50 },
+    10: { x: 67, y: 42 },
+    11: { x: 38, y: 18 },
+    12: { x: 58, y: 48 },
+    13: { x: 49, y: 55 },
+    14: { x: 30, y: 82 },
+    15: { x: 43, y: 38 }
+  };
+
+  const shape = layout === "scrum" ? scrumPlayers : lineoutPlayers;
 
   for (let i = 1; i <= 15; i++) {
-    state.players[i] = {
+    const existing = session.players[i] || {};
+    const base = shape[i];
+
+    session.players[i] = {
+      id: String(i),
       number: i,
-      x: 500,
-      y: 300,
-      color: COLORS.red,
-      connected: false
+      role: String(i),
+      connected: existing.connected || false,
+      socketId: existing.socketId || null,
+      controllerId: existing.controllerId || null,
+      color: existing.color || session.teamColor,
+      x: rightToLeft ? base.x : 100 - base.x,
+      y: base.y
     };
   }
 
-  placeLineout("top", 920);
+  session.ball = {
+    x: rightToLeft ? 76 : 24,
+    y: layout === "scrum" ? 50 : 14,
+    holder: layout === "scrum" ? "9" : "2",
+    visible: true
+  };
 }
 
-/* ================================
-   TEAM-CLARITY STANDARD SHAPES
-   Always RIGHT → LEFT
-================================ */
+io.on("connection", (socket) => {
+  console.log("Connected:", socket.id);
 
-function placeLineout(side = "top", clickedX = 920) {
-  const xForwards = clamp(
-    Number(clickedX) || 920,
-    playableLeft() + 200,
-    playableRight() - 520
-  );
+  socket.on("coach:createSession", () => {
+    const sessionId = createSessionId();
+    const session = getOrCreateSession(sessionId);
 
-  const spacing = side === "top" ? 34 : -34;
-  const startY = side === "top" ? FIELD.topMargin + 72 : FIELD.height - FIELD.bottomMargin - 72;
+    session.coachSocketId = socket.id;
+    applyLayout(session, session.layout);
 
-  [1, 3, 4, 5, 6, 7, 8].forEach((n, i) => {
-    state.players[n].x = xForwards;
-    state.players[n].y = startY + i * spacing;
+    socket.join(sessionId);
+
+    socket.emit("coach:sessionCreated", publicSession(session));
+    updateSession(session);
   });
 
-  state.players[2].x = xForwards - 78;
-  state.players[2].y = startY - spacing * 0.2;
+  socket.on("coach:joinSession", ({ sessionId }) => {
+    const session = getOrCreateSession(sessionId);
 
-  state.players[9].x = xForwards + 76;
-  state.players[9].y = startY + spacing * 4.2;
+    session.coachSocketId = socket.id;
+    socket.join(session.id);
 
-  const backsStartX = clamp(xForwards + 185, playableLeft() + 100, playableRight() - 100);
+    socket.emit("coach:sessionJoined", publicSession(session));
+    updateSession(session);
+  });
 
-  state.players[10].x = backsStartX;
-  state.players[10].y = clamp(startY + spacing * 3.5, playableTop() + 20, playableBottom() - 20);
+  socket.on("player:joinSession", ({ sessionId, playerNumber, controllerId }) => {
+    const session = getOrCreateSession(sessionId);
+    const number = String(playerNumber);
 
-  state.players[12].x = clamp(backsStartX + 105, playableLeft(), playableRight());
-  state.players[12].y = clamp(startY + spacing * 4.3, playableTop() + 20, playableBottom() - 20);
+    socket.join(session.id);
 
-  state.players[13].x = clamp(backsStartX + 220, playableLeft(), playableRight());
-  state.players[13].y = clamp(startY + spacing * 5.0, playableTop() + 20, playableBottom() - 20);
-
-  state.players[15].x = clamp(backsStartX + 330, playableLeft(), playableRight());
-  state.players[15].y = clamp(startY + spacing * 5.9, playableTop() + 20, playableBottom() - 20);
-
-  state.players[14].x = clamp(backsStartX + 435, playableLeft(), playableRight());
-  state.players[14].y = clamp(startY + spacing * 6.8, playableTop() + 20, playableBottom() - 20);
-
-  state.players[11].x = clamp(backsStartX + 160, playableLeft(), playableRight());
-  state.players[11].y = clamp(startY + spacing * 1.6, playableTop() + 20, playableBottom() - 20);
-
-  state.ball.x = xForwards + 34;
-  state.ball.y = startY + spacing * 1.4;
-
-  clampAll();
-}
-
-function placeScrum(clickedX = 720, clickedY = 445) {
-  const cx = clamp(
-    Number(clickedX) || 720,
-    playableLeft() + 160,
-    playableRight() - 580
-  );
-
-  const cy = clamp(
-    Number(clickedY) || 445,
-    playableTop() + 140,
-    playableBottom() - 200
-  );
-
-  const gapX = 38;
-  const gapY = 38;
-
-  state.players[1].x = cx - gapX;
-  state.players[1].y = cy - gapY;
-
-  state.players[2].x = cx;
-  state.players[2].y = cy - gapY;
-
-  state.players[3].x = cx + gapX;
-  state.players[3].y = cy - gapY;
-
-  state.players[4].x = cx - 19;
-  state.players[4].y = cy;
-
-  state.players[5].x = cx + 19;
-  state.players[5].y = cy;
-
-  state.players[6].x = cx - 66;
-  state.players[6].y = cy + gapY;
-
-  state.players[7].x = cx + 66;
-  state.players[7].y = cy + gapY;
-
-  state.players[8].x = cx;
-  state.players[8].y = cy + gapY + 18;
-
-  state.players[9].x = cx + 150;
-  state.players[9].y = cy + 14;
-
-  state.players[10].x = clamp(cx + 265, playableLeft(), playableRight());
-  state.players[10].y = clamp(cy + 42, playableTop(), playableBottom());
-
-  state.players[12].x = clamp(cx + 375, playableLeft(), playableRight());
-  state.players[12].y = clamp(cy + 82, playableTop(), playableBottom());
-
-  state.players[13].x = clamp(cx + 500, playableLeft(), playableRight());
-  state.players[13].y = clamp(cy + 132, playableTop(), playableBottom());
-
-  state.players[15].x = clamp(cx + 605, playableLeft(), playableRight());
-  state.players[15].y = clamp(cy + 195, playableTop(), playableBottom());
-
-  state.players[14].x = clamp(cx + 710, playableLeft(), playableRight());
-  state.players[14].y = clamp(cy + 245, playableTop(), playableBottom());
-
-  state.players[11].x = clamp(cx + 440, playableLeft(), playableRight());
-  state.players[11].y = clamp(cy - 118, playableTop(), playableBottom());
-
-  state.ball.x = cx + 105;
-  state.ball.y = cy + 8;
-
-  clampAll();
-}
-
-initPlayers();
-
-/* ================================
-   QR APIS
-================================ */
-
-function getBaseUrl(req) {
-  return process.env.RENDER_EXTERNAL_URL || `https://${req.get("host")}`;
-}
-
-app.get("/api/qrs", async (req, res) => {
-  const baseUrl = getBaseUrl(req);
-  const qrs = {};
-
-  for (let i = 1; i <= 15; i++) {
-    qrs[i] = await QRCode.toDataURL(`${baseUrl}/controller.html?p=${i}`);
-  }
-
-  res.json({ baseUrl, qrs });
-});
-
-app.get("/api/sim-qrs", async (req, res) => {
-  const baseUrl = getBaseUrl(req);
-  const qrs = {};
-
-  for (let i = 1; i <= 15; i++) {
-    qrs[i] = await QRCode.toDataURL(`${baseUrl}/simcontroller.html?p=${i}`);
-  }
-
-  res.json({ baseUrl, qrs });
-});
-
-/* ================================
-   SOCKETS
-================================ */
-
-io.on("connection", socket => {
-  socket.emit("state", state);
-
-  socket.on("controller-connect", number => {
-    number = Number(number);
-    controllerSockets[socket.id] = number;
-
-    if (state.players[number]) {
-      state.players[number].connected = true;
+    if (!session.players[number]) {
+      session.players[number] = {
+        id: number,
+        number: Number(number),
+        role: number,
+        x: 50,
+        y: 50,
+        color: session.teamColor
+      };
     }
 
-    emitState();
-  });
+    session.players[number] = {
+      ...session.players[number],
+      connected: true,
+      socketId: socket.id,
+      controllerId: controllerId || socket.id
+    };
 
-  socket.on("controller-move", data => {
-    if (state.frozen || !data) return;
+    socket.data.sessionId = session.id;
+    socket.data.playerNumber = number;
+    socket.data.controllerId = controllerId || socket.id;
 
-    const number = controllerSockets[socket.id];
-    if (!number) return;
-
-    const player = state.players[number];
-    if (!player) return;
-
-    const speed = Number(state.speed || 1);
-
-    player.x += Number(data.dx || 0) * 7 * speed;
-    player.y += Number(data.dy || 0) * 7 * speed;
-
-    player.x = clamp(player.x, playableLeft(), playableRight());
-    player.y = clamp(player.y, playableTop(), playableBottom());
-
-    emitState();
-  });
-
-  socket.on("player-move", data => {
-    if (state.frozen || !data) return;
-
-    const number = Number(data.number || controllerSockets[socket.id]);
-    const player = state.players[number];
-    if (!player) return;
-
-    const speed = Number(state.speed || 1);
-
-    player.x += Number(data.dx || 0) * 7 * speed;
-    player.y += Number(data.dy || 0) * 7 * speed;
-
-    player.x = clamp(player.x, playableLeft(), playableRight());
-    player.y = clamp(player.y, playableTop(), playableBottom());
-
-    emitState();
-  });
-
-  socket.on("player-join", number => {
-    number = Number(number);
-    controllerSockets[socket.id] = number;
-
-    if (state.players[number]) {
-      state.players[number].connected = true;
-    }
-
-    emitState();
-  });
-
-  socket.on("join-player", number => {
-    number = Number(number);
-    controllerSockets[socket.id] = number;
-
-    if (state.players[number]) {
-      state.players[number].connected = true;
-    }
-
-    emitState();
-  });
-
-  socket.on("controller-join", number => {
-    number = Number(number);
-    controllerSockets[socket.id] = number;
-
-    if (state.players[number]) {
-      state.players[number].connected = true;
-    }
-
-    emitState();
-  });
-
-  socket.on("coach-move-player", data => {
-    if (state.frozen || !data) return;
-
-    const player = state.players[Number(data.number)];
-    if (!player) return;
-
-    player.x = clamp(Number(data.x), playableLeft(), playableRight());
-    player.y = clamp(Number(data.y), playableTop(), playableBottom());
-
-    emitState();
-  });
-
-  socket.on("coach-ball", data => {
-    if (state.frozen || !data) return;
-
-    state.ball.x = clamp(Number(data.x), playableLeft(), playableRight());
-    state.ball.y = clamp(Number(data.y), playableTop(), playableBottom());
-
-    emitState();
-  });
-
-  socket.on("coach-attach-ball", number => {
-    const player = state.players[Number(number)];
-    if (!player) return;
-
-    state.ball.x = clamp(player.x + 28, playableLeft(), playableRight());
-    state.ball.y = clamp(player.y - 10, playableTop(), playableBottom());
-
-    emitState();
-  });
-
-  socket.on("coach-reset", () => {
-    placeLineout("top", 920);
-    emitState();
-  });
-
-  socket.on("coach-freeze", frozen => {
-    state.frozen = Boolean(frozen);
-    emitState();
-  });
-
-  socket.on("coach-speed", speed => {
-    state.speed = Number(speed || 1);
-    emitState();
-  });
-
-  socket.on("coach-team-color", color => {
-    const finalColor = COLORS[color] || COLORS.red;
-
-    Object.values(state.players).forEach(p => {
-      p.color = finalColor;
+    socket.emit("player:joined", {
+      sessionId: session.id,
+      playerNumber: number,
+      session: publicSession(session)
     });
 
-    emitState();
+    updateSession(session);
   });
 
-  socket.on("coach-sport-mode", mode => {
-    state.sportMode = mode;
-    emitState();
+  socket.on("coach:setLayout", ({ sessionId, layout }) => {
+    const session = getOrCreateSession(sessionId);
+    applyLayout(session, layout);
+    updateSession(session);
   });
 
-  socket.on("coach-setpiece", data => {
-    if (!data) return;
-
-    if (data.type === "lineout") {
-      placeLineout(data.side || "top", data.x || 920);
-    }
-
-    if (data.type === "scrum") {
-      placeScrum(data.x || 720, data.y || 445);
-    }
-
-    emitState();
+  socket.on("coach:reset", ({ sessionId }) => {
+    const session = getOrCreateSession(sessionId);
+    applyLayout(session, session.layout);
+    updateSession(session);
   });
 
-  socket.on("sim-player-join", number => {
-    number = Number(number);
-    simulatorSockets[socket.id] = number;
+  socket.on("coach:setAttackDirection", ({ sessionId, attackDirection }) => {
+    const session = getOrCreateSession(sessionId);
+    session.attackDirection = attackDirection || "right-to-left";
+    applyLayout(session, session.layout);
+    updateSession(session);
+  });
 
-    io.emit("sim-player-connected", {
-      number,
-      connected: true
+  socket.on("coach:setPlayerSize", ({ sessionId, playerSize }) => {
+    const session = getOrCreateSession(sessionId);
+    session.playerSize = playerSize || "large";
+    updateSession(session);
+  });
+
+  socket.on("coach:setTeamColor", ({ sessionId, teamColor }) => {
+    const session = getOrCreateSession(sessionId);
+    session.teamColor = teamColor || "red";
+
+    Object.keys(session.players).forEach((id) => {
+      session.players[id].color = session.teamColor;
     });
+
+    updateSession(session);
   });
 
-  socket.on("sim-player-move", data => {
-    if (!data) return;
-
-    io.emit("sim-player-move", {
-      number: Number(data.number || simulatorSockets[socket.id]),
-      dx: Number(data.dx || 0),
-      dy: Number(data.dy || 0)
-    });
+  socket.on("coach:freeze", ({ sessionId, frozen }) => {
+    const session = getOrCreateSession(sessionId);
+    session.frozen = !!frozen;
+    updateSession(session);
   });
 
-  socket.on("sim-player-timing", data => {
-    io.emit("sim-player-timing", {
-      number: Number(data?.number || simulatorSockets[socket.id])
-    });
+  socket.on("coach:movePlayer", ({ sessionId, playerNumber, x, y }) => {
+    const session = getOrCreateSession(sessionId);
+    const number = String(playerNumber);
+
+    if (session.frozen) return;
+
+    if (!session.players[number]) return;
+
+    session.players[number].x = clamp(Number(x), 0, 100);
+    session.players[number].y = clamp(Number(y), 0, 100);
+
+    updateSession(session);
   });
 
-  socket.on("sim-reset", () => {
-    io.emit("sim-reset");
+  socket.on("player:move", ({ sessionId, playerNumber, x, y }) => {
+    const session = getOrCreateSession(sessionId);
+    const number = String(playerNumber);
+
+    if (session.frozen) return;
+    if (!session.players[number]) return;
+
+    session.players[number].x = clamp(Number(x), 0, 100);
+    session.players[number].y = clamp(Number(y), 0, 100);
+
+    updateSession(session);
+  });
+
+  socket.on("coach:moveBall", ({ sessionId, x, y, holder }) => {
+    const session = getOrCreateSession(sessionId);
+
+    session.ball = {
+      x: clamp(Number(x), 0, 100),
+      y: clamp(Number(y), 0, 100),
+      holder: holder || null,
+      visible: true
+    };
+
+    updateSession(session);
+  });
+
+  socket.on("simulator:loadPlay", ({ sessionId, play }) => {
+    const session = getOrCreateSession(sessionId);
+
+    session.simulator.active = true;
+    session.simulator.currentPlay = play;
+    session.simulator.currentTime = 0;
+    session.simulator.isPlaying = false;
+    session.simulator.score = null;
+
+    io.to(session.id).emit("simulator:loadPlay", play);
+    updateSession(session);
+  });
+
+  socket.on("simulator:start", ({ sessionId, playId }) => {
+    const session = getOrCreateSession(sessionId);
+
+    session.simulator.active = true;
+    session.simulator.isPlaying = true;
+
+    io.to(session.id).emit("simulator:start", { playId });
+    updateSession(session);
+  });
+
+  socket.on("simulator:pause", ({ sessionId }) => {
+    const session = getOrCreateSession(sessionId);
+
+    session.simulator.isPlaying = false;
+
+    io.to(session.id).emit("simulator:pause", {});
+    updateSession(session);
+  });
+
+  socket.on("simulator:resume", ({ sessionId }) => {
+    const session = getOrCreateSession(sessionId);
+
+    session.simulator.isPlaying = true;
+
+    io.to(session.id).emit("simulator:resume", {});
+    updateSession(session);
+  });
+
+  socket.on("simulator:reset", ({ sessionId }) => {
+    const session = getOrCreateSession(sessionId);
+
+    session.simulator.currentTime = 0;
+    session.simulator.isPlaying = false;
+    session.simulator.score = null;
+
+    io.to(session.id).emit("simulator:reset", {});
+    updateSession(session);
+  });
+
+  socket.on("simulator:finish", ({ sessionId, score, positionScore, timingScore }) => {
+    const session = getOrCreateSession(sessionId);
+
+    session.simulator.isPlaying = false;
+    session.simulator.score = {
+      total: score,
+      position: positionScore,
+      timing: timingScore
+    };
+
+    updateSession(session);
   });
 
   socket.on("disconnect", () => {
-    const number = controllerSockets[socket.id];
+    console.log("Disconnected:", socket.id);
 
-    if (number && state.players[number]) {
-      state.players[number].connected = false;
-      emitState();
-    }
+    const { sessionId, playerNumber } = socket.data || {};
+    if (!sessionId || !playerNumber) return;
 
-    delete controllerSockets[socket.id];
-    delete simulatorSockets[socket.id];
+    const session = sessions.get(sessionId);
+    if (!session) return;
+
+    const player = session.players[String(playerNumber)];
+    if (!player) return;
+
+    player.connected = false;
+    player.socketId = null;
+
+    updateSession(session);
   });
 });
 
-const PORT = process.env.PORT || 3000;
+app.get("/health", (req, res) => {
+  res.json({ status: "ok", sessions: sessions.size });
+});
+
+app.get("*", (req, res) => {
+  res.sendFile(path.join(__dirname, "public", "clarity.html"));
+});
+
+function clamp(value, min, max) {
+  if (Number.isNaN(value)) return min;
+  return Math.min(max, Math.max(min, value));
+}
 
 server.listen(PORT, () => {
-  console.log("🔥 TEAM-CLARITY running on port", PORT);
+  console.log(`TEAM-CLARITY V2 running on port ${PORT}`);
 });
