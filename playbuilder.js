@@ -21,6 +21,7 @@ const COLORS = {
 
 let setupMode = "free";
 let playerSize = "normal";
+let playerGroup = "all";
 let teamColorName = "red";
 let teamColor = COLORS.red;
 
@@ -59,6 +60,13 @@ function pixelText(text, x, y, size = 22, align = "center", color = "white") {
 
 function setCanvasDragging(isDragging) {
   canvas.classList.toggle("grabbing", isDragging);
+}
+
+function shouldShowPlayer(number) {
+  if (playerGroup === "all") return true;
+  if (playerGroup === "forwards") return number >= 1 && number <= 8;
+  if (playerGroup === "backs") return number >= 9 && number <= 15;
+  return true;
 }
 
 function clearModeButtons() {
@@ -121,7 +129,6 @@ function applyTeamColor(value) {
 /*
   TEAM-CLARITY SET-PIECE STANDARD
   - Attack is always right → left.
-  - Forwards form the set piece.
   - 9 and backs are to the right of the forwards.
   - Shape adjusts based on click location.
   - Players stay visible inside field.
@@ -135,21 +142,17 @@ function placeLineout(side, clickedX) {
   const bottomY = FIELD.bottom - 72;
   const startY = side === "top" ? topY : bottomY;
 
-  // Tight lineout stack between 5m and 15m channel.
   [1, 3, 4, 5, 6, 7, 8].forEach((n, i) => {
     players[n].x = xForwards;
     players[n].y = startY + i * spacing;
   });
 
-  // Hooker just outside lineout.
   players[2].x = xForwards - 78;
   players[2].y = startY - spacing * 0.2;
 
-  // 9 on attacking/right side.
   players[9].x = xForwards + 76;
   players[9].y = startY + spacing * 4.2;
 
-  // Backline depth adapts to lineout position.
   const backsStartX = clamp(xForwards + 185, FIELD.left + 120, FIELD.right - 100);
 
   players[10].x = backsStartX;
@@ -186,7 +189,6 @@ function placeScrum(clickedX, clickedY) {
   const gapX = 38;
   const gapY = 38;
 
-  // Front row
   players[1].x = cx - gapX;
   players[1].y = cy - gapY;
 
@@ -196,14 +198,12 @@ function placeScrum(clickedX, clickedY) {
   players[3].x = cx + gapX;
   players[3].y = cy - gapY;
 
-  // Locks
   players[4].x = cx - 19;
   players[4].y = cy;
 
   players[5].x = cx + 19;
   players[5].y = cy;
 
-  // Back row
   players[6].x = cx - 66;
   players[6].y = cy + gapY;
 
@@ -213,11 +213,9 @@ function placeScrum(clickedX, clickedY) {
   players[8].x = cx;
   players[8].y = cy + gapY + 18;
 
-  // 9 right side
   players[9].x = cx + 150;
   players[9].y = cy + 14;
 
-  // Backs right side, visible and staggered
   players[10].x = clamp(cx + 265, FIELD.left + 100, FIELD.right - 70);
   players[10].y = clamp(cy + 42, FIELD.top + 50, FIELD.bottom - 50);
 
@@ -486,6 +484,8 @@ function drawPixelPlayer(p) {
 }
 
 function drawPlayer(p) {
+  if (!shouldShowPlayer(p.number)) return;
+
   if (playerSize === "small") {
     drawCirclePlayer(p);
     return;
@@ -543,6 +543,8 @@ function playerHitTest(p) {
   let best = Infinity;
 
   Object.values(players).forEach(player => {
+    if (!shouldShowPlayer(player.number)) return;
+
     const d = Math.hypot(player.x - p.x, player.y - p.y);
 
     if (d < best) {
@@ -631,20 +633,17 @@ window.addEventListener("mouseup", () => {
 function captureStep() {
   return {
     players: clone(players),
-    ball: clone(ball),
-    playerSize,
-    teamColorName
+    ball: clone(ball)
   };
 }
 
 function applyStep(step) {
   players = clone(step.players);
   ball = clone(step.ball);
-  playerSize = step.playerSize || playerSize;
-  teamColorName = step.teamColorName || teamColorName;
 
-  document.getElementById("playerSize").value = playerSize;
-  document.getElementById("teamColor").value = teamColorName;
+  Object.values(players).forEach(p => {
+    p.color = teamColor;
+  });
 
   draw();
 }
@@ -695,6 +694,7 @@ function animateBetweenSteps(from, to, duration = 900) {
 
         p.x = a.x + (b.x - a.x) * smooth;
         p.y = a.y + (b.y - a.y) * smooth;
+        p.color = teamColor;
       });
 
       ball.x = from.ball.x + (to.ball.x - from.ball.x) * smooth;
@@ -837,6 +837,11 @@ document.getElementById("scrumBtn").onclick = () => setMode("scrum");
 document.getElementById("freeBtn").onclick = setFreeBall;
 
 document.getElementById("teamColor").onchange = e => applyTeamColor(e.target.value);
+
+document.getElementById("playerGroup").onchange = e => {
+  playerGroup = e.target.value;
+  draw();
+};
 
 document.getElementById("playerSize").onchange = e => {
   playerSize = e.target.value;
