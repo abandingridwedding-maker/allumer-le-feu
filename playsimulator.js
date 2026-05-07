@@ -1,1064 +1,627 @@
-const socket = io();
-
-const canvas = document.getElementById("field");
-const ctx = canvas.getContext("2d");
-ctx.imageSmoothingEnabled = false;
-
-const W = canvas.width;
-const H = canvas.height;
-
-let selectedPlay = null;
-let selectedPlayer = 7;
-
-let playerSize = "normal";
-let shadowGuideOn = true;
-let simSpeedMultiplier = 0.5;
-
-let players = {};
-let expectedPlayers = {};
-let ball = { x: 820, y: 430 };
-
-let simRunning = false;
-let countdownValue = null;
-let timingClicks = {};
-let sessionStartTime = null;
-
-let pitchType = "full";
-let FIELD = getFieldConfig("full");
-
-const PLAYER_SPEED = 7;
-
-/* =========================================
-   FIELD CONFIG
-========================================= */
-
-function getFieldConfig(type) {
-  if (type === "half") {
-    return {
-      type,
-      left: 70,
-      right: W - 70,
-      top: 95,
-      bottom: H - 145
-    };
-  }
-
-  if (type === "lineout") {
-    return {
-      type,
-      left: 90,
-      right: W - 90,
-      top: 135,
-      bottom: H - 165
-    };
-  }
-
-  return {
-    type: "full",
-    left: 70,
-    right: W - 70,
-    top: 95,
-    bottom: H - 145
-  };
-}
-
-function updateFieldConfig() {
-  FIELD = getFieldConfig(pitchType);
-}
-
-function clone(obj) {
-  return JSON.parse(JSON.stringify(obj));
-}
-
-function pixelText(text, x, y, size = 22, align = "center", color = "white") {
-  ctx.save();
-  ctx.font = `900 ${size}px Courier New`;
-  ctx.textAlign = align;
-  ctx.fillStyle = color;
-  ctx.shadowColor = "#000";
-  ctx.shadowOffsetX = 4;
-  ctx.shadowOffsetY = 4;
-  ctx.fillText(text, x, y);
-  ctx.restore();
-}
-
-/* =========================================
-   FIELD DRAWING
-========================================= */
-
-function drawPitch() {
-  if (pitchType === "half") {
-    drawHalfPitch();
-    return;
-  }
-
-  if (pitchType === "lineout") {
-    drawLineoutPitch();
-    return;
-  }
-
-  drawFullPitch();
-}
-
-function drawBaseGrass() {
-  ctx.fillStyle = "#6ec65f";
-  ctx.fillRect(0, 0, W, H);
-}
-
-function drawHeader(title) {
-  ctx.fillStyle = "#d71920";
-  ctx.fillRect(0, 0, W, 52);
-
-  ctx.fillStyle = "#111";
-  ctx.fillRect(0, 52, W, 8);
-
-  pixelText(title, W / 2, 37, 30, "center", "#fff");
-}
-
-function drawFullPitch() {
-  drawBaseGrass();
-
-  const left = FIELD.left;
-  const right = FIELD.right;
-  const top = FIELD.top;
-  const bottom = FIELD.bottom;
-
-  const pw = right - left;
-  const ph = bottom - top;
-
-  const X = p => left + pw * p;
-  const Y = p => top + ph * p;
-
-  ctx.strokeStyle = "#fff";
-  ctx.lineWidth = 7;
-  ctx.strokeRect(left, top, pw, ph);
-
-  ctx.strokeStyle = "#fff";
-  ctx.lineWidth = 5;
-
-  [0.06, 0.94].forEach(p => {
-    ctx.beginPath();
-    ctx.moveTo(X(p), top);
-    ctx.lineTo(X(p), bottom);
-    ctx.stroke();
-  });
-
-  ctx.setLineDash([16, 14]);
-
-  [0.10, 0.90].forEach(p => {
-    ctx.beginPath();
-    ctx.moveTo(X(p), top);
-    ctx.lineTo(X(p), bottom);
-    ctx.stroke();
-  });
-
-  ctx.setLineDash([]);
-
-  ctx.lineWidth = 6;
-
-  [0.26, 0.74].forEach(p => {
-    ctx.beginPath();
-    ctx.moveTo(X(p), top);
-    ctx.lineTo(X(p), bottom);
-    ctx.stroke();
-  });
-
-  ctx.setLineDash([20, 16]);
-
-  ctx.lineWidth = 4;
-
-  [0.40, 0.60].forEach(p => {
-    ctx.beginPath();
-    ctx.moveTo(X(p), top);
-    ctx.lineTo(X(p), bottom);
-    ctx.stroke();
-  });
-
-  ctx.setLineDash([]);
-
-  ctx.lineWidth = 6;
-
-  ctx.beginPath();
-  ctx.moveTo(X(0.50), top);
-  ctx.lineTo(X(0.50), bottom);
-  ctx.stroke();
-
-  ctx.setLineDash([18, 16]);
-
-  ctx.lineWidth = 4;
-
-  [0.08, 0.23, 0.77, 0.92].forEach(p => {
-    ctx.beginPath();
-    ctx.moveTo(left, Y(p));
-    ctx.lineTo(right, Y(p));
-    ctx.stroke();
-  });
-
-  ctx.setLineDash([]);
-
-  drawFullPitchLabels(X, Y, left, right, bottom);
-  drawHeader("TEAM-CLARITY PLAYER SIMULATOR");
-}
-
-function drawHalfPitch() {
-  drawBaseGrass();
-
-  const left = FIELD.left;
-  const right = FIELD.right;
-  const top = FIELD.top;
-  const bottom = FIELD.bottom;
-
-  const pw = right - left;
-  const ph = bottom - top;
-
-  const Y = p => top + ph * p;
-
-  ctx.strokeStyle = "#fff";
-  ctx.lineWidth = 7;
-  ctx.strokeRect(left, top, pw, ph);
-
-  ctx.lineWidth = 8;
-  ctx.beginPath();
-  ctx.moveTo(left, top);
-  ctx.lineTo(right, top);
-  ctx.stroke();
-
-  ctx.lineWidth = 5;
-
-  [
-    ["5m", 0.11, true],
-    ["22m", 0.43, false],
-    ["40m", 0.78, true],
-    ["50m", 0.96, false]
-  ].forEach(([label, p, dashed]) => {
-
-    if (dashed) ctx.setLineDash([18, 14]);
-    else ctx.setLineDash([]);
-
-    ctx.beginPath();
-    ctx.moveTo(left, Y(p));
-    ctx.lineTo(right, Y(p));
-    ctx.stroke();
-
-    ctx.save();
-    ctx.fillStyle = "#fff";
-    ctx.font = "900 18px Courier New";
-    ctx.textAlign = "left";
-    ctx.shadowColor = "#000";
-    ctx.shadowOffsetX = 3;
-    ctx.shadowOffsetY = 3;
-    ctx.fillText(label, left + 14, Y(p) - 8);
-    ctx.restore();
-  });
-
-  ctx.setLineDash([]);
-
-  drawHeader("TEAM-CLARITY HALF FIELD");
-}
-
-function drawLineoutPitch() {
-  drawBaseGrass();
-
-  const left = FIELD.left;
-  const right = FIELD.right;
-  const top = FIELD.top;
-  const bottom = FIELD.bottom;
-
-  const touchX = left;
-  const fiveX = left + 180;
-  const fifteenX = left + 430;
-  const beyondX = left + 560;
-
-  ctx.strokeStyle = "#fff";
-
-  ctx.lineWidth = 7;
-  ctx.strokeRect(left, top, right - left, bottom - top);
-
-  ctx.lineWidth = 8;
-  ctx.beginPath();
-  ctx.moveTo(touchX, top);
-  ctx.lineTo(touchX, bottom);
-  ctx.stroke();
-
-  ctx.lineWidth = 6;
-  ctx.beginPath();
-  ctx.moveTo(fiveX, top);
-  ctx.lineTo(fiveX, bottom);
-  ctx.stroke();
-
-  ctx.setLineDash([18, 14]);
-  ctx.lineWidth = 5;
-
-  ctx.beginPath();
-  ctx.moveTo(fifteenX, top);
-  ctx.lineTo(fifteenX, bottom);
-  ctx.stroke();
-
-  ctx.setLineDash([]);
-
-  ctx.setLineDash([12, 12]);
-
-  ctx.lineWidth = 3;
-
-  ctx.beginPath();
-  ctx.moveTo(beyondX, top);
-  ctx.lineTo(beyondX, bottom);
-  ctx.stroke();
-
-  ctx.setLineDash([]);
-
-  ctx.save();
-
-  ctx.fillStyle = "#fff";
-  ctx.font = "900 20px Courier New";
-  ctx.textAlign = "center";
-  ctx.shadowColor = "#000";
-  ctx.shadowOffsetX = 3;
-  ctx.shadowOffsetY = 3;
-
-  ctx.fillText("TOUCH", touchX + 55, bottom + 30);
-  ctx.fillText("5m", fiveX, bottom + 30);
-  ctx.fillText("15m", fifteenX, bottom + 30);
-  ctx.fillText("+", beyondX, bottom + 30);
-
-  ctx.restore();
-
-  drawHeader("TEAM-CLARITY LINEOUT FIELD");
-}
-
-function drawFullPitchLabels(X, Y, left, right, bottom) {
-  ctx.save();
-
-  ctx.fillStyle = "#fff";
-  ctx.font = "900 18px Courier New";
-  ctx.textAlign = "center";
-
-  ctx.shadowColor = "#000";
-  ctx.shadowOffsetX = 3;
-  ctx.shadowOffsetY = 3;
-
-  [
-    ["5m", 0.10],
-    ["22m", 0.26],
-    ["40m", 0.40],
-    ["50m", 0.50],
-    ["40m", 0.60],
-    ["22m", 0.74],
-    ["5m", 0.90]
-  ].forEach(([label, p]) => {
-    ctx.fillText(label, X(p), bottom + 30);
-  });
-
-  ctx.textAlign = "left";
-
-  ctx.fillText("5m", left + 8, Y(0.08) - 8);
-  ctx.fillText("15m", left + 8, Y(0.23) - 8);
-  ctx.fillText("15m", left + 8, Y(0.77) - 8);
-  ctx.fillText("5m", left + 8, Y(0.92) - 8);
-
-  ctx.textAlign = "right";
-
-  ctx.fillText("5m", right - 8, Y(0.08) - 8);
-  ctx.fillText("15m", right - 8, Y(0.23) - 8);
-  ctx.fillText("15m", right - 8, Y(0.77) - 8);
-  ctx.fillText("5m", right - 8, Y(0.92) - 8);
-
-  ctx.restore();
-}
-
-/* =========================================
-   BALL / PLAYERS
-========================================= */
-
-function drawBall(ballObj = ball) {
-  ctx.save();
-
-  ctx.translate(ballObj.x, ballObj.y);
-  ctx.rotate(-0.35);
-
-  ctx.fillStyle = "#4b2a1b";
-  ctx.fillRect(-22, -10, 44, 20);
-  ctx.fillRect(-16, -15, 32, 30);
-  ctx.fillRect(-8, -19, 16, 38);
-
-  ctx.fillStyle = "#9b552f";
-  ctx.fillRect(-16, -8, 32, 16);
-  ctx.fillRect(-10, -12, 20, 24);
-
-  ctx.fillStyle = "#fff";
-  ctx.fillRect(-18, -6, 5, 12);
-  ctx.fillRect(13, -6, 5, 12);
-  ctx.fillRect(-2, -10, 4, 20);
-  ctx.fillRect(-10, -2, 20, 4);
-
-  ctx.restore();
-}
-
-function drawCirclePlayer(p, highlight = false, ghost = false) {
-  ctx.save();
-
-  const radius = 16;
-
-  ctx.globalAlpha = ghost ? 0.28 : 1;
-
-  ctx.fillStyle = "rgba(0,0,0,.25)";
-  ctx.beginPath();
-  ctx.ellipse(p.x + 3, p.y + 4, radius + 2, radius * 0.6, 0, 0, Math.PI * 2);
-  ctx.fill();
-
-  ctx.fillStyle = ghost ? "#ffffff" : highlight ? "#ffd700" : p.color || "#d71920";
-
-  ctx.beginPath();
-  ctx.arc(p.x, p.y, radius, 0, Math.PI * 2);
-  ctx.fill();
-
-  ctx.strokeStyle = ghost ? "#ffd700" : "#fff";
-  ctx.lineWidth = 4;
-  ctx.stroke();
-
-  ctx.fillStyle = "#111";
-  ctx.font = "900 18px Courier New";
-  ctx.textAlign = "center";
-  ctx.textBaseline = "middle";
-  ctx.fillText(p.number, p.x, p.y + 1);
-
-  ctx.restore();
-}
-
-function drawPlayer(p, highlight = false, ghost = false) {
-
-  if (playerSize === "small") {
-    drawCirclePlayer(p, highlight, ghost);
-    return;
-  }
-
-  ctx.save();
-
-  ctx.translate(p.x, p.y);
-
-  const s = playerSize === "medium" ? 0.37 : 0.55;
-
-  ctx.scale(s, s);
-  ctx.globalAlpha = ghost ? 0.28 : 1;
-
-  ctx.fillStyle = "rgba(0,0,0,.25)";
-  ctx.fillRect(-24, 30, 48, 8);
-
-  ctx.fillStyle = ghost ? "#ffffff" : highlight ? "#ffd700" : p.color || "#d71920";
-  ctx.fillRect(-22, -24, 44, 50);
-
-  ctx.fillStyle = "#fff";
-  ctx.fillRect(-15, -11, 30, 5);
-  ctx.fillRect(-15, 2, 30, 5);
-
-  ctx.fillStyle = "#111";
-  ctx.fillRect(-16, 22, 11, 26);
-  ctx.fillRect(5, 22, 11, 26);
-
-  ctx.fillStyle = "#c88b62";
-  ctx.fillRect(-18, -56, 36, 34);
-
-  ctx.fillStyle = "#15100c";
-
-  if (p.number <= 8) {
-    ctx.fillRect(-27, -66, 54, 14);
-    ctx.fillRect(-31, -54, 12, 22);
-    ctx.fillRect(19, -54, 12, 22);
-  } else {
-    ctx.fillRect(-20, -66, 40, 12);
-  }
-
-  ctx.fillStyle = "#2a1a12";
-  ctx.fillRect(-11, -37, 22, 8);
-  ctx.fillRect(-7, -30, 14, 5);
-
-  ctx.fillStyle = "#000";
-  ctx.fillRect(-9, -48, 5, 5);
-  ctx.fillRect(5, -48, 5, 5);
-
-  ctx.fillStyle = "#fff";
-  ctx.fillRect(-18, -20, 36, 34);
-
-  ctx.strokeStyle = "#111";
-  ctx.lineWidth = 3;
-  ctx.strokeRect(-18, -20, 36, 34);
-
-  ctx.fillStyle = "#111";
-  ctx.font = "900 28px Courier New";
-  ctx.textAlign = "center";
-  ctx.textBaseline = "middle";
-  ctx.fillText(p.number, 0, -2);
-
-  ctx.restore();
-
-  if (highlight && !ghost) {
-    ctx.save();
-    ctx.strokeStyle = "#ffd700";
-    ctx.lineWidth = 4;
-
-    ctx.beginPath();
-    ctx.arc(p.x, p.y - 8, 32, 0, Math.PI * 2);
-    ctx.stroke();
-
-    ctx.restore();
-  }
-}
-
-/* =========================================
-   FOOTER / COUNTDOWN
-========================================= */
-
-function drawFooter() {
-  const footerTop = H - 92;
-
-  ctx.fillStyle = "rgba(0,0,0,0.42)";
-  ctx.fillRect(0, footerTop, W, 92);
-
-  if (!selectedPlay) {
-    pixelText("LOAD A PLAY TO BEGIN", W / 2, footerTop + 34, 24, "center", "#ffd700");
-
-    pixelText(
-      "Choose a saved play from Play Builder, then scan QR codes for controllers",
-      W / 2,
-      footerTop + 70,
-      14,
-      "center",
-      "#fff"
-    );
-
-    return;
-  }
-
-  const status = simRunning ? "REP LIVE" : "READY";
-
-  pixelText(
-    `${status} | PLAYER ${selectedPlayer} | SPEED ${simSpeedMultiplier}x | SHADOW ${shadowGuideOn ? "ON" : "OFF"} | ${pitchType.toUpperCase()} FIELD`,
-    W / 2,
-    footerTop + 34,
-    18,
-    "center",
-    "#ffd700"
-  );
-
-  pixelText(
-    selectedPlay.name || "Loaded Play",
-    W / 2,
-    footerTop + 70,
-    14,
-    "center",
-    "#fff"
-  );
-}
-
-function drawCountdown() {
-  if (countdownValue === null) return;
-
-  ctx.fillStyle = "rgba(0,0,0,0.65)";
-  ctx.fillRect(0, 0, W, H);
-
-  const text = countdownValue === 0 ? "GO!" : String(countdownValue);
-
-  pixelText(
-    text,
-    W / 2,
-    H / 2 + 35,
-    140,
-    "center",
-    countdownValue === 0 ? "#00ff7f" : "#ffd700"
-  );
-}
-
-function draw() {
-  drawPitch();
-
-  if (shadowGuideOn && expectedPlayers[selectedPlayer]) {
-    drawPlayer(expectedPlayers[selectedPlayer], false, true);
-  }
-
-  Object.values(players).forEach(p => {
-    drawPlayer(p, p.number === selectedPlayer, false);
-  });
-
-  drawBall(ball);
-  drawFooter();
-  drawCountdown();
-}
-
-/* =========================================
-   PLAY STORAGE
-========================================= */
-
-function getSavedPlays() {
-  return JSON.parse(localStorage.getItem("teamClaritySavedPlays") || "[]");
-}
-
-function getTrainingLogs() {
-  return JSON.parse(localStorage.getItem("teamClarityTrainingLogs") || "[]");
-}
-
-function saveTrainingLog(log) {
-  const logs = getTrainingLogs();
-  logs.push(log);
-  localStorage.setItem("teamClarityTrainingLogs", JSON.stringify(logs));
-}
-
-/* =========================================
-   LOAD PLAYS
-========================================= */
-
-function openPlayFolder() {
-  const modal = document.getElementById("playModal");
-  const list = document.getElementById("savedPlaysList");
-
-  const plays = getSavedPlays();
-
-  list.innerHTML = "";
-
-  if (plays.length === 0) {
-    list.innerHTML = `<div class="emptyFolder">📂 No saved plays found.</div>`;
-  }
-
-  plays.forEach(play => {
-    const item = document.createElement("div");
-
-    item.className = "savedPlayItem";
-
-    item.innerHTML = `
-      <div>
-        <div class="savedPlayName">📁 ${play.name}</div>
-        <div class="savedPlayMeta">
-          ${play.steps.length} steps | ${play.pitchType || "full"} field
-        </div>
-      </div>
-
-      <button data-load="${play.id}">Load</button>
-    `;
-
-    list.appendChild(item);
-  });
-
-  list.querySelectorAll("[data-load]").forEach(btn => {
-    btn.onclick = () => {
-
-      const id = Number(btn.dataset.load);
-
-      selectedPlay = plays.find(p => p.id === id);
-
-      if (!selectedPlay || !selectedPlay.steps || selectedPlay.steps.length === 0) return;
-
-      pitchType = selectedPlay.pitchType || selectedPlay.steps?.[0]?.pitchType || "full";
-
-      updateFieldConfig();
-
-      loadStep(selectedPlay.steps[0], true);
-
-      modal.classList.add("hidden");
-    };
-  });
-
-  modal.classList.remove("hidden");
-}
-
-/* =========================================
-   QR
-========================================= */
-
-async function openQrCodes() {
-  const modal = document.getElementById("qrModal");
-  const grid = document.getElementById("qrGrid");
-
-  modal.classList.remove("hidden");
-  grid.innerHTML = "";
-
-  const res = await fetch("/api/sim-qrs");
-  const data = await res.json();
-
-  for (let i = 1; i <= 15; i++) {
-
-    const item = document.createElement("div");
-
-    item.className = "qrItem";
-
-    item.innerHTML = `
-      <div>Player ${i}</div>
-      <img src="${data.qrs[i]}">
-      <div>${data.baseUrl}/simcontroller.html?p=${i}</div>
-    `;
-
-    grid.appendChild(item);
-  }
-}
-
-/* =========================================
-   LOGS
-========================================= */
-
-function openLogs() {
-  const modal = document.getElementById("logsModal");
-  const list = document.getElementById("logsList");
-
-  const logs = getTrainingLogs().slice().reverse();
-
-  list.innerHTML = "";
-
-  if (logs.length === 0) {
-    list.innerHTML = `<div class="emptyFolder">No training logs yet.</div>`;
-  }
-
-  logs.forEach(log => {
-    const item = document.createElement("div");
-
-    item.className = "savedPlayItem";
-
-    item.innerHTML = `
-      <div>
-        <div class="savedPlayName">
-          Player ${log.player} — ${log.score}/10
-        </div>
-
-        <div class="savedPlayMeta">
-          ${log.play} | ${log.date}
-        </div>
-
-        <div class="savedPlayMeta">
-          Positioning ${log.positioning}/5 |
-          Timing ${log.timing}/5 |
-          Execution ${log.execution}/5
-        </div>
-      </div>
-    `;
-
-    list.appendChild(item);
-  });
-
-  modal.classList.remove("hidden");
-}
-
-/* =========================================
-   PLAY LOGIC
-========================================= */
-
-function loadStep(step, resetExpected = false) {
-
-  if (step.pitchType) {
-    pitchType = step.pitchType;
-    updateFieldConfig();
-  }
-
-  players = clone(step.players);
-  ball = clone(step.ball);
-
-  if (resetExpected) {
-    expectedPlayers = clone(step.players);
-  }
-
-  draw();
-}
-
-async function countdown() {
-
-  for (const value of [3, 2, 1, 0]) {
-
-    countdownValue = value;
-
-    draw();
-
-    await new Promise(resolve => setTimeout(resolve, 700));
-  }
-
-  countdownValue = null;
-}
-
-function interpolateStep(from, to, t) {
-
-  const smooth = t * t * (3 - 2 * t);
-
-  Object.values(expectedPlayers).forEach(p => {
-
-    const a = from.players[p.number];
-    const b = to.players[p.number];
-
-    if (!a || !b) return;
-
-    p.x = a.x + (b.x - a.x) * smooth;
-    p.y = a.y + (b.y - a.y) * smooth;
-  });
-
-  Object.values(players).forEach(p => {
-
-    if (p.number === selectedPlayer) return;
-
-    const target = expectedPlayers[p.number];
-
-    if (!target) return;
-
-    p.x = target.x;
-    p.y = target.y;
-  });
-
-  ball.x = from.ball.x + (to.ball.x - from.ball.x) * smooth;
-  ball.y = from.ball.y + (to.ball.y - from.ball.y) * smooth;
-}
-
-function animateBetweenSteps(from, to, duration) {
-
-  return new Promise(resolve => {
-
-    const start = performance.now();
-
-    function frame(now) {
-
-      const t = Math.min((now - start) / duration, 1);
-
-      interpolateStep(from, to, t);
-
-      draw();
-
-      if (t < 1) {
-        requestAnimationFrame(frame);
-      } else {
-        resolve();
+/* TEAM-CLARITY V2 - playsimulator.js
+   Full play simulator engine
+   Normalized field coordinates: x 0-100, y 0-100
+*/
+
+(function () {
+  "use strict";
+
+  const PlaySimulator = {
+    state: {
+      isActive: false,
+      isPlaying: false,
+      isPaused: false,
+      currentTime: 0,
+      duration: 8000,
+      speed: 1,
+      animationFrame: null,
+      lastFrameTime: null,
+
+      selectedPlayId: null,
+      selectedRole: null,
+
+      players: {},
+      ball: {
+        x: 50,
+        y: 50,
+        targetX: 50,
+        targetY: 50,
+        holder: null,
+        visible: true
+      },
+
+      play: {
+        id: null,
+        name: "Untitled Play",
+        type: "general",
+        direction: "right-to-left",
+        keyframes: [],
+        ballKeyframes: []
+      },
+
+      scoring: {
+        enabled: true,
+        playerRole: null,
+        score: 0,
+        positionScore: 0,
+        timingScore: 0,
+        maxScore: 10,
+        tolerance: 6,
+        timingTolerance: 600,
+        feedback: ""
       }
+    },
+
+    init(options = {}) {
+      this.canvas = options.canvas || document.getElementById("fieldCanvas") || document.querySelector("canvas");
+      this.ctx = this.canvas ? this.canvas.getContext("2d") : null;
+
+      this.socket = options.socket || window.socket || null;
+      this.getCoachPlayers = options.getCoachPlayers || (() => window.players || {});
+      this.onStateUpdate = options.onStateUpdate || null;
+
+      this.bindSocketEvents();
+      this.bindUI();
+
+      window.PlaySimulator = this;
+      console.log("TEAM-CLARITY V2 PlaySimulator loaded");
+    },
+
+    bindSocketEvents() {
+      if (!this.socket) return;
+
+      this.socket.on("simulator:loadPlay", (play) => {
+        this.loadPlay(play);
+      });
+
+      this.socket.on("simulator:start", () => {
+        this.start();
+      });
+
+      this.socket.on("simulator:pause", () => {
+        this.pause();
+      });
+
+      this.socket.on("simulator:resume", () => {
+        this.resume();
+      });
+
+      this.socket.on("simulator:reset", () => {
+        this.reset();
+      });
+
+      this.socket.on("simulator:setRole", (role) => {
+        this.setPlayerRole(role);
+      });
+    },
+
+    bindUI() {
+      const startBtn = document.getElementById("simStartBtn");
+      const pauseBtn = document.getElementById("simPauseBtn");
+      const resetBtn = document.getElementById("simResetBtn");
+      const speedSelect = document.getElementById("simSpeedSelect");
+      const roleSelect = document.getElementById("simRoleSelect");
+
+      if (startBtn) startBtn.addEventListener("click", () => this.start());
+      if (pauseBtn) pauseBtn.addEventListener("click", () => this.togglePause());
+      if (resetBtn) resetBtn.addEventListener("click", () => this.reset());
+
+      if (speedSelect) {
+        speedSelect.addEventListener("change", (e) => {
+          this.setSpeed(Number(e.target.value));
+        });
+      }
+
+      if (roleSelect) {
+        roleSelect.addEventListener("change", (e) => {
+          this.setPlayerRole(e.target.value);
+        });
+      }
+    },
+
+    createEmptyPlay(name = "Untitled Play", type = "general") {
+      return {
+        id: cryptoRandomId(),
+        name,
+        type,
+        direction: "right-to-left",
+        keyframes: [],
+        ballKeyframes: []
+      };
+    },
+
+    loadPlay(play) {
+      if (!play) return;
+
+      this.state.play = {
+        id: play.id || cryptoRandomId(),
+        name: play.name || "Untitled Play",
+        type: play.type || "general",
+        direction: play.direction || "right-to-left",
+        keyframes: Array.isArray(play.keyframes) ? play.keyframes : [],
+        ballKeyframes: Array.isArray(play.ballKeyframes) ? play.ballKeyframes : []
+      };
+
+      this.state.duration = this.calculateDuration(this.state.play);
+      this.state.currentTime = 0;
+      this.state.selectedPlayId = this.state.play.id;
+      this.state.isActive = true;
+
+      this.applyFrame(0);
+      this.emitState();
+
+      console.log("Play loaded:", this.state.play.name);
+    },
+
+    saveCurrentPlay() {
+      return JSON.parse(JSON.stringify(this.state.play));
+    },
+
+    addKeyframe(time, playerPositions = null) {
+      const players = playerPositions || this.snapshotCurrentPlayers();
+
+      this.state.play.keyframes.push({
+        time,
+        players
+      });
+
+      this.state.play.keyframes.sort((a, b) => a.time - b.time);
+      this.state.duration = this.calculateDuration(this.state.play);
+
+      this.emitState();
+    },
+
+    addBallKeyframe(time, ballData = null) {
+      const ball = ballData || {
+        x: this.state.ball.x,
+        y: this.state.ball.y,
+        holder: this.state.ball.holder || null
+      };
+
+      this.state.play.ballKeyframes.push({
+        time,
+        ...ball
+      });
+
+      this.state.play.ballKeyframes.sort((a, b) => a.time - b.time);
+      this.state.duration = this.calculateDuration(this.state.play);
+
+      this.emitState();
+    },
+
+    snapshotCurrentPlayers() {
+      const sourcePlayers = this.getCoachPlayers();
+      const snapshot = {};
+
+      Object.keys(sourcePlayers).forEach((id) => {
+        const p = sourcePlayers[id];
+        snapshot[id] = {
+          id,
+          number: p.number || id,
+          role: p.role || String(p.number || id),
+          x: clamp(p.x ?? 50, 0, 100),
+          y: clamp(p.y ?? 50, 0, 100)
+        };
+      });
+
+      return snapshot;
+    },
+
+    start() {
+      if (!this.state.play.keyframes.length) {
+        this.buildDefaultDemoPlay();
+      }
+
+      this.state.isActive = true;
+      this.state.isPlaying = true;
+      this.state.isPaused = false;
+      this.state.currentTime = 0;
+      this.state.lastFrameTime = null;
+
+      this.loop();
+
+      this.emitSocket("simulator:start", {
+        playId: this.state.play.id
+      });
+    },
+
+    pause() {
+      this.state.isPaused = true;
+      this.state.isPlaying = false;
+
+      if (this.state.animationFrame) {
+        cancelAnimationFrame(this.state.animationFrame);
+        this.state.animationFrame = null;
+      }
+
+      this.emitSocket("simulator:pause", {});
+    },
+
+    resume() {
+      if (!this.state.isActive) return;
+
+      this.state.isPaused = false;
+      this.state.isPlaying = true;
+      this.state.lastFrameTime = null;
+
+      this.loop();
+
+      this.emitSocket("simulator:resume", {});
+    },
+
+    togglePause() {
+      if (this.state.isPlaying) this.pause();
+      else this.resume();
+    },
+
+    reset() {
+      this.state.currentTime = 0;
+      this.state.isPlaying = false;
+      this.state.isPaused = false;
+      this.state.lastFrameTime = null;
+
+      if (this.state.animationFrame) {
+        cancelAnimationFrame(this.state.animationFrame);
+        this.state.animationFrame = null;
+      }
+
+      this.applyFrame(0);
+      this.resetScore();
+      this.emitState();
+
+      this.emitSocket("simulator:reset", {});
+    },
+
+    loop(timestamp) {
+      if (!this.state.isPlaying || this.state.isPaused) return;
+
+      if (!this.state.lastFrameTime) {
+        this.state.lastFrameTime = timestamp || performance.now();
+      }
+
+      const now = timestamp || performance.now();
+      const delta = (now - this.state.lastFrameTime) * this.state.speed;
+
+      this.state.lastFrameTime = now;
+      this.state.currentTime += delta;
+
+      if (this.state.currentTime >= this.state.duration) {
+        this.state.currentTime = this.state.duration;
+        this.applyFrame(this.state.currentTime);
+        this.finish();
+        return;
+      }
+
+      this.applyFrame(this.state.currentTime);
+      this.state.animationFrame = requestAnimationFrame((t) => this.loop(t));
+    },
+
+    finish() {
+      this.state.isPlaying = false;
+      this.state.isPaused = false;
+
+      if (this.state.scoring.enabled) {
+        this.calculateScore();
+      }
+
+      this.emitState();
+
+      this.emitSocket("simulator:finish", {
+        score: this.state.scoring.score,
+        positionScore: this.state.scoring.positionScore,
+        timingScore: this.state.scoring.timingScore
+      });
+    },
+
+    applyFrame(time) {
+      const interpolatedPlayers = this.interpolatePlayers(time);
+      const interpolatedBall = this.interpolateBall(time);
+
+      this.state.players = interpolatedPlayers;
+      this.state.ball = {
+        ...this.state.ball,
+        ...interpolatedBall
+      };
+
+      if (typeof this.onStateUpdate === "function") {
+        this.onStateUpdate(this.getPublicState());
+      }
+
+      this.renderOverlay();
+    },
+
+    interpolatePlayers(time) {
+      const keyframes = this.state.play.keyframes;
+      if (!keyframes.length) return {};
+
+      if (time <= keyframes[0].time) return clone(keyframes[0].players);
+
+      const last = keyframes[keyframes.length - 1];
+      if (time >= last.time) return clone(last.players);
+
+      let from = keyframes[0];
+      let to = keyframes[1];
+
+      for (let i = 0; i < keyframes.length - 1; i++) {
+        if (time >= keyframes[i].time && time <= keyframes[i + 1].time) {
+          from = keyframes[i];
+          to = keyframes[i + 1];
+          break;
+        }
+      }
+
+      const progress = smoothstep((time - from.time) / Math.max(1, to.time - from.time));
+      const result = {};
+      const ids = new Set([...Object.keys(from.players), ...Object.keys(to.players)]);
+
+      ids.forEach((id) => {
+        const a = from.players[id] || to.players[id];
+        const b = to.players[id] || from.players[id];
+
+        result[id] = {
+          ...b,
+          id,
+          x: lerp(a.x, b.x, progress),
+          y: lerp(a.y, b.y, progress)
+        };
+      });
+
+      return result;
+    },
+
+    interpolateBall(time) {
+      const keyframes = this.state.play.ballKeyframes;
+      if (!keyframes.length) return this.state.ball;
+
+      if (time <= keyframes[0].time) return clone(keyframes[0]);
+
+      const last = keyframes[keyframes.length - 1];
+      if (time >= last.time) return clone(last);
+
+      let from = keyframes[0];
+      let to = keyframes[1];
+
+      for (let i = 0; i < keyframes.length - 1; i++) {
+        if (time >= keyframes[i].time && time <= keyframes[i + 1].time) {
+          from = keyframes[i];
+          to = keyframes[i + 1];
+          break;
+        }
+      }
+
+      const progress = smoothstep((time - from.time) / Math.max(1, to.time - from.time));
+
+      return {
+        x: lerp(from.x, to.x, progress),
+        y: lerp(from.y, to.y, progress),
+        holder: progress < 0.5 ? from.holder : to.holder,
+        visible: true
+      };
+    },
+
+    calculateScore() {
+      const role = this.state.scoring.playerRole || this.state.selectedRole;
+      if (!role) {
+        this.state.scoring.feedback = "No player role selected.";
+        return;
+      }
+
+      const finalFrame = this.state.play.keyframes[this.state.play.keyframes.length - 1];
+      const actualPlayer = this.findPlayerByRole(role, this.state.players);
+      const targetPlayer = this.findPlayerByRole(role, finalFrame.players);
+
+      if (!actualPlayer || !targetPlayer) {
+        this.state.scoring.feedback = "Could not find player role in play.";
+        return;
+      }
+
+      const distance = getDistance(actualPlayer.x, actualPlayer.y, targetPlayer.x, targetPlayer.y);
+      const positionScore = Math.max(0, 5 - (distance / this.state.scoring.tolerance) * 5);
+
+      const timingError = Math.abs(this.state.currentTime - this.state.duration);
+      const timingScore = Math.max(0, 5 - (timingError / this.state.scoring.timingTolerance) * 5);
+
+      const total = Math.round((positionScore + timingScore) * 10) / 10;
+
+      this.state.scoring.positionScore = round1(positionScore);
+      this.state.scoring.timingScore = round1(timingScore);
+      this.state.scoring.score = round1(total);
+
+      if (total >= 8) this.state.scoring.feedback = "Excellent timing and positioning.";
+      else if (total >= 6) this.state.scoring.feedback = "Good, but improve timing or final position.";
+      else if (total >= 4) this.state.scoring.feedback = "Shape is close, but detail needs work.";
+      else this.state.scoring.feedback = "Recheck role, timing and final position.";
+    },
+
+    resetScore() {
+      this.state.scoring.score = 0;
+      this.state.scoring.positionScore = 0;
+      this.state.scoring.timingScore = 0;
+      this.state.scoring.feedback = "";
+    },
+
+    setPlayerRole(role) {
+      this.state.selectedRole = role;
+      this.state.scoring.playerRole = role;
+
+      this.emitSocket("simulator:setRole", { role });
+      this.emitState();
+    },
+
+    setSpeed(speed) {
+      this.state.speed = clamp(speed || 1, 0.25, 3);
+      this.emitState();
+    },
+
+    findPlayerByRole(role, players) {
+      return Object.values(players || {}).find((p) => {
+        return String(p.role) === String(role) || String(p.number) === String(role) || String(p.id) === String(role);
+      });
+    },
+
+    calculateDuration(play) {
+      const playerMax = Math.max(0, ...play.keyframes.map((k) => k.time || 0));
+      const ballMax = Math.max(0, ...play.ballKeyframes.map((k) => k.time || 0));
+      return Math.max(playerMax, ballMax, 1000);
+    },
+
+    getPublicState() {
+      return {
+        isActive: this.state.isActive,
+        isPlaying: this.state.isPlaying,
+        isPaused: this.state.isPaused,
+        currentTime: this.state.currentTime,
+        duration: this.state.duration,
+        speed: this.state.speed,
+        players: this.state.players,
+        ball: this.state.ball,
+        play: this.state.play,
+        scoring: this.state.scoring
+      };
+    },
+
+    emitState() {
+      if (typeof this.onStateUpdate === "function") {
+        this.onStateUpdate(this.getPublicState());
+      }
+    },
+
+    emitSocket(event, payload) {
+      if (!this.socket) return;
+      this.socket.emit(event, payload);
+    },
+
+    renderOverlay() {
+      const panel = document.getElementById("simulatorPanel");
+      if (!panel) return;
+
+      const progress = this.state.duration
+        ? Math.round((this.state.currentTime / this.state.duration) * 100)
+        : 0;
+
+      const scoreText = this.state.scoring.feedback
+        ? `${this.state.scoring.score}/10 - ${this.state.scoring.feedback}`
+        : "No score yet";
+
+      panel.innerHTML = `
+        <div class="simulator-card">
+          <div class="simulator-title">${escapeHtml(this.state.play.name || "Play Simulator")}</div>
+          <div class="simulator-progress">
+            <div class="simulator-progress-bar" style="width:${progress}%"></div>
+          </div>
+          <div class="simulator-meta">
+            <span>${progress}%</span>
+            <span>Speed: ${this.state.speed}x</span>
+          </div>
+          <div class="simulator-score">${scoreText}</div>
+        </div>
+      `;
+    },
+
+    buildDefaultDemoPlay() {
+      const play = this.createEmptyPlay("Demo Lineout Strike", "lineout");
+
+      play.keyframes = [
+        {
+          time: 0,
+          players: {
+            "9": { id: "9", number: 9, role: "9", x: 72, y: 48 },
+            "10": { id: "10", number: 10, role: "10", x: 65, y: 54 },
+            "12": { id: "12", number: 12, role: "12", x: 58, y: 59 },
+            "13": { id: "13", number: 13, role: "13", x: 51, y: 64 },
+            "11": { id: "11", number: 11, role: "11", x: 45, y: 70 },
+            "14": { id: "14", number: 14, role: "14", x: 38, y: 76 },
+            "15": { id: "15", number: 15, role: "15", x: 47, y: 42 }
+          }
+        },
+        {
+          time: 2500,
+          players: {
+            "9": { id: "9", number: 9, role: "9", x: 67, y: 48 },
+            "10": { id: "10", number: 10, role: "10", x: 59, y: 53 },
+            "12": { id: "12", number: 12, role: "12", x: 52, y: 58 },
+            "13": { id: "13", number: 13, role: "13", x: 45, y: 63 },
+            "11": { id: "11", number: 11, role: "11", x: 39, y: 69 },
+            "14": { id: "14", number: 14, role: "14", x: 31, y: 75 },
+            "15": { id: "15", number: 15, role: "15", x: 42, y: 44 }
+          }
+        },
+        {
+          time: 5000,
+          players: {
+            "9": { id: "9", number: 9, role: "9", x: 62, y: 48 },
+            "10": { id: "10", number: 10, role: "10", x: 52, y: 52 },
+            "12": { id: "12", number: 12, role: "12", x: 44, y: 57 },
+            "13": { id: "13", number: 13, role: "13", x: 36, y: 62 },
+            "11": { id: "11", number: 11, role: "11", x: 28, y: 68 },
+            "14": { id: "14", number: 14, role: "14", x: 22, y: 74 },
+            "15": { id: "15", number: 15, role: "15", x: 34, y: 46 }
+          }
+        }
+      ];
+
+      play.ballKeyframes = [
+        { time: 0, x: 72, y: 48, holder: "9" },
+        { time: 1200, x: 65, y: 54, holder: "10" },
+        { time: 2600, x: 52, y: 58, holder: "12" },
+        { time: 3900, x: 36, y: 62, holder: "13" },
+        { time: 5000, x: 22, y: 74, holder: "14" }
+      ];
+
+      this.loadPlay(play);
+    }
+  };
+
+  function lerp(a, b, t) {
+    return a + (b - a) * t;
+  }
+
+  function smoothstep(t) {
+    t = clamp(t, 0, 1);
+    return t * t * (3 - 2 * t);
+  }
+
+  function clamp(value, min, max) {
+    return Math.min(max, Math.max(min, value));
+  }
+
+  function getDistance(x1, y1, x2, y2) {
+    const dx = x1 - x2;
+    const dy = y1 - y2;
+    return Math.sqrt(dx * dx + dy * dy);
+  }
+
+  function round1(value) {
+    return Math.round(value * 10) / 10;
+  }
+
+  function clone(obj) {
+    return JSON.parse(JSON.stringify(obj));
+  }
+
+  function cryptoRandomId() {
+    if (window.crypto && window.crypto.randomUUID) {
+      return window.crypto.randomUUID();
     }
 
-    requestAnimationFrame(frame);
-  });
-}
-
-async function startSimulation() {
-
-  if (!selectedPlay || !selectedPlay.steps || selectedPlay.steps.length < 2) {
-    alert("Load a play with at least 2 steps first.");
-    return;
+    return "play_" + Math.random().toString(36).slice(2) + Date.now().toString(36);
   }
 
-  timingClicks = {};
-  sessionStartTime = Date.now();
-
-  loadStep(selectedPlay.steps[0], true);
-
-  await countdown();
-
-  simRunning = true;
-
-  const duration = 900 / simSpeedMultiplier;
-  const steps = selectedPlay.steps;
-
-  for (let i = 1; i < steps.length; i++) {
-    await animateBetweenSteps(steps[i - 1], steps[i], duration);
+  function escapeHtml(value) {
+    return String(value)
+      .replaceAll("&", "&amp;")
+      .replaceAll("<", "&lt;")
+      .replaceAll(">", "&gt;")
+      .replaceAll('"', "&quot;")
+      .replaceAll("'", "&#039;");
   }
 
-  simRunning = false;
-
-  calculateScore();
-}
-
-/* =========================================
-   SCORING
-========================================= */
-
-function calculateScore() {
-
-  const finalStep = selectedPlay.steps[selectedPlay.steps.length - 1];
-
-  const expected = finalStep.players[selectedPlayer];
-  const actual = players[selectedPlayer];
-
-  if (!expected || !actual) return;
-
-  const dist = Math.hypot(expected.x - actual.x, expected.y - actual.y);
-
-  let positionScore = 1;
-
-  if (dist < 25) positionScore = 5;
-  else if (dist < 55) positionScore = 4;
-  else if (dist < 90) positionScore = 3;
-  else if (dist < 130) positionScore = 2;
-
-  let timingScore = 2;
-
-  if (timingClicks[selectedPlayer]) timingScore = 5;
-  else if (dist < 80) timingScore = 4;
-  else if (dist < 140) timingScore = 3;
-
-  let executionScore = 2;
-
-  if (dist < 35) executionScore = 5;
-  else if (dist < 75) executionScore = 4;
-  else if (dist < 120) executionScore = 3;
-
-  const rawTotal = positionScore + timingScore + executionScore;
-  const finalScore = Math.round((rawTotal / 15) * 10);
-
-  const timeSpentSeconds = sessionStartTime
-    ? Math.round((Date.now() - sessionStartTime) / 1000)
-    : 0;
-
-  let performanceIcon = "🏆";
-  let performanceText = "Elite Rep";
-
-  if (finalScore >= 8) {
-    performanceIcon = "🏆";
-    performanceText = "Elite Rep";
-  } else if (finalScore >= 6) {
-    performanceIcon = "🔥";
-    performanceText = "Solid Rep";
-  } else {
-    performanceIcon = "🛠️";
-    performanceText = "Keep Working";
-  }
-
-  saveTrainingLog({
-    player: selectedPlayer,
-    play: selectedPlay?.name || "Unknown Play",
-    score: finalScore,
-    positioning: positionScore,
-    timing: timingScore,
-    execution: executionScore,
-    distance: Math.round(dist),
-    shadowGuide: shadowGuideOn,
-    speed: simSpeedMultiplier,
-    pitchType,
-    timeSpentSeconds,
-    date: new Date().toLocaleString()
+  document.addEventListener("DOMContentLoaded", () => {
+    PlaySimulator.init({
+      socket: window.socket || null,
+      getCoachPlayers: () => window.players || {}
+    });
   });
 
-  document.getElementById("scoreResult").innerHTML = `
-    <div style="display:flex; align-items:center; justify-content:space-between; gap:40px; flex-wrap:wrap;">
-
-      <div>
-        <div style="font-size:88px; line-height:1; margin-bottom:10px;">
-          ${performanceIcon}
-        </div>
-
-        <div style="font-size:26px; font-weight:900; color:#ffd700; margin-bottom:20px;">
-          ${performanceText}
-        </div>
-      </div>
-
-      <div style="flex:1; min-width:280px;">
-
-        <div style="font-size:72px; font-weight:900; color:#ffd700; margin-bottom:25px;">
-          ${finalScore}/10
-        </div>
-
-        <div style="font-size:22px; margin-bottom:12px;">
-          Positioning: ${positionScore}/5
-        </div>
-
-        <div style="font-size:22px; margin-bottom:12px;">
-          Timing: ${timingScore}/5
-        </div>
-
-        <div style="font-size:22px; margin-bottom:12px;">
-          Execution: ${executionScore}/5
-        </div>
-
-        <div style="font-size:18px; opacity:.8; margin-top:20px;">
-          Distance from target: ${Math.round(dist)} px
-        </div>
-
-        <div style="font-size:16px; opacity:.75; margin-top:12px;">
-          ${pitchType.toUpperCase()} FIELD |
-          Time: ${timeSpentSeconds}s |
-          Shadow: ${shadowGuideOn ? "ON" : "OFF"} |
-          Speed: ${simSpeedMultiplier}x
-        </div>
-
-      </div>
-    </div>
-  `;
-
-  document.getElementById("scoreModal").classList.remove("hidden");
-}
-
-/* =========================================
-   PHONE CONTROL
-========================================= */
-
-socket.on("sim-player-move", data => {
-
-  if (!simRunning) return;
-
-  const number = Number(data.number);
-  const player = players[number];
-
-  if (!player) return;
-
-  player.x += Number(data.dx || 0) * PLAYER_SPEED;
-  player.y += Number(data.dy || 0) * PLAYER_SPEED;
-
-  player.x = Math.max(FIELD.left + 22, Math.min(FIELD.right - 22, player.x));
-  player.y = Math.max(FIELD.top + 24, Math.min(FIELD.bottom - 24, player.y));
-
-  draw();
-});
-
-socket.on("sim-player-timing", data => {
-  timingClicks[Number(data.number)] = Date.now();
-});
-
-/* =========================================
-   UI HOOKS
-========================================= */
-
-document.getElementById("loadPlayBtn").onclick = openPlayFolder;
-document.getElementById("qrBtn").onclick = openQrCodes;
-document.getElementById("logsBtn").onclick = openLogs;
-
-document.getElementById("closeQr").onclick = () => {
-  document.getElementById("qrModal").classList.add("hidden");
-};
-
-document.getElementById("closePlayModal").onclick = () => {
-  document.getElementById("playModal").classList.add("hidden");
-};
-
-document.getElementById("closeScoreModal").onclick = () => {
-  document.getElementById("scoreModal").classList.add("hidden");
-};
-
-document.getElementById("closeLogsModal").onclick = () => {
-  document.getElementById("logsModal").classList.add("hidden");
-};
-
-document.getElementById("playerNumber").onchange = e => {
-  selectedPlayer = Number(e.target.value);
-  draw();
-};
-
-document.getElementById("playerSize").onchange = e => {
-  playerSize = e.target.value;
-  draw();
-};
-
-document.getElementById("startSimBtn").onclick = startSimulation;
-
-document.getElementById("resetSimBtn").onclick = () => {
-
-  if (selectedPlay) {
-    loadStep(selectedPlay.steps[0], true);
-  }
-
-  simRunning = false;
-  countdownValue = null;
-  timingClicks = {};
-
-  draw();
-};
-
-document.getElementById("simSpeed").oninput = e => {
-  simSpeedMultiplier = Number(e.target.value);
-
-  document.getElementById("simSpeedValue").textContent =
-    simSpeedMultiplier + "x";
-
-  draw();
-};
-
-document.getElementById("shadowGuideToggle").onchange = e => {
-  shadowGuideOn = e.target.checked;
-  draw();
-};
-
-draw();
+  window.PlaySimulator = PlaySimulator;
+})();
