@@ -6,7 +6,6 @@ const W = canvas.width;
 const H = canvas.height;
 
 let pitchType = "full";
-
 let FIELD = getFieldConfig("full");
 
 const COLORS = {
@@ -145,6 +144,8 @@ function initPlayers() {
 
   if (pitchType === "lineout") {
     placeLineoutMini();
+  } else if (pitchType === "half") {
+    placeHalfFieldDefault();
   } else {
     placeLineout("top", 920);
   }
@@ -161,10 +162,6 @@ function applyTeamColor(value) {
   draw();
 }
 
-/* =========================================
-   PITCH TYPE CHANGE
-========================================= */
-
 function changePitchType(type) {
   pitchType = type;
   updateFieldConfig();
@@ -180,26 +177,36 @@ function changePitchType(type) {
   draw();
 }
 
+/*
+  HALF FIELD:
+  - Use full screen width.
+  - Bottom = our tryline.
+  - Moving upward: 5m, 22m, 40m, 50m at the top.
+  - Includes vertical width channels: 5m and 15m from each touchline.
+*/
 function placeHalfFieldDefault() {
-  const cx = W / 2;
-  const startY = FIELD.bottom - 120;
+  const midX = (FIELD.left + FIELD.right) / 2;
+  const bottom = FIELD.bottom;
+  const startY = bottom - 90;
 
-  players[1].x = cx - 160; players[1].y = startY;
-  players[2].x = cx - 110; players[2].y = startY;
-  players[3].x = cx - 60; players[3].y = startY;
-  players[4].x = cx - 135; players[4].y = startY - 55;
-  players[5].x = cx - 85; players[5].y = startY - 55;
-  players[6].x = cx - 180; players[6].y = startY - 110;
-  players[7].x = cx - 40; players[7].y = startY - 110;
-  players[8].x = cx - 110; players[8].y = startY - 150;
+  players[1].x = midX - 165; players[1].y = startY;
+  players[2].x = midX - 115; players[2].y = startY;
+  players[3].x = midX - 65;  players[3].y = startY;
 
-  players[9].x = cx + 20; players[9].y = startY - 95;
-  players[10].x = cx + 120; players[10].y = startY - 155;
-  players[12].x = cx + 220; players[12].y = startY - 210;
-  players[13].x = cx + 330; players[13].y = startY - 265;
-  players[15].x = cx + 420; players[15].y = startY - 340;
-  players[14].x = cx + 520; players[14].y = startY - 410;
-  players[11].x = cx + 170; players[11].y = startY - 310;
+  players[4].x = midX - 140; players[4].y = startY - 55;
+  players[5].x = midX - 90;  players[5].y = startY - 55;
+
+  players[6].x = midX - 185; players[6].y = startY - 110;
+  players[7].x = midX - 45;  players[7].y = startY - 110;
+  players[8].x = midX - 115; players[8].y = startY - 150;
+
+  players[9].x = midX + 25;   players[9].y = startY - 95;
+  players[10].x = midX + 130; players[10].y = startY - 150;
+  players[12].x = midX + 235; players[12].y = startY - 205;
+  players[13].x = midX + 350; players[13].y = startY - 260;
+  players[15].x = midX + 445; players[15].y = startY - 330;
+  players[14].x = midX + 550; players[14].y = startY - 400;
+  players[11].x = midX + 185; players[11].y = startY - 305;
 
   ball.x = players[9].x + 35;
   ball.y = players[9].y;
@@ -207,55 +214,69 @@ function placeHalfFieldDefault() {
   clampAllToField();
 }
 
+/*
+  LINEOUT FIELD:
+  - Touchline on left.
+  - 5m and 15m lines from left to right.
+  - 5m → 15m channel widened.
+  - No extra dashed "+" line.
+*/
 function placeLineoutMini() {
-  const leftTouch = FIELD.left + 80;
-  const lineoutX = FIELD.left + 210;
-  const startX = lineoutX;
-  const baseY = FIELD.top + 250;
-  const spacing = 42;
+  const touchX = FIELD.left;
+  const fiveX = FIELD.left + 185;
+  const fifteenX = FIELD.left + 640;
+
+  const baseY = FIELD.top + 275;
+  const spacing = 40;
+
+  const lineoutStartX = fiveX + 55;
 
   [1, 3, 4, 5, 6, 7, 8].forEach((n, i) => {
-    players[n].x = startX + i * spacing;
+    players[n].x = lineoutStartX + i * spacing;
     players[n].y = baseY;
   });
 
-  players[2].x = leftTouch;
+  players[2].x = touchX + 70;
   players[2].y = baseY;
 
-  players[9].x = startX + 270;
-  players[9].y = baseY + 95;
+  players[9].x = fifteenX + 70;
+  players[9].y = baseY + 80;
 
-  players[10].x = startX + 400;
-  players[10].y = baseY + 145;
+  players[10].x = fifteenX + 190;
+  players[10].y = baseY + 125;
 
-  players[12].x = startX + 520;
-  players[12].y = baseY + 190;
+  players[12].x = fifteenX + 315;
+  players[12].y = baseY + 170;
 
-  players[13].x = startX + 650;
-  players[13].y = baseY + 235;
+  players[13].x = fifteenX + 445;
+  players[13].y = baseY + 215;
 
-  players[15].x = startX + 780;
-  players[15].y = baseY + 285;
+  players[15].x = fifteenX + 565;
+  players[15].y = baseY + 270;
 
-  players[14].x = startX + 910;
-  players[14].y = baseY + 330;
+  players[14].x = fifteenX + 690;
+  players[14].y = baseY + 320;
 
-  players[11].x = startX + 480;
+  players[11].x = fifteenX + 270;
   players[11].y = baseY - 95;
 
-  ball.x = leftTouch + 65;
+  ball.x = touchX + 120;
   ball.y = baseY;
 
   clampAllToField();
 }
 
-/* =========================================
-   TEAM-CLARITY SET PIECES
-========================================= */
-
+/*
+  FULL FIELD SET PIECES:
+  Always right → left.
+  9 and backs to the right of forwards.
+*/
 function placeLineout(side, clickedX) {
   if (pitchType === "lineout") {
     placeLineoutMini();
+    setupMode = "free";
+    updateModeButtons();
+    draw();
     return;
   }
 
@@ -316,7 +337,7 @@ function placeScrum(clickedX, clickedY) {
   const gapY = 38;
 
   players[1].x = cx - gapX; players[1].y = cy - gapY;
-  players[2].x = cx; players[2].y = cy - gapY;
+  players[2].x = cx;        players[2].y = cy - gapY;
   players[3].x = cx + gapX; players[3].y = cy - gapY;
 
   players[4].x = cx - 19; players[4].y = cy;
@@ -324,9 +345,10 @@ function placeScrum(clickedX, clickedY) {
 
   players[6].x = cx - 66; players[6].y = cy + gapY;
   players[7].x = cx + 66; players[7].y = cy + gapY;
-  players[8].x = cx; players[8].y = cy + gapY + 18;
+  players[8].x = cx;      players[8].y = cy + gapY + 18;
 
-  players[9].x = cx + 150; players[9].y = cy + 14;
+  players[9].x = cx + 150;
+  players[9].y = cy + 14;
 
   players[10].x = clamp(cx + 265, FIELD.left + 100, FIELD.right - 70);
   players[10].y = clamp(cy + 42, FIELD.top + 50, FIELD.bottom - 50);
@@ -379,6 +401,21 @@ function drawPitch() {
   drawFullPitch();
 }
 
+function drawBaseGrass() {
+  ctx.fillStyle = "#6ec65f";
+  ctx.fillRect(0, 0, W, H);
+}
+
+function drawHeader(title) {
+  ctx.fillStyle = "#d71920";
+  ctx.fillRect(0, 0, W, 52);
+
+  ctx.fillStyle = "#111";
+  ctx.fillRect(0, 52, W, 8);
+
+  pixelText(title, W / 2, 37, 30, "center", "#fff");
+}
+
 function drawFullPitch() {
   drawBaseGrass();
 
@@ -386,14 +423,161 @@ function drawFullPitch() {
   const right = FIELD.right;
   const top = FIELD.top;
   const bottom = FIELD.bottom;
+
   const pw = right - left;
   const ph = bottom - top;
+
   const X = p => left + pw * p;
   const Y = p => top + ph * p;
+
+  drawRugbyFrame(left, right, top, bottom, X, Y);
+  drawFullPitchLabels(X, Y, left, right, bottom);
+  drawHeader("TEAM-CLARITY PLAY BUILDER");
+}
+
+function drawHalfPitch() {
+  drawBaseGrass();
+
+  const left = FIELD.left;
+  const right = FIELD.right;
+  const top = FIELD.top;
+  const bottom = FIELD.bottom;
+
+  const pw = right - left;
+  const ph = bottom - top;
+
+  const X = p => left + pw * p;
+  const YFromBottom = p => bottom - ph * p;
 
   ctx.strokeStyle = "#fff";
   ctx.lineWidth = 7;
   ctx.strokeRect(left, top, pw, ph);
+
+  // Horizontal field distance markings from our tryline upward.
+  const horizontalLines = [
+    ["TRY", 0.00, false, 8],
+    ["5m", 0.10, true, 5],
+    ["22m", 0.44, false, 6],
+    ["40m", 0.80, true, 4],
+    ["50m", 1.00, false, 7]
+  ];
+
+  horizontalLines.forEach(([label, p, dashed, width]) => {
+    const y = YFromBottom(p);
+    ctx.setLineDash(dashed ? [18, 14] : []);
+    ctx.lineWidth = width;
+
+    ctx.beginPath();
+    ctx.moveTo(left, y);
+    ctx.lineTo(right, y);
+    ctx.stroke();
+
+    ctx.save();
+    ctx.fillStyle = "#fff";
+    ctx.font = "900 18px Courier New";
+    ctx.textAlign = "left";
+    ctx.shadowColor = "#000";
+    ctx.shadowOffsetX = 3;
+    ctx.shadowOffsetY = 3;
+    ctx.fillText(label, left + 14, y - 8);
+    ctx.restore();
+  });
+
+  ctx.setLineDash([]);
+
+  // Vertical width markings: 5m and 15m from both touchlines.
+  ctx.strokeStyle = "#fff";
+
+  [
+    ["5m", 0.08, true],
+    ["15m", 0.23, true],
+    ["15m", 0.77, true],
+    ["5m", 0.92, true]
+  ].forEach(([label, p]) => {
+    const x = X(p);
+
+    ctx.setLineDash([18, 16]);
+    ctx.lineWidth = 4;
+
+    ctx.beginPath();
+    ctx.moveTo(x, top);
+    ctx.lineTo(x, bottom);
+    ctx.stroke();
+
+    ctx.save();
+    ctx.fillStyle = "#fff";
+    ctx.font = "900 18px Courier New";
+    ctx.textAlign = "center";
+    ctx.shadowColor = "#000";
+    ctx.shadowOffsetX = 3;
+    ctx.shadowOffsetY = 3;
+    ctx.fillText(label, x, bottom + 30);
+    ctx.restore();
+  });
+
+  ctx.setLineDash([]);
+
+  drawHeader("TEAM-CLARITY HALF FIELD");
+}
+
+function drawLineoutPitch() {
+  drawBaseGrass();
+
+  const left = FIELD.left;
+  const right = FIELD.right;
+  const top = FIELD.top;
+  const bottom = FIELD.bottom;
+
+  const touchX = left;
+  const fiveX = left + 185;
+  const fifteenX = left + 640;
+
+  ctx.strokeStyle = "#fff";
+
+  ctx.lineWidth = 7;
+  ctx.strokeRect(left, top, right - left, bottom - top);
+
+  ctx.lineWidth = 8;
+  ctx.beginPath();
+  ctx.moveTo(touchX, top);
+  ctx.lineTo(touchX, bottom);
+  ctx.stroke();
+
+  ctx.lineWidth = 6;
+  ctx.beginPath();
+  ctx.moveTo(fiveX, top);
+  ctx.lineTo(fiveX, bottom);
+  ctx.stroke();
+
+  ctx.setLineDash([18, 14]);
+  ctx.lineWidth = 5;
+  ctx.beginPath();
+  ctx.moveTo(fifteenX, top);
+  ctx.lineTo(fifteenX, bottom);
+  ctx.stroke();
+  ctx.setLineDash([]);
+
+  ctx.save();
+  ctx.fillStyle = "#fff";
+  ctx.font = "900 20px Courier New";
+  ctx.textAlign = "center";
+  ctx.shadowColor = "#000";
+  ctx.shadowOffsetX = 3;
+  ctx.shadowOffsetY = 3;
+
+  ctx.fillText("TOUCH", touchX + 55, bottom + 30);
+  ctx.fillText("5m", fiveX, bottom + 30);
+  ctx.fillText("15m", fifteenX, bottom + 30);
+
+  ctx.restore();
+
+  drawHeader("TEAM-CLARITY LINEOUT FIELD");
+}
+
+function drawRugbyFrame(left, right, top, bottom, X, Y) {
+  ctx.strokeStyle = "#fff";
+  ctx.lineWidth = 7;
+  ctx.strokeRect(left, top, right - left, bottom - top);
 
   ctx.strokeStyle = "#fff";
   ctx.lineWidth = 5;
@@ -414,8 +598,8 @@ function drawFullPitch() {
   });
 
   ctx.setLineDash([]);
-  ctx.lineWidth = 6;
 
+  ctx.lineWidth = 6;
   [0.26, 0.74].forEach(p => {
     ctx.beginPath();
     ctx.moveTo(X(p), top);
@@ -425,7 +609,6 @@ function drawFullPitch() {
 
   ctx.setLineDash([20, 16]);
   ctx.lineWidth = 4;
-
   [0.40, 0.60].forEach(p => {
     ctx.beginPath();
     ctx.moveTo(X(p), top);
@@ -452,151 +635,11 @@ function drawFullPitch() {
   });
 
   ctx.setLineDash([]);
-
-  drawFullPitchLabels(X, Y, left, right, bottom);
-  drawHeader("TEAM-CLARITY PLAY BUILDER");
-}
-
-function drawHalfPitch() {
-  drawBaseGrass();
-
-  const left = FIELD.left;
-  const right = FIELD.right;
-  const top = FIELD.top;
-  const bottom = FIELD.bottom;
-  const pw = right - left;
-  const ph = bottom - top;
-
-  const Y = p => top + ph * p;
-
-  ctx.strokeStyle = "#fff";
-  ctx.lineWidth = 7;
-  ctx.strokeRect(left, top, pw, ph);
-
-  // Tryline top
-  ctx.lineWidth = 8;
-  ctx.beginPath();
-  ctx.moveTo(left, top);
-  ctx.lineTo(right, top);
-  ctx.stroke();
-
-  // 5m, 22m, 40m, 50m across width
-  ctx.lineWidth = 5;
-  [
-    ["5m", 0.11, true],
-    ["22m", 0.43, false],
-    ["40m", 0.78, true],
-    ["50m", 0.96, false]
-  ].forEach(([label, p, dashed]) => {
-    if (dashed) ctx.setLineDash([18, 14]);
-    else ctx.setLineDash([]);
-
-    ctx.beginPath();
-    ctx.moveTo(left, Y(p));
-    ctx.lineTo(right, Y(p));
-    ctx.stroke();
-
-    ctx.save();
-    ctx.fillStyle = "#fff";
-    ctx.font = "900 18px Courier New";
-    ctx.textAlign = "left";
-    ctx.shadowColor = "#000";
-    ctx.shadowOffsetX = 3;
-    ctx.shadowOffsetY = 3;
-    ctx.fillText(label, left + 14, Y(p) - 8);
-    ctx.restore();
-  });
-
-  ctx.setLineDash([]);
-
-  drawHeader("TEAM-CLARITY HALF FIELD");
-}
-
-function drawLineoutPitch() {
-  drawBaseGrass();
-
-  const left = FIELD.left;
-  const right = FIELD.right;
-  const top = FIELD.top;
-  const bottom = FIELD.bottom;
-
-  const h = bottom - top;
-
-  const touchX = left;
-  const fiveX = left + 180;
-  const fifteenX = left + 430;
-  const beyondX = left + 560;
-
-  ctx.strokeStyle = "#fff";
-
-  // outer focused zone
-  ctx.lineWidth = 7;
-  ctx.strokeRect(left, top, right - left, h);
-
-  // touchline
-  ctx.lineWidth = 8;
-  ctx.beginPath();
-  ctx.moveTo(touchX, top);
-  ctx.lineTo(touchX, bottom);
-  ctx.stroke();
-
-  // 5m
-  ctx.lineWidth = 6;
-  ctx.beginPath();
-  ctx.moveTo(fiveX, top);
-  ctx.lineTo(fiveX, bottom);
-  ctx.stroke();
-
-  // 15m
-  ctx.setLineDash([18, 14]);
-  ctx.lineWidth = 5;
-  ctx.beginPath();
-  ctx.moveTo(fifteenX, top);
-  ctx.lineTo(fifteenX, bottom);
-  ctx.stroke();
-  ctx.setLineDash([]);
-
-  // extra 2-3cm beyond 15m visual zone
-  ctx.setLineDash([12, 12]);
-  ctx.lineWidth = 3;
-  ctx.beginPath();
-  ctx.moveTo(beyondX, top);
-  ctx.lineTo(beyondX, bottom);
-  ctx.stroke();
-  ctx.setLineDash([]);
-
-  ctx.save();
-  ctx.fillStyle = "#fff";
-  ctx.font = "900 20px Courier New";
-  ctx.textAlign = "center";
-  ctx.shadowColor = "#000";
-  ctx.shadowOffsetX = 3;
-  ctx.shadowOffsetY = 3;
-
-  ctx.fillText("TOUCH", touchX + 55, bottom + 30);
-  ctx.fillText("5m", fiveX, bottom + 30);
-  ctx.fillText("15m", fifteenX, bottom + 30);
-  ctx.fillText("+", beyondX, bottom + 30);
-  ctx.restore();
-
-  drawHeader("TEAM-CLARITY LINEOUT FIELD");
-}
-
-function drawBaseGrass() {
-  ctx.fillStyle = "#6ec65f";
-  ctx.fillRect(0, 0, W, H);
-}
-
-function drawHeader(title) {
-  ctx.fillStyle = "#d71920";
-  ctx.fillRect(0, 0, W, 52);
-  ctx.fillStyle = "#111";
-  ctx.fillRect(0, 52, W, 8);
-  pixelText(title, W / 2, 37, 30, "center", "#fff");
 }
 
 function drawFullPitchLabels(X, Y, left, right, bottom) {
   ctx.save();
+
   ctx.fillStyle = "#fff";
   ctx.font = "900 18px Courier New";
   ctx.textAlign = "center";
