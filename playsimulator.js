@@ -37,7 +37,9 @@ const FIELD = {
 
 function getPitchField(mode = pitchMode) {
   if (mode === "lineout") {
-    return { left: 70, right: Math.round(W * 0.62), top: 95, bottom: H - 125 };
+    const lineoutWidth = Math.round((W - 140) * 0.62);
+    const left = Math.round((W - lineoutWidth) / 2);
+    return { left, right: left + lineoutWidth, top: 95, bottom: H - 125 };
   }
 
   return { left: 70, right: W - 70, top: 95, bottom: H - 125 };
@@ -71,8 +73,23 @@ function pixelText(text, x, y, size = 22, align = "center", color = "white") {
 function drawPitchHeader(title) {
   ctx.fillStyle = "#d71920";
   ctx.fillRect(0, 0, W, 52);
+
   ctx.fillStyle = "#111";
   ctx.fillRect(0, 52, W, 8);
+
+  if (selectedPlay && selectedPlay.name) {
+    const modeLabel = pitchMode === "lineout"
+      ? "LINEOUT"
+      : pitchMode === "half"
+        ? "HALF PITCH"
+        : "FULL PITCH";
+
+    pixelText(selectedPlay.name.toUpperCase(), 32, 36, 28, "left", "#ffd700");
+    pixelText("TEAM-CLARITY PLAYER SIMULATOR", W - 32, 28, 22, "right", "#fff");
+    pixelText(modeLabel, W - 32, 48, 13, "right", "#fff");
+    return;
+  }
+
   pixelText(title, W / 2, 37, 30, "center", "#fff");
 }
 
@@ -361,7 +378,7 @@ function drawFooter() {
     "#ffd700"
   );
 
-  pixelText(selectedPlay.name || "Loaded Play", W / 2, footerTop + 70, 14, "center", "#fff");
+  pixelText("Follow the shadow guide, then confirm timing on your controller", W / 2, footerTop + 70, 14, "center", "#fff");
 }
 
 function drawCountdown() {
