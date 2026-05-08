@@ -36,13 +36,16 @@ let dragOffset = { x: 0, y: 0 };
 let builderStarted = false;
 let steps = [];
 let isAnimating = false;
+let builderSpeedMultiplier = 1;
 
 const builderBtn = document.getElementById("builderMainBtn");
 
 
 function getPitchField(mode = pitchMode) {
   if (mode === "lineout") {
-    return { left: 70, right: Math.round(W * 0.62), top: 95, bottom: H - 145 };
+    const lineoutWidth = Math.round((W - 140) * 0.62);
+    const left = Math.round((W - lineoutWidth) / 2);
+    return { left, right: left + lineoutWidth, top: 95, bottom: H - 145 };
   }
 
   return { left: 70, right: W - 70, top: 95, bottom: H - 145 };
@@ -882,8 +885,10 @@ async function playAnimation() {
   isAnimating = true;
   applyStep(steps[0]);
 
+  const duration = 900 / builderSpeedMultiplier;
+
   for (let i = 1; i < steps.length; i++) {
-    await animateBetweenSteps(steps[i - 1], steps[i], 900);
+    await animateBetweenSteps(steps[i - 1], steps[i], duration);
   }
 
   isAnimating = false;
@@ -1016,6 +1021,17 @@ document.getElementById("playerSize").onchange = e => {
 
 applyActiveField();
 updatePitchModeSelect();
+
+const builderSpeed = document.getElementById("builderSpeed");
+if (builderSpeed) {
+  builderSpeed.oninput = e => {
+    builderSpeedMultiplier = Number(e.target.value) || 1;
+    const valueEl = document.getElementById("builderSpeedValue");
+    if (valueEl) valueEl.textContent = builderSpeedMultiplier + "x";
+    draw();
+  };
+}
+
 initPlayers();
 updateBuilderButton();
 updateModeButtons();
