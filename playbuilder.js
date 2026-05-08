@@ -59,6 +59,13 @@ function updatePitchModeSelect() {
 
 function setPitchMode(mode) {
   pitchMode = ["full", "half", "lineout"].includes(mode) ? mode : "full";
+
+  if (pitchMode === "lineout") {
+    playerGroup = "forwards";
+    const playerGroupSelect = document.getElementById("playerGroup");
+    if (playerGroupSelect) playerGroupSelect.value = "forwards";
+  }
+
   applyActiveField();
   clampAllToField();
   updatePitchModeSelect();
@@ -486,18 +493,13 @@ function drawLineoutPitch(title = "TEAM-CLARITY PLAY BUILDER") {
 
   ctx.save();
   ctx.fillStyle = "#fff";
-  ctx.font = "900 20px Courier New";
+  ctx.font = "900 22px Courier New";
+  ctx.textAlign = "center";
   ctx.shadowColor = "#000";
   ctx.shadowOffsetX = 3;
   ctx.shadowOffsetY = 3;
-
-  ctx.textAlign = "left";
-  ctx.fillText("TOUCHLINE", X(0) + 15, top + 35);
-
-  ctx.textAlign = "center";
-  ctx.fillText("5m", (X(0) + X(5)) / 2, top + 35);
-  ctx.fillText("10m", (X(5) + X(15)) / 2, top + 35);
-  ctx.fillText("+2m", (X(15) + right) / 2, top + 35);
+  ctx.fillText("5m", X(5), top + 34);
+  ctx.fillText("15m", X(15), top + 34);
   ctx.restore();
 
   drawPitchHeader(title + " | LINEOUT");
