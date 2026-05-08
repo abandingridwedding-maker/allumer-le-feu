@@ -174,25 +174,45 @@ function drawHalfPitch() {
 function drawLineoutPitch() {
   ctx.fillStyle = "#6ec65f";
   ctx.fillRect(0, 0, W, H);
+
   const { left, right, top, bottom } = FIELD;
   const pw = right - left;
-  const X = p => left + pw * p;
+
+  // Lineout pitch calibration: visible area = touchline to 15m line + 2m free space.
+  // 5m line = 5/17 across; 15m line = 15/17 across.
+  const X = metres => left + pw * (metres / 17);
+
   ctx.strokeStyle = "#fff";
   ctx.lineWidth = 7;
   ctx.strokeRect(left, top, pw, bottom - top);
+
+  // Touchline = solid left edge.
   ctx.lineWidth = 8;
-  ctx.beginPath(); ctx.moveTo(left, top); ctx.lineTo(left, bottom); ctx.stroke();
+  ctx.beginPath();
+  ctx.moveTo(X(0), top);
+  ctx.lineTo(X(0), bottom);
+  ctx.stroke();
+
   ctx.setLineDash([18, 16]);
   ctx.lineWidth = 5;
-  [["5m",0.20],["15m",0.48]].forEach(([label,p]) => {
-    ctx.beginPath(); ctx.moveTo(X(p), top); ctx.lineTo(X(p), bottom); ctx.stroke();
-    pixelText(label, X(p), bottom + 34, 20, "center", "#fff");
+
+  [["5m", 5], ["15m", 15]].forEach(([label, metres]) => {
+    ctx.beginPath();
+    ctx.moveTo(X(metres), top);
+    ctx.lineTo(X(metres), bottom);
+    ctx.stroke();
+    pixelText(label, X(metres), bottom + 34, 20, "center", "#fff");
   });
+
   ctx.setLineDash([]);
-  pixelText("TOUCHLINE", left + 15, top + 35, 18, "left", "#fff");
+
+  pixelText("TOUCHLINE", X(0) + 15, top + 35, 18, "left", "#fff");
+  pixelText("5m", (X(0) + X(5)) / 2, top + 35, 18, "center", "#fff");
+  pixelText("10m", (X(5) + X(15)) / 2, top + 35, 18, "center", "#fff");
+  pixelText("+2m", (X(15) + right) / 2, top + 35, 18, "center", "#fff");
+
   drawPitchHeader("TEAM-CLARITY PLAYER SIMULATOR | LINEOUT");
 }
-
 function drawBall(ballObj = ball) {
   ctx.save();
   ctx.translate(ballObj.x, ballObj.y);
