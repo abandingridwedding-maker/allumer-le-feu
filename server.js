@@ -29,6 +29,7 @@ const COLORS = {
 
 const state = {
   sportMode: "rugby",
+  pitchMode: "full",
   frozen: false,
   speed: 1,
   ball: { x: 950, y: 230 },
@@ -42,20 +43,40 @@ function clamp(v, min, max) {
   return Math.max(min, Math.min(max, v));
 }
 
+function activeField() {
+  if (state.pitchMode === "lineout") {
+    const lineoutWidth = Math.round((FIELD.width - FIELD.sideMargin * 2) * 0.62);
+    const left = Math.round((FIELD.width - lineoutWidth) / 2);
+    return {
+      left,
+      right: left + lineoutWidth,
+      top: FIELD.topMargin - 25,
+      bottom: FIELD.height - FIELD.bottomMargin
+    };
+  }
+
+  return {
+    left: FIELD.sideMargin,
+    right: FIELD.width - FIELD.sideMargin,
+    top: FIELD.topMargin - 25,
+    bottom: FIELD.height - FIELD.bottomMargin
+  };
+}
+
 function playableLeft() {
-  return FIELD.sideMargin + 22;
+  return activeField().left + 22;
 }
 
 function playableRight() {
-  return FIELD.width - FIELD.sideMargin - 22;
+  return activeField().right - 22;
 }
 
 function playableTop() {
-  return FIELD.topMargin + 24;
+  return activeField().top + 24;
 }
 
 function playableBottom() {
-  return FIELD.height - FIELD.bottomMargin - 24;
+  return activeField().bottom - 24;
 }
 
 function emitState() {
@@ -386,6 +407,12 @@ io.on("connection", socket => {
 
   socket.on("coach-sport-mode", mode => {
     state.sportMode = mode;
+    emitState();
+  });
+
+  socket.on("coach-pitch-mode", mode => {
+    state.pitchMode = ["full", "half", "lineout"].includes(mode) ? mode : "full";
+    clampAll();
     emitState();
   });
 
