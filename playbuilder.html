@@ -14,6 +14,13 @@
     <div class="tools">
       <div class="toolGroup">
         <button onclick="window.location.href='index.html'">Home</button>
+
+        <select id="pitchMode" title="Pitch Mode">
+          <option value="full">Full Pitch</option>
+          <option value="half">Half Pitch</option>
+          <option value="lineout">Lineout</option>
+        </select>
+
         <button id="builderMainBtn">Start Builder</button>
         <button id="playAnimationBtn">Play Animation</button>
         <button id="clearStepsBtn">Clear</button>
@@ -29,12 +36,6 @@
       </div>
 
       <div class="toolGroup">
-        <select id="pitchMode">
-          <option value="full">Full Pitch</option>
-          <option value="half">Half Pitch</option>
-          <option value="lineout">Lineout Pitch</option>
-        </select>
-
         <select id="teamColor">
           <option value="red">Red</option>
           <option value="white">White</option>
@@ -57,12 +58,8 @@
     </div>
   </div>
 
-  <div id="pitchWrapper">
+  <div id="fieldShell">
     <canvas id="field" width="1600" height="900"></canvas>
-    <div id="lineoutNotesPanel" class="hidden">
-      <div class="notesTitle">📋 Lineout Notes</div>
-      <textarea id="lineoutNotes" placeholder="Type or paste lineout calls here..."></textarea>
-    </div>
   </div>
 
   <div id="playModal" class="modal hidden">
