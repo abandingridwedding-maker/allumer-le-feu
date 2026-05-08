@@ -206,10 +206,8 @@ function drawLineoutPitch() {
 
   ctx.setLineDash([]);
 
-  pixelText("TOUCHLINE", X(0) + 15, top + 35, 18, "left", "#fff");
-  pixelText("5m", (X(0) + X(5)) / 2, top + 35, 18, "center", "#fff");
-  pixelText("10m", (X(5) + X(15)) / 2, top + 35, 18, "center", "#fff");
-  pixelText("+2m", (X(15) + right) / 2, top + 35, 18, "center", "#fff");
+  pixelText("5m", X(5), top + 34, 20, "center", "#fff");
+  pixelText("15m", X(15), top + 34, 20, "center", "#fff");
 
   drawPitchHeader("TEAM-CLARITY PLAYER SIMULATOR | LINEOUT");
 }
