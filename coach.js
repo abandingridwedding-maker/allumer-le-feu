@@ -12,8 +12,8 @@ let setupMode = "free";
 let playerGroup = "all";
 let playerSize = "normal";
 let sportMode = "rugby";
-let currentLang = "en";
 let pitchMode = "full";
+let currentLang = "en";
 
 let draggingBall = false;
 let draggingPlayerNumber = null;
@@ -24,14 +24,6 @@ const FIELD = {
   top: 95,
   bottom: H - 145
 };
-
-function getActiveField() {
-  if (pitchMode === "lineout") {
-    return { left: 90, right: W - 90, top: 95, bottom: H - 145 };
-  }
-
-  return FIELD;
-}
 
 const TEXT = {
   en: {
@@ -110,6 +102,33 @@ const TEXT = {
     invalid: "Code promo invalide."
   }
 };
+
+
+
+function getPitchField(mode = pitchMode) {
+  if (mode === "lineout") {
+    return { left: 70, right: Math.round(W * 0.62), top: 95, bottom: H - 145 };
+  }
+
+  return { left: 70, right: W - 70, top: 95, bottom: H - 145 };
+}
+
+function applyActiveField() {
+  Object.assign(FIELD, getPitchField());
+}
+
+function updatePitchModeSelect() {
+  const select = document.getElementById("pitchMode");
+  if (select) select.value = pitchMode;
+}
+
+function setPitchMode(mode, emit = true) {
+  pitchMode = ["full", "half", "lineout"].includes(mode) ? mode : "full";
+  applyActiveField();
+  updatePitchModeSelect();
+  if (emit) socket.emit("coach-pitch-mode", pitchMode);
+  draw();
+}
 
 function t(key) {
   return TEXT[currentLang][key] || TEXT.en[key] || key;
@@ -215,9 +234,8 @@ socket.on("state", serverState => {
   if (state.sportMode) sportMode = state.sportMode;
   if (state.pitchMode) pitchMode = state.pitchMode;
 
-  const pitchSelect = document.getElementById("pitchMode");
-  if (pitchSelect) pitchSelect.value = pitchMode;
-
+  applyActiveField();
+  updatePitchModeSelect();
   updateToolVisibility();
   draw();
 });
@@ -226,18 +244,15 @@ socket.on("state", serverState => {
    DOM CONTROLS
 ================================ */
 
-document.getElementById("pitchMode").onchange = e => {
-  pitchMode = e.target.value;
-  socket.emit("coach-pitch-mode", pitchMode);
-  draw();
-};
-
 document.getElementById("langToggle").onchange = e => {
   currentLang = e.target.value;
   localStorage.setItem("teamClarityLang", currentLang);
   applyTranslations();
   draw();
 };
+
+document.getElementById("pitchMode").onchange = e => setPitchMode(e.target.value);
+
 
 document.getElementById("sportMode").onchange = e => {
   sportMode = e.target.value;
@@ -495,265 +510,21 @@ function pixelText(text, x, y, size = 22, align = "center", color = "white") {
 }
 
 /* ================================
-   FIELD MODES
+   FIELD
 ================================ */
 
-function drawHeader(title) {
+function drawPitchHeader(title) {
   ctx.fillStyle = "#d71920";
   ctx.fillRect(0, 0, W, 52);
-
   ctx.fillStyle = "#111";
   ctx.fillRect(0, 52, W, 8);
-
   pixelText(title, W / 2, 37, 30, "center", "#fff");
 }
 
-function drawFullRugbyPitch() {
-  ctx.fillStyle = "#6ec65f";
-  ctx.fillRect(0, 0, W, H);
-
-  const left = FIELD.left;
-  const right = FIELD.right;
-  const top = FIELD.top;
-  const bottom = FIELD.bottom;
-
-  const pw = right - left;
-  const ph = bottom - top;
-
-  const X = p => left + pw * p;
-  const Y = p => top + ph * p;
-
-  ctx.strokeStyle = "#fff";
-  ctx.lineWidth = 7;
-  ctx.strokeRect(left, top, pw, ph);
-
-  ctx.strokeStyle = "#fff";
-  ctx.lineWidth = 5;
-
-  [0.06, 0.94].forEach(p => {
-    ctx.beginPath();
-    ctx.moveTo(X(p), top);
-    ctx.lineTo(X(p), bottom);
-    ctx.stroke();
-  });
-
-  ctx.setLineDash([16, 14]);
-
-  [0.10, 0.90].forEach(p => {
-    ctx.beginPath();
-    ctx.moveTo(X(p), top);
-    ctx.lineTo(X(p), bottom);
-    ctx.stroke();
-  });
-
-  ctx.setLineDash([]);
-  ctx.lineWidth = 6;
-
-  [0.26, 0.74].forEach(p => {
-    ctx.beginPath();
-    ctx.moveTo(X(p), top);
-    ctx.lineTo(X(p), bottom);
-    ctx.stroke();
-  });
-
-  ctx.setLineDash([20, 16]);
-  ctx.lineWidth = 4;
-
-  [0.40, 0.60].forEach(p => {
-    ctx.beginPath();
-    ctx.moveTo(X(p), top);
-    ctx.lineTo(X(p), bottom);
-    ctx.stroke();
-  });
-
-  ctx.setLineDash([]);
-
-  ctx.lineWidth = 6;
-  ctx.beginPath();
-  ctx.moveTo(X(0.50), top);
-  ctx.lineTo(X(0.50), bottom);
-  ctx.stroke();
-
-  ctx.setLineDash([18, 16]);
-  ctx.lineWidth = 4;
-
-  [0.08, 0.23, 0.77, 0.92].forEach(p => {
-    ctx.beginPath();
-    ctx.moveTo(left, Y(p));
-    ctx.lineTo(right, Y(p));
-    ctx.stroke();
-  });
-
-  ctx.setLineDash([]);
-
-  ctx.save();
-  ctx.fillStyle = "#fff";
-  ctx.font = "900 18px Courier New";
-  ctx.textAlign = "center";
-  ctx.shadowColor = "#000";
-  ctx.shadowOffsetX = 3;
-  ctx.shadowOffsetY = 3;
-
-  [
-    ["5m", 0.10],
-    ["22m", 0.26],
-    ["40m", 0.40],
-    ["50m", 0.50],
-    ["40m", 0.60],
-    ["22m", 0.74],
-    ["5m", 0.90]
-  ].forEach(([label, p]) => {
-    ctx.fillText(label, X(p), bottom + 30);
-  });
-
-  ctx.textAlign = "left";
-  ctx.fillText("5m", left + 8, Y(0.08) - 8);
-  ctx.fillText("15m", left + 8, Y(0.23) - 8);
-  ctx.fillText("15m", left + 8, Y(0.77) - 8);
-  ctx.fillText("5m", left + 8, Y(0.92) - 8);
-
-  ctx.textAlign = "right";
-  ctx.fillText("5m", right - 8, Y(0.08) - 8);
-  ctx.fillText("15m", right - 8, Y(0.23) - 8);
-  ctx.fillText("15m", right - 8, Y(0.77) - 8);
-  ctx.fillText("5m", right - 8, Y(0.92) - 8);
-
-  ctx.restore();
-
-  drawHeader(t("slogan"));
-}
-
-function drawHalfPitch() {
-  ctx.fillStyle = "#6ec65f";
-  ctx.fillRect(0, 0, W, H);
-
-  const left = FIELD.left;
-  const right = FIELD.right;
-  const top = FIELD.top;
-  const bottom = FIELD.bottom;
-
-  const pw = right - left;
-  const ph = bottom - top;
-
-  const X = p => left + pw * p;
-  const Y = p => top + ph * p;
-
-  ctx.strokeStyle = "#fff";
-  ctx.lineWidth = 7;
-  ctx.strokeRect(left, top, pw, ph);
-
-  ctx.strokeStyle = "#fff";
-  ctx.lineWidth = 6;
-
-  [
-    ["50m", 0.00],
-    ["40m", 0.20],
-    ["22m", 0.56],
-    ["5m", 0.90],
-    ["TRYLINE", 1.00]
-  ].forEach(([label, p]) => {
-    ctx.beginPath();
-    ctx.moveTo(left, Y(p));
-    ctx.lineTo(right, Y(p));
-    ctx.stroke();
-
-    ctx.fillStyle = "#fff";
-    ctx.font = "900 20px Courier New";
-    ctx.textAlign = "left";
-    ctx.shadowColor = "#000";
-    ctx.shadowOffsetX = 3;
-    ctx.shadowOffsetY = 3;
-    ctx.fillText(label, left + 14, Y(p) - 8);
-  });
-
-  ctx.strokeStyle = "#fff";
-  ctx.lineWidth = 5;
-
-  [0.06, 0.94].forEach(p => {
-    ctx.beginPath();
-    ctx.moveTo(X(p), top);
-    ctx.lineTo(X(p), bottom);
-    ctx.stroke();
-  });
-
-  ctx.setLineDash([16, 14]);
-  ctx.lineWidth = 4;
-
-  [0.15, 0.85].forEach(p => {
-    ctx.beginPath();
-    ctx.moveTo(X(p), top);
-    ctx.lineTo(X(p), bottom);
-    ctx.stroke();
-  });
-
-  ctx.setLineDash([]);
-
-  ctx.fillStyle = "#fff";
-  ctx.font = "900 18px Courier New";
-  ctx.textAlign = "center";
-  ctx.fillText("5m", X(0.06), bottom + 30);
-  ctx.fillText("15m", X(0.15), bottom + 30);
-  ctx.fillText("15m", X(0.85), bottom + 30);
-  ctx.fillText("5m", X(0.94), bottom + 30);
-
-  drawHeader("TEAM-CLARITY | HALF PITCH");
-}
-
-function drawLineoutPitch() {
-  ctx.fillStyle = "#6ec65f";
-  ctx.fillRect(0, 0, W, H);
-
-  const left = FIELD.left;
-  const right = FIELD.right;
-  const top = FIELD.top;
-  const bottom = FIELD.bottom;
-
-  const pw = right - left;
-  const ph = bottom - top;
-  const Y = p => top + ph * p;
-
-  ctx.strokeStyle = "#fff";
-  ctx.lineWidth = 7;
-  ctx.strokeRect(left, top, pw, ph);
-
-  ctx.strokeStyle = "#fff";
-  ctx.lineWidth = 7;
-
-  [
-    ["TOUCHLINE", 0.08],
-    ["5m", 0.30],
-    ["15m", 0.62]
-  ].forEach(([label, p]) => {
-    ctx.beginPath();
-    ctx.moveTo(left, Y(p));
-    ctx.lineTo(right, Y(p));
-    ctx.stroke();
-
-    ctx.fillStyle = "#fff";
-    ctx.font = "900 24px Courier New";
-    ctx.textAlign = "left";
-    ctx.shadowColor = "#000";
-    ctx.shadowOffsetX = 3;
-    ctx.shadowOffsetY = 3;
-    ctx.fillText(label, left + 20, Y(p) - 12);
-  });
-
-  ctx.setLineDash([18, 16]);
-  ctx.lineWidth = 4;
-
-  [0.46, 0.78].forEach(p => {
-    ctx.beginPath();
-    ctx.moveTo(left, Y(p));
-    ctx.lineTo(right, Y(p));
-    ctx.stroke();
-  });
-
-  ctx.setLineDash([]);
-
-  drawHeader("TEAM-CLARITY | LINEOUT PITCH");
-}
-
 function drawRugbyPitch() {
+  applyActiveField();
+  updatePitchModeSelect();
+
   if (pitchMode === "half") {
     drawHalfPitch();
     return;
@@ -767,6 +538,129 @@ function drawRugbyPitch() {
   drawFullRugbyPitch();
 }
 
+function drawFullRugbyPitch() {
+  ctx.fillStyle = "#6ec65f";
+  ctx.fillRect(0, 0, W, H);
+
+  const left = FIELD.left;
+  const right = FIELD.right;
+  const top = FIELD.top;
+  const bottom = FIELD.bottom;
+  const pw = right - left;
+  const ph = bottom - top;
+  const X = p => left + pw * p;
+  const Y = p => top + ph * p;
+
+  ctx.strokeStyle = "#fff";
+  ctx.lineWidth = 7;
+  ctx.strokeRect(left, top, pw, ph);
+
+  ctx.strokeStyle = "#fff";
+  ctx.lineWidth = 5;
+  [0.06, 0.94].forEach(p => { ctx.beginPath(); ctx.moveTo(X(p), top); ctx.lineTo(X(p), bottom); ctx.stroke(); });
+  ctx.setLineDash([16, 14]);
+  [0.10, 0.90].forEach(p => { ctx.beginPath(); ctx.moveTo(X(p), top); ctx.lineTo(X(p), bottom); ctx.stroke(); });
+  ctx.setLineDash([]);
+  ctx.lineWidth = 6;
+  [0.26, 0.74].forEach(p => { ctx.beginPath(); ctx.moveTo(X(p), top); ctx.lineTo(X(p), bottom); ctx.stroke(); });
+  ctx.setLineDash([20, 16]);
+  ctx.lineWidth = 4;
+  [0.40, 0.60].forEach(p => { ctx.beginPath(); ctx.moveTo(X(p), top); ctx.lineTo(X(p), bottom); ctx.stroke(); });
+  ctx.setLineDash([]);
+  ctx.lineWidth = 6;
+  ctx.beginPath(); ctx.moveTo(X(0.50), top); ctx.lineTo(X(0.50), bottom); ctx.stroke();
+  ctx.setLineDash([18, 16]);
+  ctx.lineWidth = 4;
+  [0.08, 0.23, 0.77, 0.92].forEach(p => { ctx.beginPath(); ctx.moveTo(left, Y(p)); ctx.lineTo(right, Y(p)); ctx.stroke(); });
+  ctx.setLineDash([]);
+
+  ctx.save();
+  ctx.fillStyle = "#fff";
+  ctx.font = "900 18px Courier New";
+  ctx.textAlign = "center";
+  ctx.shadowColor = "#000";
+  ctx.shadowOffsetX = 3;
+  ctx.shadowOffsetY = 3;
+  [["5m", 0.10], ["22m", 0.26], ["40m", 0.40], ["50m", 0.50], ["40m", 0.60], ["22m", 0.74], ["5m", 0.90]].forEach(([label, p]) => ctx.fillText(label, X(p), bottom + 30));
+  ctx.textAlign = "left";
+  [["5m",0.08],["15m",0.23],["15m",0.77],["5m",0.92]].forEach(([label,p]) => ctx.fillText(label, left + 8, Y(p) - 8));
+  ctx.textAlign = "right";
+  [["5m",0.08],["15m",0.23],["15m",0.77],["5m",0.92]].forEach(([label,p]) => ctx.fillText(label, right - 8, Y(p) - 8));
+  ctx.restore();
+
+  drawPitchHeader(t("slogan"));
+}
+
+function drawHalfPitch() {
+  ctx.fillStyle = "#6ec65f";
+  ctx.fillRect(0, 0, W, H);
+  const { left, right, top, bottom } = FIELD;
+  const pw = right - left;
+  const ph = bottom - top;
+  const X = p => left + pw * p;
+  const Y = p => top + ph * p;
+
+  ctx.strokeStyle = "#fff";
+  ctx.lineWidth = 7;
+  ctx.strokeRect(left, top, pw, ph);
+  ctx.lineWidth = 6;
+  [["TRY", 1.0], ["5m", 0.88], ["22m", 0.56], ["40m", 0.22], ["50m", 0.0]].forEach(([label, p]) => {
+    ctx.beginPath(); ctx.moveTo(left, Y(p)); ctx.lineTo(right, Y(p)); ctx.stroke();
+    pixelText(label, left + 18, Y(p) - 8, 18, "left", "#fff");
+  });
+  ctx.setLineDash([18, 16]);
+  ctx.lineWidth = 4;
+  [["5m",0.08],["15m",0.23],["15m",0.77],["5m",0.92]].forEach(([label,p]) => {
+    ctx.beginPath(); ctx.moveTo(X(p), top); ctx.lineTo(X(p), bottom); ctx.stroke();
+    pixelText(label, X(p), bottom + 30, 16, "center", "#fff");
+  });
+  ctx.setLineDash([]);
+  drawPitchHeader(t("slogan") + " | HALF PITCH");
+}
+
+function drawLineoutPitch() {
+  ctx.fillStyle = "#6ec65f";
+  ctx.fillRect(0, 0, W, H);
+
+  const { left, right, top, bottom } = FIELD;
+  const pw = right - left;
+  const ph = bottom - top;
+
+  // Lineout pitch calibration: visible area = touchline to 15m line + 2m free space.
+  // 5m line = 5/17 across; 15m line = 15/17 across.
+  const X = metres => left + pw * (metres / 17);
+
+  ctx.strokeStyle = "#fff";
+  ctx.lineWidth = 7;
+  ctx.strokeRect(left, top, pw, ph);
+
+  // Touchline = solid left edge.
+  ctx.lineWidth = 8;
+  ctx.beginPath();
+  ctx.moveTo(X(0), top);
+  ctx.lineTo(X(0), bottom);
+  ctx.stroke();
+
+  ctx.setLineDash([18, 16]);
+  ctx.lineWidth = 5;
+
+  [["5m", 5], ["15m", 15]].forEach(([label, metres]) => {
+    ctx.beginPath();
+    ctx.moveTo(X(metres), top);
+    ctx.lineTo(X(metres), bottom);
+    ctx.stroke();
+    pixelText(label, X(metres), bottom + 34, 20, "center", "#fff");
+  });
+
+  ctx.setLineDash([]);
+
+  pixelText("TOUCHLINE", X(0) + 15, top + 35, 18, "left", "#fff");
+  pixelText("5m", (X(0) + X(5)) / 2, top + 35, 18, "center", "#fff");
+  pixelText("10m", (X(5) + X(15)) / 2, top + 35, 18, "center", "#fff");
+  pixelText("+2m", (X(15) + right) / 2, top + 35, 18, "center", "#fff");
+
+  drawPitchHeader(t("slogan") + " | LINEOUT");
+}
 function drawFootballPitch() {
   ctx.fillStyle = "#2f9e44";
   ctx.fillRect(0, 0, W, H);
@@ -945,7 +839,7 @@ function drawFooter() {
   } else if (setupMode === "scrum") {
     modeText = `${t("scrumMode")} | CLICK FIELD TO PLACE`;
   } else {
-    modeText = `${t("freeBallMode")} | PITCH: ${pitchMode.toUpperCase()}`;
+    modeText = `${t("freeBallMode")} | ${t("attack")} | ${pitchMode.toUpperCase()} PITCH`;
   }
 
   pixelText(modeText, W / 2, footerTop + 28, 18, "center", "#ffd700");
@@ -1017,6 +911,8 @@ window.addEventListener("load", () => {
   }
 
   applyTranslations();
+  applyActiveField();
+  updatePitchModeSelect();
   updateToolVisibility();
   updateModeButtons();
 
