@@ -446,25 +446,31 @@ function drawLineoutPitch(title = "TEAM-CLARITY PLAY BUILDER") {
   const { left, right, top, bottom } = FIELD;
   const pw = right - left;
   const ph = bottom - top;
-  const X = p => left + pw * p;
+
+  // Lineout pitch calibration: visible area = touchline to 15m line + 2m free space.
+  // 5m line = 5/17 across; 15m line = 15/17 across.
+  const X = metres => left + pw * (metres / 17);
 
   ctx.strokeStyle = "#fff";
   ctx.lineWidth = 7;
   ctx.strokeRect(left, top, pw, ph);
 
+  // Touchline = solid left edge.
   ctx.lineWidth = 8;
   ctx.beginPath();
-  ctx.moveTo(left, top);
-  ctx.lineTo(left, bottom);
+  ctx.moveTo(X(0), top);
+  ctx.lineTo(X(0), bottom);
   ctx.stroke();
 
   ctx.setLineDash([18, 16]);
   ctx.lineWidth = 5;
-  [["5m", 0.20], ["15m", 0.48]].forEach(([label, p]) => {
+
+  [["5m", 5], ["15m", 15]].forEach(([label, metres]) => {
     ctx.beginPath();
-    ctx.moveTo(X(p), top);
-    ctx.lineTo(X(p), bottom);
+    ctx.moveTo(X(metres), top);
+    ctx.lineTo(X(metres), bottom);
     ctx.stroke();
+
     ctx.save();
     ctx.fillStyle = "#fff";
     ctx.font = "900 22px Courier New";
@@ -472,24 +478,30 @@ function drawLineoutPitch(title = "TEAM-CLARITY PLAY BUILDER") {
     ctx.shadowColor = "#000";
     ctx.shadowOffsetX = 3;
     ctx.shadowOffsetY = 3;
-    ctx.fillText(label, X(p), bottom + 34);
+    ctx.fillText(label, X(metres), bottom + 34);
     ctx.restore();
   });
+
   ctx.setLineDash([]);
 
   ctx.save();
   ctx.fillStyle = "#fff";
-  ctx.font = "900 22px Courier New";
-  ctx.textAlign = "left";
+  ctx.font = "900 20px Courier New";
   ctx.shadowColor = "#000";
   ctx.shadowOffsetX = 3;
   ctx.shadowOffsetY = 3;
-  ctx.fillText("TOUCHLINE", left + 12, top + 32);
+
+  ctx.textAlign = "left";
+  ctx.fillText("TOUCHLINE", X(0) + 15, top + 35);
+
+  ctx.textAlign = "center";
+  ctx.fillText("5m", (X(0) + X(5)) / 2, top + 35);
+  ctx.fillText("10m", (X(5) + X(15)) / 2, top + 35);
+  ctx.fillText("+2m", (X(15) + right) / 2, top + 35);
   ctx.restore();
 
   drawPitchHeader(title + " | LINEOUT");
 }
-
 function drawPitchHeader(title) {
   ctx.fillStyle = "#d71920";
   ctx.fillRect(0, 0, W, 52);
