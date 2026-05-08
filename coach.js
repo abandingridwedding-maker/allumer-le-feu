@@ -13,7 +13,7 @@ let playerGroup = "all";
 let playerSize = "normal";
 let sportMode = "rugby";
 let pitchMode = "full";
-let currentLang = "en";
+let currentLang = "en"; // English only
 
 let draggingBall = false;
 let draggingPlayerNumber = null;
@@ -107,7 +107,9 @@ const TEXT = {
 
 function getPitchField(mode = pitchMode) {
   if (mode === "lineout") {
-    return { left: 70, right: Math.round(W * 0.62), top: 95, bottom: H - 145 };
+    const lineoutWidth = Math.round((W - 140) * 0.62);
+    const left = Math.round((W - lineoutWidth) / 2);
+    return { left, right: left + lineoutWidth, top: 95, bottom: H - 145 };
   }
 
   return { left: 70, right: W - 70, top: 95, bottom: H - 145 };
@@ -251,12 +253,15 @@ socket.on("state", serverState => {
    DOM CONTROLS
 ================================ */
 
-document.getElementById("langToggle").onchange = e => {
-  currentLang = e.target.value;
-  localStorage.setItem("teamClarityLang", currentLang);
-  applyTranslations();
-  draw();
-};
+const langToggle = document.getElementById("langToggle");
+if (langToggle) {
+  langToggle.onchange = e => {
+    currentLang = e.target.value;
+    localStorage.setItem("teamClarityLang", currentLang);
+    applyTranslations();
+    draw();
+  };
+}
 
 document.getElementById("pitchMode").onchange = e => setPitchMode(e.target.value);
 
@@ -911,8 +916,9 @@ window.addEventListener("load", () => {
   const savedLang = localStorage.getItem("teamClarityLang");
 
   if (savedLang === "fr" || savedLang === "en") {
-    currentLang = savedLang;
-    document.getElementById("langToggle").value = currentLang;
+    currentLang = "en";
+    const langToggle = document.getElementById("langToggle");
+    if (langToggle) langToggle.value = currentLang;
   }
 
   applyTranslations();
