@@ -20,7 +20,6 @@
           <option value="half">Half Pitch</option>
           <option value="lineout">Lineout</option>
         </select>
-
         <button id="builderMainBtn">Start Builder</button>
         <button id="playAnimationBtn">Play Animation</button>
         <button id="clearStepsBtn">Clear</button>
@@ -54,6 +53,12 @@
           <option value="medium">2/3 Size</option>
           <option value="small">Small Circle</option>
         </select>
+
+        <label class="speedLabel">
+          Builder Speed
+          <input id="builderSpeed" type="range" min="0.25" max="2" step="0.25" value="1" />
+          <span id="builderSpeedValue">1x</span>
+        </label>
       </div>
     </div>
   </div>
