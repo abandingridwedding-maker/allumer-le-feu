@@ -124,6 +124,13 @@ function updatePitchModeSelect() {
 
 function setPitchMode(mode, emit = true) {
   pitchMode = ["full", "half", "lineout"].includes(mode) ? mode : "full";
+
+  if (pitchMode === "lineout") {
+    playerGroup = "forwards";
+    const playerGroupSelect = document.getElementById("playerGroup");
+    if (playerGroupSelect) playerGroupSelect.value = "forwards";
+  }
+
   applyActiveField();
   updatePitchModeSelect();
   if (emit) socket.emit("coach-pitch-mode", pitchMode);
@@ -654,10 +661,8 @@ function drawLineoutPitch() {
 
   ctx.setLineDash([]);
 
-  pixelText("TOUCHLINE", X(0) + 15, top + 35, 18, "left", "#fff");
-  pixelText("5m", (X(0) + X(5)) / 2, top + 35, 18, "center", "#fff");
-  pixelText("10m", (X(5) + X(15)) / 2, top + 35, 18, "center", "#fff");
-  pixelText("+2m", (X(15) + right) / 2, top + 35, 18, "center", "#fff");
+  pixelText("5m", X(5), top + 34, 20, "center", "#fff");
+  pixelText("15m", X(15), top + 34, 20, "center", "#fff");
 
   drawPitchHeader(t("slogan") + " | LINEOUT");
 }
