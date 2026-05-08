@@ -1,5 +1,3 @@
-const socket = io();
-
 const canvas = document.getElementById("field");
 const ctx = canvas.getContext("2d");
 ctx.imageSmoothingEnabled = false;
@@ -7,42 +5,50 @@ ctx.imageSmoothingEnabled = false;
 const W = canvas.width;
 const H = canvas.height;
 
-let selectedPlay = null;
-let selectedPlayer = 7;
-
-let playerSize = "normal";
-let shadowGuideOn = true;
-let simSpeedMultiplier = 0.5;
-let pitchMode = "full";
-
-let players = {};
-let expectedPlayers = {};
-let ball = { x: 820, y: 430 };
-
-let simRunning = false;
-let countdownValue = null;
-let timingClicks = {};
-let sessionStartTime = null;
-
-const PLAYER_SPEED = 7;
-
 const FIELD = {
   left: 70,
   right: W - 70,
   top: 95,
-  bottom: H - 125
+  bottom: H - 145
 };
 
+const COLORS = {
+  red: "#d71920",
+  white: "#ffffff",
+  black: "#111111",
+  blue: "#1f6feb"
+};
+
+let setupMode = "free";
+let playerSize = "normal";
+let playerGroup = "all";
+let teamColorName = "red";
+let teamColor = COLORS.red;
+let pitchMode = "full";
+
+let players = {};
+let ball = { x: 950, y: 230 };
+
+let draggingType = null;
+let draggingPlayerNumber = null;
+let dragOffset = { x: 0, y: 0 };
+
+let builderStarted = false;
+let steps = [];
+let isAnimating = false;
+let builderSpeedMultiplier = 1;
+
+const builderBtn = document.getElementById("builderMainBtn");
 
 
 function getPitchField(mode = pitchMode) {
   if (mode === "lineout") {
     const lineoutWidth = Math.round((W - 140) * 0.62);
     const left = Math.round((W - lineoutWidth) / 2);
-    return { left, right: left + lineoutWidth, top: 95, bottom: H - 125 };
+    return { left, right: left + lineoutWidth, top: 95, bottom: H - 145 };
   }
 
-  return { left: 70, right: W - 70, top: 95, bottom: H - 125 };
+  return { left: 70, right: W - 70, top: 95, bottom: H - 145 };
 }
 
 function applyActiveField() {
@@ -54,8 +60,27 @@ function updatePitchModeSelect() {
   if (select) select.value = pitchMode;
 }
 
+function setPitchMode(mode) {
+  pitchMode = ["full", "half", "lineout"].includes(mode) ? mode : "full";
+
+  if (pitchMode === "lineout") {
+    playerGroup = "forwards";
+    const playerGroupSelect = document.getElementById("playerGroup");
+    if (playerGroupSelect) playerGroupSelect.value = "forwards";
+  }
+
+  applyActiveField();
+  clampAllToField();
+  updatePitchModeSelect();
+  draw();
+}
+
 function clone(obj) {
   return JSON.parse(JSON.stringify(obj));
+}
+
+function clamp(v, min, max) {
+  return Math.max(min, Math.min(max, v));
 }
 
 function pixelText(text, x, y, size = 22, align = "center", color = "white") {
@@ -70,25 +95,424 @@ function pixelText(text, x, y, size = 22, align = "center", color = "white") {
   ctx.restore();
 }
 
+function setCanvasDragging(isDragging) {
+  canvas.classList.toggle("grabbing", isDragging);
+}
+
+function shouldShowPlayer(number) {
+  if (playerGroup === "all") return true;
+  if (playerGroup === "forwards") return number >= 1 && number <= 8;
+  if (playerGroup === "backs") return number >= 9 && number <= 15;
+  return true;
+}
+
+function clearModeButtons() {
+  ["lineoutTopBtn", "lineoutBottomBtn", "scrumBtn", "freeBtn"].forEach(id => {
+    document.getElementById(id)?.classList.remove("modeActive");
+  });
+}
+
+function updateModeButtons() {
+  clearModeButtons();
+
+  if (setupMode === "lineout-top") document.getElementById("lineoutTopBtn")?.classList.add("modeActive");
+  if (setupMode === "lineout-bottom") document.getElementById("lineoutBottomBtn")?.classList.add("modeActive");
+  if (setupMode === "scrum") document.getElementById("scrumBtn")?.classList.add("modeActive");
+  if (setupMode === "free") document.getElementById("freeBtn")?.classList.add("modeActive");
+}
+
+function setMode(mode) {
+  setupMode = mode;
+  updateModeButtons();
+  draw();
+}
+
+function clampAllToField() {
+  applyActiveField();
+  Object.values(players).forEach(p => {
+    p.x = clamp(p.x, FIELD.left + 22, FIELD.right - 22);
+    p.y = clamp(p.y, FIELD.top + 24, FIELD.bottom - 24);
+  });
+
+  ball.x = clamp(ball.x, FIELD.left + 22, FIELD.right - 22);
+  ball.y = clamp(ball.y, FIELD.top + 24, FIELD.bottom - 24);
+}
+
+function initPlayers() {
+  players = {};
+
+  for (let i = 1; i <= 15; i++) {
+    players[i] = {
+      number: i,
+      x: 500,
+      y: 300,
+      color: teamColor
+    };
+  }
+
+  placeLineout("top", 920);
+}
+
+function applyTeamColor(value) {
+  teamColorName = value;
+  teamColor = COLORS[value] || COLORS.red;
+
+  Object.values(players).forEach(p => {
+    p.color = teamColor;
+  });
+
+  draw();
+}
+
+/*
+  TEAM-CLARITY SET-PIECE STANDARD
+  - Attack is always right → left.
+  - 9 and backs are to the right of the forwards.
+  - Shape adjusts based on click location.
+  - Players stay visible inside field.
+*/
+
+function placeLineout(side, clickedX) {
+  const xForwards = clamp(clickedX || 920, FIELD.left + 220, FIELD.right - 520);
+  const spacing = side === "top" ? 34 : -34;
+
+  const topY = FIELD.top + 72;
+  const bottomY = FIELD.bottom - 72;
+  const startY = side === "top" ? topY : bottomY;
+
+  [1, 3, 4, 5, 6, 7, 8].forEach((n, i) => {
+    players[n].x = xForwards;
+    players[n].y = startY + i * spacing;
+  });
+
+  players[2].x = xForwards - 78;
+  players[2].y = startY - spacing * 0.2;
+
+  players[9].x = xForwards + 76;
+  players[9].y = startY + spacing * 4.2;
+
+  const backsStartX = clamp(xForwards + 185, FIELD.left + 120, FIELD.right - 100);
+
+  players[10].x = backsStartX;
+  players[10].y = clamp(startY + spacing * 3.5, FIELD.top + 50, FIELD.bottom - 50);
+
+  players[12].x = clamp(backsStartX + 105, FIELD.left + 100, FIELD.right - 70);
+  players[12].y = clamp(startY + spacing * 4.3, FIELD.top + 50, FIELD.bottom - 50);
+
+  players[13].x = clamp(backsStartX + 220, FIELD.left + 100, FIELD.right - 70);
+  players[13].y = clamp(startY + spacing * 5.0, FIELD.top + 50, FIELD.bottom - 50);
+
+  players[15].x = clamp(backsStartX + 330, FIELD.left + 100, FIELD.right - 70);
+  players[15].y = clamp(startY + spacing * 5.9, FIELD.top + 50, FIELD.bottom - 50);
+
+  players[14].x = clamp(backsStartX + 435, FIELD.left + 100, FIELD.right - 70);
+  players[14].y = clamp(startY + spacing * 6.8, FIELD.top + 50, FIELD.bottom - 50);
+
+  players[11].x = clamp(backsStartX + 160, FIELD.left + 100, FIELD.right - 70);
+  players[11].y = clamp(startY + spacing * 1.6, FIELD.top + 50, FIELD.bottom - 50);
+
+  ball.x = xForwards + 34;
+  ball.y = startY + spacing * 1.4;
+
+  clampAllToField();
+  setupMode = "free";
+  updateModeButtons();
+  draw();
+}
+
+function placeScrum(clickedX, clickedY) {
+  const cx = clamp(clickedX || 720, FIELD.left + 180, FIELD.right - 580);
+  const cy = clamp(clickedY || 445, FIELD.top + 155, FIELD.bottom - 220);
+
+  const gapX = 38;
+  const gapY = 38;
+
+  players[1].x = cx - gapX;
+  players[1].y = cy - gapY;
+
+  players[2].x = cx;
+  players[2].y = cy - gapY;
+
+  players[3].x = cx + gapX;
+  players[3].y = cy - gapY;
+
+  players[4].x = cx - 19;
+  players[4].y = cy;
+
+  players[5].x = cx + 19;
+  players[5].y = cy;
+
+  players[6].x = cx - 66;
+  players[6].y = cy + gapY;
+
+  players[7].x = cx + 66;
+  players[7].y = cy + gapY;
+
+  players[8].x = cx;
+  players[8].y = cy + gapY + 18;
+
+  players[9].x = cx + 150;
+  players[9].y = cy + 14;
+
+  players[10].x = clamp(cx + 265, FIELD.left + 100, FIELD.right - 70);
+  players[10].y = clamp(cy + 42, FIELD.top + 50, FIELD.bottom - 50);
+
+  players[12].x = clamp(cx + 375, FIELD.left + 100, FIELD.right - 70);
+  players[12].y = clamp(cy + 82, FIELD.top + 50, FIELD.bottom - 50);
+
+  players[13].x = clamp(cx + 500, FIELD.left + 100, FIELD.right - 70);
+  players[13].y = clamp(cy + 132, FIELD.top + 50, FIELD.bottom - 50);
+
+  players[15].x = clamp(cx + 605, FIELD.left + 100, FIELD.right - 70);
+  players[15].y = clamp(cy + 195, FIELD.top + 50, FIELD.bottom - 50);
+
+  players[14].x = clamp(cx + 710, FIELD.left + 100, FIELD.right - 70);
+  players[14].y = clamp(cy + 245, FIELD.top + 50, FIELD.bottom - 50);
+
+  players[11].x = clamp(cx + 440, FIELD.left + 100, FIELD.right - 70);
+  players[11].y = clamp(cy - 118, FIELD.top + 50, FIELD.bottom - 50);
+
+  ball.x = cx + 105;
+  ball.y = cy + 8;
+
+  clampAllToField();
+  setupMode = "free";
+  updateModeButtons();
+  draw();
+}
+
+function setFreeBall() {
+  setupMode = "free";
+  updateModeButtons();
+  draw();
+}
+
+/* =========================================
+   FIELD DRAWING
+========================================= */
+
+function drawFullPitch(title = "TEAM-CLARITY PLAY BUILDER") {
+  ctx.fillStyle = "#6ec65f";
+  ctx.fillRect(0, 0, W, H);
+
+  const left = FIELD.left;
+  const right = FIELD.right;
+  const top = FIELD.top;
+  const bottom = FIELD.bottom;
+
+  const pw = right - left;
+  const ph = bottom - top;
+
+  const X = p => left + pw * p;
+  const Y = p => top + ph * p;
+
+  ctx.strokeStyle = "#fff";
+  ctx.lineWidth = 7;
+  ctx.strokeRect(left, top, pw, ph);
+
+  ctx.strokeStyle = "#fff";
+  ctx.lineWidth = 5;
+
+  [0.06, 0.94].forEach(p => {
+    ctx.beginPath();
+    ctx.moveTo(X(p), top);
+    ctx.lineTo(X(p), bottom);
+    ctx.stroke();
+  });
+
+  ctx.setLineDash([16, 14]);
+
+  [0.10, 0.90].forEach(p => {
+    ctx.beginPath();
+    ctx.moveTo(X(p), top);
+    ctx.lineTo(X(p), bottom);
+    ctx.stroke();
+  });
+
+  ctx.setLineDash([]);
+  ctx.lineWidth = 6;
+
+  [0.26, 0.74].forEach(p => {
+    ctx.beginPath();
+    ctx.moveTo(X(p), top);
+    ctx.lineTo(X(p), bottom);
+    ctx.stroke();
+  });
+
+  ctx.setLineDash([20, 16]);
+  ctx.lineWidth = 4;
+
+  [0.40, 0.60].forEach(p => {
+    ctx.beginPath();
+    ctx.moveTo(X(p), top);
+    ctx.lineTo(X(p), bottom);
+    ctx.stroke();
+  });
+
+  ctx.setLineDash([]);
+
+  ctx.lineWidth = 6;
+  ctx.beginPath();
+  ctx.moveTo(X(0.50), top);
+  ctx.lineTo(X(0.50), bottom);
+  ctx.stroke();
+
+  ctx.setLineDash([18, 16]);
+  ctx.lineWidth = 4;
+
+  [0.08, 0.23, 0.77, 0.92].forEach(p => {
+    ctx.beginPath();
+    ctx.moveTo(left, Y(p));
+    ctx.lineTo(right, Y(p));
+    ctx.stroke();
+  });
+
+  ctx.setLineDash([]);
+
+  ctx.save();
+  ctx.fillStyle = "#fff";
+  ctx.font = "900 18px Courier New";
+  ctx.textAlign = "center";
+  ctx.shadowColor = "#000";
+  ctx.shadowOffsetX = 3;
+  ctx.shadowOffsetY = 3;
+
+  [["5m", 0.10], ["22m", 0.26], ["40m", 0.40], ["50m", 0.50], ["40m", 0.60], ["22m", 0.74], ["5m", 0.90]].forEach(([label, p]) => {
+    ctx.fillText(label, X(p), bottom + 30);
+  });
+
+  ctx.textAlign = "left";
+  ctx.fillText("5m", left + 8, Y(0.08) - 8);
+  ctx.fillText("15m", left + 8, Y(0.23) - 8);
+  ctx.fillText("15m", left + 8, Y(0.77) - 8);
+  ctx.fillText("5m", left + 8, Y(0.92) - 8);
+
+  ctx.textAlign = "right";
+  ctx.fillText("5m", right - 8, Y(0.08) - 8);
+  ctx.fillText("15m", right - 8, Y(0.23) - 8);
+  ctx.fillText("15m", right - 8, Y(0.77) - 8);
+  ctx.fillText("5m", right - 8, Y(0.92) - 8);
+
+  ctx.restore();
+  drawPitchHeader(title);
+}
+
+function drawHalfPitch(title = "TEAM-CLARITY PLAY BUILDER") {
+  ctx.fillStyle = "#6ec65f";
+  ctx.fillRect(0, 0, W, H);
+
+  const { left, right, top, bottom } = FIELD;
+  const pw = right - left;
+  const ph = bottom - top;
+  const X = p => left + pw * p;
+  const Y = p => top + ph * p;
+
+  ctx.strokeStyle = "#fff";
+  ctx.lineWidth = 7;
+  ctx.strokeRect(left, top, pw, ph);
+
+  ctx.lineWidth = 6;
+  [["TRY", 1.0], ["5m", 0.88], ["22m", 0.56], ["40m", 0.22], ["50m", 0.0]].forEach(([label, p]) => {
+    ctx.beginPath();
+    ctx.moveTo(left, Y(p));
+    ctx.lineTo(right, Y(p));
+    ctx.stroke();
+    ctx.save();
+    ctx.fillStyle = "#fff";
+    ctx.font = "900 20px Courier New";
+    ctx.textAlign = "left";
+    ctx.shadowColor = "#000";
+    ctx.shadowOffsetX = 3;
+    ctx.shadowOffsetY = 3;
+    ctx.fillText(label, left + 12, Y(p) - 8);
+    ctx.restore();
+  });
+
+  ctx.setLineDash([18, 16]);
+  ctx.lineWidth = 4;
+  [["5m", 0.08], ["15m", 0.23], ["15m", 0.77], ["5m", 0.92]].forEach(([label, p]) => {
+    ctx.beginPath();
+    ctx.moveTo(X(p), top);
+    ctx.lineTo(X(p), bottom);
+    ctx.stroke();
+    ctx.save();
+    ctx.fillStyle = "#fff";
+    ctx.font = "900 18px Courier New";
+    ctx.textAlign = "center";
+    ctx.shadowColor = "#000";
+    ctx.shadowOffsetX = 3;
+    ctx.shadowOffsetY = 3;
+    ctx.fillText(label, X(p), bottom + 30);
+    ctx.restore();
+  });
+  ctx.setLineDash([]);
+  drawPitchHeader(title + " | HALF PITCH");
+}
+
+function drawLineoutPitch(title = "TEAM-CLARITY PLAY BUILDER") {
+  ctx.fillStyle = "#6ec65f";
+  ctx.fillRect(0, 0, W, H);
+
+  const { left, right, top, bottom } = FIELD;
+  const pw = right - left;
+  const ph = bottom - top;
+
+  // Lineout pitch calibration: visible area = touchline to 15m line + 2m free space.
+  // 5m line = 5/17 across; 15m line = 15/17 across.
+  const X = metres => left + pw * (metres / 17);
+
+  ctx.strokeStyle = "#fff";
+  ctx.lineWidth = 7;
+  ctx.strokeRect(left, top, pw, ph);
+
+  // Touchline = solid left edge.
+  ctx.lineWidth = 8;
+  ctx.beginPath();
+  ctx.moveTo(X(0), top);
+  ctx.lineTo(X(0), bottom);
+  ctx.stroke();
+
+  ctx.setLineDash([18, 16]);
+  ctx.lineWidth = 5;
+
+  [["5m", 5], ["15m", 15]].forEach(([label, metres]) => {
+    ctx.beginPath();
+    ctx.moveTo(X(metres), top);
+    ctx.lineTo(X(metres), bottom);
+    ctx.stroke();
+
+    ctx.save();
+    ctx.fillStyle = "#fff";
+    ctx.font = "900 22px Courier New";
+    ctx.textAlign = "center";
+    ctx.shadowColor = "#000";
+    ctx.shadowOffsetX = 3;
+    ctx.shadowOffsetY = 3;
+    ctx.fillText(label, X(metres), bottom + 34);
+    ctx.restore();
+  });
+
+  ctx.setLineDash([]);
+
+  ctx.save();
+  ctx.fillStyle = "#fff";
+  ctx.font = "900 22px Courier New";
+  ctx.textAlign = "center";
+  ctx.shadowColor = "#000";
+  ctx.shadowOffsetX = 3;
+  ctx.shadowOffsetY = 3;
+  ctx.fillText("5m", X(5), top + 34);
+  ctx.fillText("15m", X(15), top + 34);
+  ctx.restore();
+
+  drawPitchHeader(title + " | LINEOUT");
+}
 function drawPitchHeader(title) {
   ctx.fillStyle = "#d71920";
   ctx.fillRect(0, 0, W, 52);
 
   ctx.fillStyle = "#111";
   ctx.fillRect(0, 52, W, 8);
-
-  if (selectedPlay && selectedPlay.name) {
-    const modeLabel = pitchMode === "lineout"
-      ? "LINEOUT"
-      : pitchMode === "half"
-        ? "HALF PITCH"
-        : "FULL PITCH";
-
-    pixelText(selectedPlay.name.toUpperCase(), 32, 36, 28, "left", "#ffd700");
-    pixelText("TEAM-CLARITY PLAYER SIMULATOR", W - 32, 28, 22, "right", "#fff");
-    pixelText(modeLabel, W - 32, 48, 13, "right", "#fff");
-    return;
-  }
 
   pixelText(title, W / 2, 37, 30, "center", "#fff");
 }
@@ -110,127 +534,9 @@ function drawPitch() {
   drawFullPitch();
 }
 
-function drawFullPitch() {
-  ctx.fillStyle = "#6ec65f";
-  ctx.fillRect(0, 0, W, H);
-
-  const left = FIELD.left;
-  const right = FIELD.right;
-  const top = FIELD.top;
-  const bottom = FIELD.bottom;
-  const pw = right - left;
-  const ph = bottom - top;
-  const X = p => left + pw * p;
-  const Y = p => top + ph * p;
-
-  ctx.strokeStyle = "#fff";
-  ctx.lineWidth = 7;
-  ctx.strokeRect(left, top, pw, ph);
-  ctx.strokeStyle = "#fff";
-  ctx.lineWidth = 5;
-  [0.06, 0.94].forEach(p => { ctx.beginPath(); ctx.moveTo(X(p), top); ctx.lineTo(X(p), bottom); ctx.stroke(); });
-  ctx.setLineDash([16, 14]);
-  [0.10, 0.90].forEach(p => { ctx.beginPath(); ctx.moveTo(X(p), top); ctx.lineTo(X(p), bottom); ctx.stroke(); });
-  ctx.setLineDash([]);
-  ctx.lineWidth = 6;
-  [0.26, 0.74].forEach(p => { ctx.beginPath(); ctx.moveTo(X(p), top); ctx.lineTo(X(p), bottom); ctx.stroke(); });
-  ctx.setLineDash([20, 16]);
-  ctx.lineWidth = 4;
-  [0.40, 0.60].forEach(p => { ctx.beginPath(); ctx.moveTo(X(p), top); ctx.lineTo(X(p), bottom); ctx.stroke(); });
-  ctx.setLineDash([]);
-  ctx.lineWidth = 6;
-  ctx.beginPath(); ctx.moveTo(X(0.50), top); ctx.lineTo(X(0.50), bottom); ctx.stroke();
-  ctx.setLineDash([18, 16]);
-  ctx.lineWidth = 4;
-  [0.08, 0.23, 0.77, 0.92].forEach(p => { ctx.beginPath(); ctx.moveTo(left, Y(p)); ctx.lineTo(right, Y(p)); ctx.stroke(); });
-  ctx.setLineDash([]);
-
+function drawBall() {
   ctx.save();
-  ctx.fillStyle = "#fff";
-  ctx.font = "900 18px Courier New";
-  ctx.textAlign = "center";
-  ctx.shadowColor = "#000";
-  ctx.shadowOffsetX = 3;
-  ctx.shadowOffsetY = 3;
-  [["5m", 0.10], ["22m", 0.26], ["40m", 0.40], ["50m", 0.50], ["40m", 0.60], ["22m", 0.74], ["5m", 0.90]].forEach(([label, p]) => ctx.fillText(label, X(p), bottom + 30));
-  ctx.textAlign = "left";
-  [["5m",0.08],["15m",0.23],["15m",0.77],["5m",0.92]].forEach(([label,p]) => ctx.fillText(label, left + 8, Y(p) - 8));
-  ctx.textAlign = "right";
-  [["5m",0.08],["15m",0.23],["15m",0.77],["5m",0.92]].forEach(([label,p]) => ctx.fillText(label, right - 8, Y(p) - 8));
-  ctx.restore();
-
-  drawPitchHeader("TEAM-CLARITY PLAYER SIMULATOR");
-}
-
-function drawHalfPitch() {
-  ctx.fillStyle = "#6ec65f";
-  ctx.fillRect(0, 0, W, H);
-  const { left, right, top, bottom } = FIELD;
-  const pw = right - left;
-  const ph = bottom - top;
-  const X = p => left + pw * p;
-  const Y = p => top + ph * p;
-  ctx.strokeStyle = "#fff";
-  ctx.lineWidth = 7;
-  ctx.strokeRect(left, top, pw, ph);
-  ctx.lineWidth = 6;
-  [["TRY", 1.0], ["5m", 0.88], ["22m", 0.56], ["40m", 0.22], ["50m", 0.0]].forEach(([label, p]) => {
-    ctx.beginPath(); ctx.moveTo(left, Y(p)); ctx.lineTo(right, Y(p)); ctx.stroke();
-    pixelText(label, left + 18, Y(p) - 8, 18, "left", "#fff");
-  });
-  ctx.setLineDash([18, 16]);
-  ctx.lineWidth = 4;
-  [["5m",0.08],["15m",0.23],["15m",0.77],["5m",0.92]].forEach(([label,p]) => {
-    ctx.beginPath(); ctx.moveTo(X(p), top); ctx.lineTo(X(p), bottom); ctx.stroke();
-    pixelText(label, X(p), bottom + 30, 16, "center", "#fff");
-  });
-  ctx.setLineDash([]);
-  drawPitchHeader("TEAM-CLARITY PLAYER SIMULATOR | HALF PITCH");
-}
-
-function drawLineoutPitch() {
-  ctx.fillStyle = "#6ec65f";
-  ctx.fillRect(0, 0, W, H);
-
-  const { left, right, top, bottom } = FIELD;
-  const pw = right - left;
-
-  // Lineout pitch calibration: visible area = touchline to 15m line + 2m free space.
-  // 5m line = 5/17 across; 15m line = 15/17 across.
-  const X = metres => left + pw * (metres / 17);
-
-  ctx.strokeStyle = "#fff";
-  ctx.lineWidth = 7;
-  ctx.strokeRect(left, top, pw, bottom - top);
-
-  // Touchline = solid left edge.
-  ctx.lineWidth = 8;
-  ctx.beginPath();
-  ctx.moveTo(X(0), top);
-  ctx.lineTo(X(0), bottom);
-  ctx.stroke();
-
-  ctx.setLineDash([18, 16]);
-  ctx.lineWidth = 5;
-
-  [["5m", 5], ["15m", 15]].forEach(([label, metres]) => {
-    ctx.beginPath();
-    ctx.moveTo(X(metres), top);
-    ctx.lineTo(X(metres), bottom);
-    ctx.stroke();
-    pixelText(label, X(metres), bottom + 34, 20, "center", "#fff");
-  });
-
-  ctx.setLineDash([]);
-
-  pixelText("5m", X(5), top + 34, 20, "center", "#fff");
-  pixelText("15m", X(15), top + 34, 20, "center", "#fff");
-
-  drawPitchHeader("TEAM-CLARITY PLAYER SIMULATOR | LINEOUT");
-}
-function drawBall(ballObj = ball) {
-  ctx.save();
-  ctx.translate(ballObj.x, ballObj.y);
+  ctx.translate(ball.x, ball.y);
   ctx.rotate(-0.35);
 
   ctx.fillStyle = "#4b2a1b";
@@ -251,28 +557,26 @@ function drawBall(ballObj = ball) {
   ctx.restore();
 }
 
-function drawCirclePlayer(p, highlight = false, ghost = false) {
-  ctx.save();
-
+function drawCirclePlayer(p) {
   const radius = 16;
 
-  ctx.globalAlpha = ghost ? 0.28 : 1;
+  ctx.save();
 
   ctx.fillStyle = "rgba(0,0,0,.25)";
   ctx.beginPath();
   ctx.ellipse(p.x + 3, p.y + 4, radius + 2, radius * 0.6, 0, 0, Math.PI * 2);
   ctx.fill();
 
-  ctx.fillStyle = ghost ? "#ffffff" : highlight ? "#ffd700" : p.color || "#d71920";
+  ctx.fillStyle = p.color || "#d71920";
   ctx.beginPath();
   ctx.arc(p.x, p.y, radius, 0, Math.PI * 2);
   ctx.fill();
 
-  ctx.strokeStyle = ghost ? "#ffd700" : "#fff";
+  ctx.strokeStyle = "#fff";
   ctx.lineWidth = 4;
   ctx.stroke();
 
-  ctx.fillStyle = "#111";
+  ctx.fillStyle = p.color === "#ffffff" ? "#111" : "#fff";
   ctx.font = "900 18px Courier New";
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
@@ -281,23 +585,17 @@ function drawCirclePlayer(p, highlight = false, ghost = false) {
   ctx.restore();
 }
 
-function drawPlayer(p, highlight = false, ghost = false) {
-  if (playerSize === "small") {
-    drawCirclePlayer(p, highlight, ghost);
-    return;
-  }
-
+function drawPixelPlayer(p) {
   ctx.save();
   ctx.translate(p.x, p.y);
 
   const s = playerSize === "medium" ? 0.37 : 0.55;
   ctx.scale(s, s);
-  ctx.globalAlpha = ghost ? 0.28 : 1;
 
   ctx.fillStyle = "rgba(0,0,0,.25)";
   ctx.fillRect(-24, 30, 48, 8);
 
-  ctx.fillStyle = ghost ? "#ffffff" : highlight ? "#ffd700" : p.color || "#d71920";
+  ctx.fillStyle = p.color || "#d71920";
   ctx.fillRect(-22, -24, 44, 50);
 
   ctx.fillStyle = "#fff";
@@ -343,245 +641,228 @@ function drawPlayer(p, highlight = false, ghost = false) {
   ctx.fillText(p.number, 0, -2);
 
   ctx.restore();
-
-  if (highlight && !ghost) {
-    ctx.save();
-    ctx.strokeStyle = "#ffd700";
-    ctx.lineWidth = 4;
-    ctx.beginPath();
-    ctx.arc(p.x, p.y - 8, 32, 0, Math.PI * 2);
-    ctx.stroke();
-    ctx.restore();
-  }
 }
 
-function drawFooter() {
-  const footerTop = H - 92;
+function drawPlayer(p) {
+  if (!shouldShowPlayer(p.number)) return;
 
-  ctx.fillStyle = "rgba(0,0,0,0.42)";
-  ctx.fillRect(0, footerTop, W, 92);
-
-  if (!selectedPlay) {
-    pixelText("LOAD A PLAY TO BEGIN", W / 2, footerTop + 34, 24, "center", "#ffd700");
-    pixelText("Choose a saved play from Play Builder, then scan QR codes for controllers", W / 2, footerTop + 70, 14, "center", "#fff");
+  if (playerSize === "small") {
+    drawCirclePlayer(p);
     return;
   }
 
-  const status = simRunning ? "REP LIVE" : "READY";
-
-  pixelText(
-    `${status} | PLAYER ${selectedPlayer} | SPEED ${simSpeedMultiplier}x | SHADOW ${shadowGuideOn ? "ON" : "OFF"}`,
-    W / 2,
-    footerTop + 34,
-    22,
-    "center",
-    "#ffd700"
-  );
-
-  pixelText("Follow the shadow guide, then confirm timing on your controller", W / 2, footerTop + 70, 14, "center", "#fff");
+  drawPixelPlayer(p);
 }
 
-function drawCountdown() {
-  if (countdownValue === null) return;
+function drawFooter() {
+  const footerTop = H - 72;
 
-  ctx.fillStyle = "rgba(0,0,0,0.65)";
-  ctx.fillRect(0, 0, W, H);
+  ctx.fillStyle = "rgba(0,0,0,0.42)";
+  ctx.fillRect(0, footerTop, W, 72);
 
-  const text = countdownValue === 0 ? "GO!" : String(countdownValue);
+  const status = builderStarted
+    ? `BUILDER ACTIVE | NEXT: SAVE STEP ${steps.length + 1}`
+    : "PLACE PLAYERS + BALL | CLICK START BUILDER";
 
-  pixelText(
-    text,
-    W / 2,
-    H / 2 + 35,
-    140,
-    "center",
-    countdownValue === 0 ? "#00ff7f" : "#ffd700"
-  );
+  let instruction = "Click Lineout/Scrum, then click field to place | Ball has click priority";
+
+  if (setupMode === "lineout-top") instruction = "LINEOUT TOP: click on field to place the lineout";
+  if (setupMode === "lineout-bottom") instruction = "LINEOUT BOTTOM: click on field to place the lineout";
+  if (setupMode === "scrum") instruction = "SCRUM: click anywhere on field to place the scrum";
+
+  pixelText(status, W / 2, footerTop + 28, 17, "center", "#ffd700");
+  pixelText(instruction, W / 2, footerTop + 54, 13, "center", "#ffffff");
 }
 
 function draw() {
   drawPitch();
-
-  if (shadowGuideOn && expectedPlayers[selectedPlayer]) {
-    drawPlayer(expectedPlayers[selectedPlayer], false, true);
-  }
-
-  Object.values(players).forEach(p => {
-    drawPlayer(p, p.number === selectedPlayer, false);
-  });
-
-  drawBall(ball);
+  Object.values(players).forEach(drawPlayer);
+  drawBall();
   drawFooter();
-  drawCountdown();
 }
 
-function getSavedPlays() {
-  return JSON.parse(localStorage.getItem("teamClaritySavedPlays") || "[]");
+/* =========================================
+   MOUSE / DRAGGING
+========================================= */
+
+function canvasPoint(e) {
+  const rect = canvas.getBoundingClientRect();
+
+  return {
+    x: (e.clientX - rect.left) * (canvas.width / rect.width),
+    y: (e.clientY - rect.top) * (canvas.height / rect.height)
+  };
 }
 
-function getTrainingLogs() {
-  return JSON.parse(localStorage.getItem("teamClarityTrainingLogs") || "[]");
+function ballHitTest(p) {
+  return Math.hypot(ball.x - p.x, ball.y - p.y) < 28;
 }
 
-function saveTrainingLog(log) {
-  const logs = getTrainingLogs();
-  logs.push(log);
-  localStorage.setItem("teamClarityTrainingLogs", JSON.stringify(logs));
-}
+function playerHitTest(p) {
+  let closest = null;
+  let best = Infinity;
 
-function openPlayFolder() {
-  const modal = document.getElementById("playModal");
-  const list = document.getElementById("savedPlaysList");
-  const plays = getSavedPlays();
+  Object.values(players).forEach(player => {
+    if (!shouldShowPlayer(player.number)) return;
 
-  list.innerHTML = "";
+    const d = Math.hypot(player.x - p.x, player.y - p.y);
 
-  if (plays.length === 0) {
-    list.innerHTML = `<div class="emptyFolder">📂 No saved plays found.</div>`;
-  }
-
-  plays.forEach(play => {
-    const item = document.createElement("div");
-    item.className = "savedPlayItem";
-
-    item.innerHTML = `
-      <div>
-        <div class="savedPlayName">📁 ${play.name}</div>
-        <div class="savedPlayMeta">${play.steps.length} steps | ${play.pitchMode || "full"} pitch</div>
-      </div>
-      <button data-load="${play.id}">Load</button>
-    `;
-
-    list.appendChild(item);
+    if (d < best) {
+      best = d;
+      closest = player;
+    }
   });
 
-  list.querySelectorAll("[data-load]").forEach(btn => {
-    btn.onclick = () => {
-      const id = Number(btn.dataset.load);
-      selectedPlay = plays.find(p => p.id === id);
+  const radius = playerSize === "small" ? 18 : playerSize === "medium" ? 20 : 24;
 
-      if (!selectedPlay || !selectedPlay.steps || selectedPlay.steps.length === 0) return;
-
-      pitchMode = selectedPlay.pitchMode || selectedPlay.steps?.[0]?.pitchMode || "full";
-      applyActiveField();
-      updatePitchModeSelect();
-      loadStep(selectedPlay.steps[0], true);
-      modal.classList.add("hidden");
-    };
-  });
-
-  modal.classList.remove("hidden");
+  return best <= radius ? closest : null;
 }
 
-async function openQrCodes() {
-  const modal = document.getElementById("qrModal");
-  const grid = document.getElementById("qrGrid");
+canvas.addEventListener("mousedown", e => {
+  if (isAnimating) return;
 
-  modal.classList.remove("hidden");
-  grid.innerHTML = "";
+  const p = canvasPoint(e);
 
-  const res = await fetch("/api/sim-qrs");
-  const data = await res.json();
-
-  for (let i = 1; i <= 15; i++) {
-    const item = document.createElement("div");
-    item.className = "qrItem";
-    item.innerHTML = `
-      <div>Player ${i}</div>
-      <img src="${data.qrs[i]}">
-      <div>${data.baseUrl}/simcontroller.html?p=${i}</div>
-    `;
-    grid.appendChild(item);
-  }
-}
-
-function openLogs() {
-  const modal = document.getElementById("logsModal");
-  const list = document.getElementById("logsList");
-  const logs = getTrainingLogs().slice().reverse();
-
-  list.innerHTML = "";
-
-  if (logs.length === 0) {
-    list.innerHTML = `<div class="emptyFolder">No training logs yet.</div>`;
+  if (setupMode === "lineout-top") {
+    placeLineout("top", p.x);
+    return;
   }
 
-  logs.forEach(log => {
-    const item = document.createElement("div");
-    item.className = "savedPlayItem";
-    item.innerHTML = `
-      <div>
-        <div class="savedPlayName">Player ${log.player} — ${log.score}/10</div>
-        <div class="savedPlayMeta">${log.play} | ${log.date}</div>
-        <div class="savedPlayMeta">
-          Positioning ${log.positioning}/5 | Timing ${log.timing}/5 | Execution ${log.execution}/5 |
-          Shadow ${log.shadowGuide ? "ON" : "OFF"} | Speed ${log.speed}x
-        </div>
-      </div>
-    `;
-    list.appendChild(item);
-  });
+  if (setupMode === "lineout-bottom") {
+    placeLineout("bottom", p.x);
+    return;
+  }
 
-  modal.classList.remove("hidden");
+  if (setupMode === "scrum") {
+    placeScrum(p.x, p.y);
+    return;
+  }
+
+  if (ballHitTest(p)) {
+    draggingType = "ball";
+    draggingPlayerNumber = null;
+    dragOffset.x = p.x - ball.x;
+    dragOffset.y = p.y - ball.y;
+    setCanvasDragging(true);
+    return;
+  }
+
+  const player = playerHitTest(p);
+
+  if (player) {
+    draggingType = "player";
+    draggingPlayerNumber = player.number;
+    dragOffset.x = p.x - player.x;
+    dragOffset.y = p.y - player.y;
+    setCanvasDragging(true);
+    return;
+  }
+
+  ball.x = clamp(p.x, FIELD.left + 22, FIELD.right - 22);
+  ball.y = clamp(p.y, FIELD.top + 24, FIELD.bottom - 24);
+  draw();
+});
+
+canvas.addEventListener("mousemove", e => {
+  const p = canvasPoint(e);
+
+  if (draggingType === "ball") {
+    ball.x = clamp(p.x - dragOffset.x, FIELD.left + 22, FIELD.right - 22);
+    ball.y = clamp(p.y - dragOffset.y, FIELD.top + 24, FIELD.bottom - 24);
+    draw();
+    return;
+  }
+
+  if (draggingType === "player" && draggingPlayerNumber) {
+    players[draggingPlayerNumber].x = clamp(p.x - dragOffset.x, FIELD.left + 22, FIELD.right - 22);
+    players[draggingPlayerNumber].y = clamp(p.y - dragOffset.y, FIELD.top + 24, FIELD.bottom - 24);
+    draw();
+  }
+});
+
+window.addEventListener("mouseup", () => {
+  draggingType = null;
+  draggingPlayerNumber = null;
+  setCanvasDragging(false);
+});
+
+/* =========================================
+   BUILDER LOGIC
+========================================= */
+
+function captureStep() {
+  return {
+    players: clone(players),
+    ball: clone(ball),
+    pitchMode
+  };
 }
 
-function loadStep(step, resetExpected = false) {
+function applyStep(step) {
   players = clone(step.players);
   ball = clone(step.ball);
+  if (step.pitchMode) pitchMode = step.pitchMode;
   applyActiveField();
 
-  if (resetExpected) {
-    expectedPlayers = clone(step.players);
-  }
+  Object.values(players).forEach(p => {
+    p.color = teamColor;
+  });
 
   draw();
 }
 
-async function countdown() {
-  for (const value of [3, 2, 1, 0]) {
-    countdownValue = value;
+function updateBuilderButton() {
+  if (!builderStarted) {
+    builderBtn.textContent = "Start Builder";
+  } else {
+    builderBtn.textContent = `Save Step ${steps.length + 1}`;
+  }
+}
+
+function builderMainAction() {
+  if (!builderStarted) {
+    builderStarted = true;
+    steps = [];
+    steps.push(captureStep());
+    updateBuilderButton();
     draw();
-    await new Promise(resolve => setTimeout(resolve, 700));
+    return;
   }
 
-  countdownValue = null;
+  steps.push(captureStep());
+  updateBuilderButton();
+  draw();
 }
 
-function interpolateStep(from, to, t) {
-  const smooth = t * t * (3 - 2 * t);
-
-  Object.values(expectedPlayers).forEach(p => {
-    const a = from.players[p.number];
-    const b = to.players[p.number];
-
-    if (!a || !b) return;
-
-    p.x = a.x + (b.x - a.x) * smooth;
-    p.y = a.y + (b.y - a.y) * smooth;
-  });
-
-  Object.values(players).forEach(p => {
-    if (p.number === selectedPlayer) return;
-
-    const target = expectedPlayers[p.number];
-    if (!target) return;
-
-    p.x = target.x;
-    p.y = target.y;
-  });
-
-  ball.x = from.ball.x + (to.ball.x - from.ball.x) * smooth;
-  ball.y = from.ball.y + (to.ball.y - from.ball.y) * smooth;
+function clearSteps() {
+  builderStarted = false;
+  steps = [];
+  updateBuilderButton();
+  draw();
 }
 
-function animateBetweenSteps(from, to, duration) {
+function animateBetweenSteps(from, to, duration = 900) {
   return new Promise(resolve => {
     const start = performance.now();
 
     function frame(now) {
       const t = Math.min((now - start) / duration, 1);
+      const smooth = t * t * (3 - 2 * t);
 
-      interpolateStep(from, to, t);
+      Object.values(players).forEach(p => {
+        const a = from.players[p.number];
+        const b = to.players[p.number];
+
+        if (!a || !b) return;
+
+        p.x = a.x + (b.x - a.x) * smooth;
+        p.y = a.y + (b.y - a.y) * smooth;
+        p.color = teamColor;
+      });
+
+      ball.x = from.ball.x + (to.ball.x - from.ball.x) * smooth;
+      ball.y = from.ball.y + (to.ball.y - from.ball.y) * smooth;
+
       draw();
 
       if (t < 1) {
@@ -595,144 +876,141 @@ function animateBetweenSteps(from, to, duration) {
   });
 }
 
-async function startSimulation() {
-  if (!selectedPlay || !selectedPlay.steps || selectedPlay.steps.length < 2) {
-    alert("Load a play with at least 2 steps first.");
+async function playAnimation() {
+  if (steps.length < 2) {
+    alert("Create at least 2 steps first.");
     return;
   }
 
-  timingClicks = {};
-  sessionStartTime = Date.now();
+  isAnimating = true;
+  applyStep(steps[0]);
 
-  loadStep(selectedPlay.steps[0], true);
-
-  await countdown();
-
-  simRunning = true;
-
-  const duration = 900 / simSpeedMultiplier;
-  const steps = selectedPlay.steps;
+  const duration = 900 / builderSpeedMultiplier;
 
   for (let i = 1; i < steps.length; i++) {
     await animateBetweenSteps(steps[i - 1], steps[i], duration);
   }
 
-  simRunning = false;
-  calculateScore();
+  isAnimating = false;
+  draw();
 }
 
-function calculateScore() {
-  const finalStep = selectedPlay.steps[selectedPlay.steps.length - 1];
-  const expected = finalStep.players[selectedPlayer];
-  const actual = players[selectedPlayer];
+function getSavedPlays() {
+  return JSON.parse(localStorage.getItem("teamClaritySavedPlays") || "[]");
+}
 
-  if (!expected || !actual) return;
+function setSavedPlays(plays) {
+  localStorage.setItem("teamClaritySavedPlays", JSON.stringify(plays));
+}
 
-  const dist = Math.hypot(expected.x - actual.x, expected.y - actual.y);
-
-  let positionScore = 1;
-  if (dist < 25) positionScore = 5;
-  else if (dist < 55) positionScore = 4;
-  else if (dist < 90) positionScore = 3;
-  else if (dist < 130) positionScore = 2;
-
-  let timingScore = 2;
-  if (timingClicks[selectedPlayer]) timingScore = 5;
-  else if (dist < 80) timingScore = 4;
-  else if (dist < 140) timingScore = 3;
-
-  let executionScore = 2;
-  if (dist < 35) executionScore = 5;
-  else if (dist < 75) executionScore = 4;
-  else if (dist < 120) executionScore = 3;
-
-  const rawTotal = positionScore + timingScore + executionScore;
-  const finalScore = Math.round((rawTotal / 15) * 10);
-  const timeSpentSeconds = sessionStartTime ? Math.round((Date.now() - sessionStartTime) / 1000) : 0;
-
-  let performanceIcon = "🏆";
-  let performanceText = "Elite Rep";
-
-  if (finalScore >= 8) {
-    performanceIcon = "🏆";
-    performanceText = "Elite Rep";
-  } else if (finalScore >= 6) {
-    performanceIcon = "🔥";
-    performanceText = "Solid Rep";
-  } else {
-    performanceIcon = "🛠️";
-    performanceText = "Keep Working";
+function savePlay() {
+  if (steps.length < 1) {
+    alert("Start builder and save at least one step first.");
+    return;
   }
 
-  saveTrainingLog({
-    player: selectedPlayer,
-    play: selectedPlay?.name || "Unknown Play",
-    score: finalScore,
-    positioning: positionScore,
-    timing: timingScore,
-    execution: executionScore,
-    distance: Math.round(dist),
-    shadowGuide: shadowGuideOn,
-    speed: simSpeedMultiplier,
-    timeSpentSeconds,
-    date: new Date().toLocaleString()
+  const name = prompt("Play name?", "New Play");
+
+  if (!name) return;
+
+  const plays = getSavedPlays();
+
+  plays.push({
+    id: Date.now(),
+    name,
+    createdAt: new Date().toLocaleString(),
+    pitchMode,
+    steps: clone(steps)
   });
 
-  document.getElementById("scoreResult").innerHTML = `
-    <div style="display:flex; align-items:center; justify-content:space-between; gap:40px; flex-wrap:wrap;">
-      <div>
-        <div style="font-size:88px; line-height:1; margin-bottom:10px;">${performanceIcon}</div>
-        <div style="font-size:26px; font-weight:900; color:#ffd700; margin-bottom:20px;">${performanceText}</div>
-      </div>
-
-      <div style="flex:1; min-width:280px;">
-        <div style="font-size:72px; font-weight:900; color:#ffd700; margin-bottom:25px;">${finalScore}/10</div>
-        <div style="font-size:22px; margin-bottom:12px;">Positioning: ${positionScore}/5</div>
-        <div style="font-size:22px; margin-bottom:12px;">Timing: ${timingScore}/5</div>
-        <div style="font-size:22px; margin-bottom:12px;">Execution: ${executionScore}/5</div>
-        <div style="font-size:18px; opacity:.8; margin-top:20px;">Distance from target: ${Math.round(dist)} px</div>
-        <div style="font-size:16px; opacity:.75; margin-top:12px;">
-          Time: ${timeSpentSeconds}s | Shadow: ${shadowGuideOn ? "ON" : "OFF"} | Speed: ${simSpeedMultiplier}x
-        </div>
-      </div>
-    </div>
-  `;
-
-  document.getElementById("scoreModal").classList.remove("hidden");
+  setSavedPlays(plays);
+  openPlayFolder();
 }
 
-socket.on("sim-player-move", data => {
-  if (!simRunning) return;
+function openPlayFolder() {
+  const modal = document.getElementById("playModal");
+  const list = document.getElementById("savedPlaysList");
 
-  const number = Number(data.number);
-  const player = players[number];
+  const plays = getSavedPlays();
 
-  if (!player) return;
+  list.innerHTML = "";
 
-  player.x += Number(data.dx || 0) * PLAYER_SPEED;
-  player.y += Number(data.dy || 0) * PLAYER_SPEED;
+  if (plays.length === 0) {
+    list.innerHTML = `<div class="emptyFolder">📂 No saved plays yet.</div>`;
+  }
 
-  player.x = Math.max(FIELD.left + 22, Math.min(FIELD.right - 22, player.x));
-  player.y = Math.max(FIELD.top + 24, Math.min(FIELD.bottom - 24, player.y));
+  plays.forEach(play => {
+    const item = document.createElement("div");
+    item.className = "savedPlayItem";
 
-  draw();
-});
+    item.innerHTML = `
+      <div>
+        <div class="savedPlayName">📁 ${play.name}</div>
+        <div class="savedPlayMeta">${play.steps.length} steps | ${play.pitchMode || "full"} pitch | ${play.createdAt}</div>
+      </div>
 
-socket.on("sim-player-timing", data => {
-  timingClicks[Number(data.number)] = Date.now();
-});
+      <div>
+        <button data-load="${play.id}">Load</button>
+        <button data-delete="${play.id}">Delete</button>
+      </div>
+    `;
 
+    list.appendChild(item);
+  });
+
+  list.querySelectorAll("[data-load]").forEach(btn => {
+    btn.onclick = () => {
+      const id = Number(btn.dataset.load);
+      const play = getSavedPlays().find(p => p.id === id);
+
+      if (!play) return;
+
+      pitchMode = play.pitchMode || play.steps?.[0]?.pitchMode || "full";
+      steps = play.steps || [];
+      builderStarted = true;
+      updatePitchModeSelect();
+
+      if (steps[0]) applyStep(steps[0]);
+
+      updateBuilderButton();
+      modal.classList.add("hidden");
+    };
+  });
+
+  list.querySelectorAll("[data-delete]").forEach(btn => {
+    btn.onclick = () => {
+      const id = Number(btn.dataset.delete);
+      setSavedPlays(getSavedPlays().filter(p => p.id !== id));
+      openPlayFolder();
+    };
+  });
+
+  modal.classList.remove("hidden");
+}
+
+/* =========================================
+   BUTTON HOOKS
+========================================= */
+
+document.getElementById("builderMainBtn").onclick = builderMainAction;
+document.getElementById("playAnimationBtn").onclick = playAnimation;
+document.getElementById("clearStepsBtn").onclick = clearSteps;
+document.getElementById("savePlayBtn").onclick = savePlay;
 document.getElementById("loadPlayBtn").onclick = openPlayFolder;
-document.getElementById("qrBtn").onclick = openQrCodes;
-document.getElementById("logsBtn").onclick = openLogs;
-
-document.getElementById("closeQr").onclick = () => document.getElementById("qrModal").classList.add("hidden");
 document.getElementById("closePlayModal").onclick = () => document.getElementById("playModal").classList.add("hidden");
-document.getElementById("closeScoreModal").onclick = () => document.getElementById("scoreModal").classList.add("hidden");
-document.getElementById("closeLogsModal").onclick = () => document.getElementById("logsModal").classList.add("hidden");
 
-document.getElementById("playerNumber").onchange = e => {
-  selectedPlayer = Number(e.target.value);
+document.getElementById("lineoutTopBtn").onclick = () => setMode("lineout-top");
+document.getElementById("lineoutBottomBtn").onclick = () => setMode("lineout-bottom");
+document.getElementById("scrumBtn").onclick = () => setMode("scrum");
+document.getElementById("freeBtn").onclick = setFreeBall;
+
+document.getElementById("teamColor").onchange = e => applyTeamColor(e.target.value);
+
+document.getElementById("pitchMode").onchange = e => setPitchMode(e.target.value);
+
+
+document.getElementById("playerGroup").onchange = e => {
+  playerGroup = e.target.value;
   draw();
 };
 
@@ -741,26 +1019,20 @@ document.getElementById("playerSize").onchange = e => {
   draw();
 };
 
-document.getElementById("startSimBtn").onclick = startSimulation;
+applyActiveField();
+updatePitchModeSelect();
 
-document.getElementById("resetSimBtn").onclick = () => {
-  if (selectedPlay) loadStep(selectedPlay.steps[0], true);
+const builderSpeed = document.getElementById("builderSpeed");
+if (builderSpeed) {
+  builderSpeed.oninput = e => {
+    builderSpeedMultiplier = Number(e.target.value) || 1;
+    const valueEl = document.getElementById("builderSpeedValue");
+    if (valueEl) valueEl.textContent = builderSpeedMultiplier + "x";
+    draw();
+  };
+}
 
-  simRunning = false;
-  countdownValue = null;
-  timingClicks = {};
-  draw();
-};
-
-document.getElementById("simSpeed").oninput = e => {
-  simSpeedMultiplier = Number(e.target.value);
-  document.getElementById("simSpeedValue").textContent = simSpeedMultiplier + "x";
-  draw();
-};
-
-document.getElementById("shadowGuideToggle").onchange = e => {
-  shadowGuideOn = e.target.checked;
-  draw();
-};
-
+initPlayers();
+updateBuilderButton();
+updateModeButtons();
 draw();
