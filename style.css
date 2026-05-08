@@ -142,73 +142,6 @@ canvas.grabbing {
 }
 
 /* =========================
-   PITCH WRAPPER + SPLIT LAYOUT
-========================= */
-#pitchWrapper {
-  display: flex;
-  flex-direction: row;
-  width: 100%;
-  height: calc(100vh - 104px);
-}
-
-#pitchWrapper canvas {
-  flex: 1;
-  width: auto;
-  height: 100%;
-  margin: 9px;
-}
-
-#pitchWrapper.splitLayout canvas {
-  flex: 0 0 62%;
-  width: 62%;
-}
-
-#lineoutNotesPanel {
-  flex: 0 0 35%;
-  display: flex;
-  flex-direction: column;
-  background: #111;
-  border: 4px solid #fff;
-  border-radius: 8px;
-  margin: 9px 9px 9px 0;
-  padding: 14px;
-  box-shadow: 4px 4px 0 #d71920;
-  overflow: hidden;
-}
-
-#lineoutNotesPanel.hidden {
-  display: none !important;
-}
-
-.notesTitle {
-  font-size: 20px;
-  font-weight: 900;
-  color: #ffd700;
-  margin-bottom: 12px;
-  text-shadow: 2px 2px #000;
-}
-
-#lineoutNotes {
-  flex: 1;
-  width: 100%;
-  background: #1a1a1a;
-  color: #fff;
-  border: 3px solid #444;
-  border-radius: 6px;
-  padding: 12px;
-  font-family: "Courier New", monospace;
-  font-size: 15px;
-  font-weight: 700;
-  line-height: 1.6;
-  resize: none;
-  outline: none;
-}
-
-#lineoutNotes:focus {
-  border-color: #ffd700;
-}
-
-/* =========================
    BUILDER MODE BUTTONS
 ========================= */
 .builderOnly {
@@ -507,10 +440,6 @@ canvas.grabbing {
   canvas {
     height: calc(100vh - 162px);
   }
-
-  #pitchWrapper {
-    height: calc(100vh - 162px);
-  }
 }
 
 @media (max-width: 900px) {
@@ -534,18 +463,27 @@ canvas.grabbing {
     flex-direction: column;
     align-items: flex-start;
   }
+}
 
-  #pitchWrapper.splitLayout {
-    flex-direction: column;
-  }
 
-  #pitchWrapper.splitLayout canvas {
-    flex: 0 0 60%;
-    width: 100%;
-  }
+/* =========================
+   V3 PITCH MODES
+========================= */
+#fieldShell {
+  position: relative;
+  width: calc(100vw - 18px);
+  height: calc(100vh - 104px);
+  margin: 9px;
+}
 
-  #lineoutNotesPanel {
-    flex: 0 0 38%;
-    margin: 0 9px 9px 9px;
+#fieldShell canvas {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+}
+
+@media (max-width: 1200px) {
+  #fieldShell {
+    height: calc(100vh - 162px);
   }
 }
