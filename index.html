@@ -30,22 +30,28 @@
         <h2>PLAYER SIMULATOR</h2>
         <p>Players train their role and timing inside saved plays.</p>
       </a>
+
+      <a class="homeCard" href="joinfolder.html">
+        <div class="homeIcon">📂</div>
+        <h2>JOIN TEAM FOLDER</h2>
+        <p>Players join a coach library with a folder share code.</p>
+      </a>
     </div>
   </div>
-<script src="/socket.io/socket.io.js"></script>
-<script src="coach.js"></script>
 
-<script type="module">
-  import { supabase } from './supabase.js'
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="coach.js"></script>
 
-  const {
-    data: { session }
-  } = await supabase.auth.getSession()
+  <script type="module">
+    import { supabase } from './supabase.js'
 
-  if (!session) {
-    window.location.href = 'auth.html'
-  }
-</script>
+    const {
+      data: { session }
+    } = await supabase.auth.getSession()
 
+    if (!session) {
+      window.location.href = 'auth.html'
+    }
+  </script>
 </body>
 </html>
