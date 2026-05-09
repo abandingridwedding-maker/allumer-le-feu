@@ -1,3 +1,5 @@
+import { supabase } from './supabase.js'
+
 const canvas = document.getElementById("field");
 const ctx = canvas.getContext("2d");
 ctx.imageSmoothingEnabled = false;
@@ -39,7 +41,6 @@ let isAnimating = false;
 let builderSpeedMultiplier = 1;
 
 const builderBtn = document.getElementById("builderMainBtn");
-
 
 function getPitchField(mode = pitchMode) {
   if (mode === "lineout") {
@@ -129,6 +130,7 @@ function setMode(mode) {
 
 function clampAllToField() {
   applyActiveField();
+
   Object.values(players).forEach(p => {
     p.x = clamp(p.x, FIELD.left + 22, FIELD.right - 22);
     p.y = clamp(p.y, FIELD.top + 24, FIELD.bottom - 24);
@@ -163,14 +165,6 @@ function applyTeamColor(value) {
 
   draw();
 }
-
-/*
-  TEAM-CLARITY SET-PIECE STANDARD
-  - Attack is always right → left.
-  - 9 and backs are to the right of the forwards.
-  - Shape adjusts based on click location.
-  - Players stay visible inside field.
-*/
 
 function placeLineout(side, clickedX) {
   const xForwards = clamp(clickedX || 920, FIELD.left + 220, FIELD.right - 520);
@@ -229,25 +223,20 @@ function placeScrum(clickedX, clickedY) {
 
   players[1].x = cx - gapX;
   players[1].y = cy - gapY;
-
   players[2].x = cx;
   players[2].y = cy - gapY;
-
   players[3].x = cx + gapX;
   players[3].y = cy - gapY;
 
   players[4].x = cx - 19;
   players[4].y = cy;
-
   players[5].x = cx + 19;
   players[5].y = cy;
 
   players[6].x = cx - 66;
   players[6].y = cy + gapY;
-
   players[7].x = cx + 66;
   players[7].y = cy + gapY;
-
   players[8].x = cx;
   players[8].y = cy + gapY + 18;
 
@@ -287,9 +276,15 @@ function setFreeBall() {
   draw();
 }
 
-/* =========================================
-   FIELD DRAWING
-========================================= */
+function drawPitchHeader(title) {
+  ctx.fillStyle = "#d71920";
+  ctx.fillRect(0, 0, W, 52);
+
+  ctx.fillStyle = "#111";
+  ctx.fillRect(0, 52, W, 8);
+
+  pixelText(title, W / 2, 37, 30, "center", "#fff");
+}
 
 function drawFullPitch(title = "TEAM-CLARITY PLAY BUILDER") {
   ctx.fillStyle = "#6ec65f";
@@ -395,9 +390,7 @@ function drawFullPitch(title = "TEAM-CLARITY PLAY BUILDER") {
 
   ctx.restore();
   drawPitchHeader(title);
-}
-
-function drawHalfPitch(title = "TEAM-CLARITY PLAY BUILDER") {
+}function drawHalfPitch(title = "TEAM-CLARITY PLAY BUILDER") {
   ctx.fillStyle = "#6ec65f";
   ctx.fillRect(0, 0, W, H);
 
@@ -412,11 +405,13 @@ function drawHalfPitch(title = "TEAM-CLARITY PLAY BUILDER") {
   ctx.strokeRect(left, top, pw, ph);
 
   ctx.lineWidth = 6;
+
   [["TRY", 1.0], ["5m", 0.88], ["22m", 0.56], ["40m", 0.22], ["50m", 0.0]].forEach(([label, p]) => {
     ctx.beginPath();
     ctx.moveTo(left, Y(p));
     ctx.lineTo(right, Y(p));
     ctx.stroke();
+
     ctx.save();
     ctx.fillStyle = "#fff";
     ctx.font = "900 20px Courier New";
@@ -430,11 +425,13 @@ function drawHalfPitch(title = "TEAM-CLARITY PLAY BUILDER") {
 
   ctx.setLineDash([18, 16]);
   ctx.lineWidth = 4;
+
   [["5m", 0.08], ["15m", 0.23], ["15m", 0.77], ["5m", 0.92]].forEach(([label, p]) => {
     ctx.beginPath();
     ctx.moveTo(X(p), top);
     ctx.lineTo(X(p), bottom);
     ctx.stroke();
+
     ctx.save();
     ctx.fillStyle = "#fff";
     ctx.font = "900 18px Courier New";
@@ -445,6 +442,7 @@ function drawHalfPitch(title = "TEAM-CLARITY PLAY BUILDER") {
     ctx.fillText(label, X(p), bottom + 30);
     ctx.restore();
   });
+
   ctx.setLineDash([]);
   drawPitchHeader(title + " | HALF PITCH");
 }
@@ -457,16 +455,14 @@ function drawLineoutPitch(title = "TEAM-CLARITY PLAY BUILDER") {
   const pw = right - left;
   const ph = bottom - top;
 
-  // Lineout pitch calibration: visible area = touchline to 15m line + 2m free space.
-  // 5m line = 5/17 across; 15m line = 15/17 across.
   const X = metres => left + pw * (metres / 17);
 
   ctx.strokeStyle = "#fff";
   ctx.lineWidth = 7;
   ctx.strokeRect(left, top, pw, ph);
 
-  // Touchline = solid left edge.
   ctx.lineWidth = 8;
+
   ctx.beginPath();
   ctx.moveTo(X(0), top);
   ctx.lineTo(X(0), bottom);
@@ -501,20 +497,13 @@ function drawLineoutPitch(title = "TEAM-CLARITY PLAY BUILDER") {
   ctx.shadowColor = "#000";
   ctx.shadowOffsetX = 3;
   ctx.shadowOffsetY = 3;
+
   ctx.fillText("5m", X(5), top + 34);
   ctx.fillText("15m", X(15), top + 34);
+
   ctx.restore();
 
   drawPitchHeader(title + " | LINEOUT");
-}
-function drawPitchHeader(title) {
-  ctx.fillStyle = "#d71920";
-  ctx.fillRect(0, 0, W, 52);
-
-  ctx.fillStyle = "#111";
-  ctx.fillRect(0, 52, W, 8);
-
-  pixelText(title, W / 2, 37, 30, "center", "#fff");
 }
 
 function drawPitch() {
@@ -536,6 +525,7 @@ function drawPitch() {
 
 function drawBall() {
   ctx.save();
+
   ctx.translate(ball.x, ball.y);
   ctx.rotate(-0.35);
 
@@ -568,6 +558,7 @@ function drawCirclePlayer(p) {
   ctx.fill();
 
   ctx.fillStyle = p.color || "#d71920";
+
   ctx.beginPath();
   ctx.arc(p.x, p.y, radius, 0, Math.PI * 2);
   ctx.fill();
@@ -587,6 +578,7 @@ function drawCirclePlayer(p) {
 
 function drawPixelPlayer(p) {
   ctx.save();
+
   ctx.translate(p.x, p.y);
 
   const s = playerSize === "medium" ? 0.37 : 0.55;
@@ -652,9 +644,7 @@ function drawPlayer(p) {
   }
 
   drawPixelPlayer(p);
-}
-
-function drawFooter() {
+}function drawFooter() {
   const footerTop = H - 72;
 
   ctx.fillStyle = "rgba(0,0,0,0.42)";
@@ -680,10 +670,6 @@ function draw() {
   drawBall();
   drawFooter();
 }
-
-/* =========================================
-   MOUSE / DRAGGING
-========================================= */
 
 function canvasPoint(e) {
   const rect = canvas.getBoundingClientRect();
@@ -785,10 +771,6 @@ window.addEventListener("mouseup", () => {
   draggingPlayerNumber = null;
   setCanvasDragging(false);
 });
-
-/* =========================================
-   BUILDER LOGIC
-========================================= */
 
 function captureStep() {
   return {
@@ -895,47 +877,121 @@ async function playAnimation() {
   draw();
 }
 
-function getSavedPlays() {
-  return JSON.parse(localStorage.getItem("teamClaritySavedPlays") || "[]");
+async function getCurrentUser() {
+  const { data: { user }, error } = await supabase.auth.getUser();
+
+  if (error || !user) {
+    window.location.href = "auth.html";
+    return null;
+  }
+
+  return user;
 }
 
-function setSavedPlays(plays) {
-  localStorage.setItem("teamClaritySavedPlays", JSON.stringify(plays));
+async function getOrCreateFolder(coachId, folderName) {
+  const { data: existingFolders, error: findError } = await supabase
+    .from("folders")
+    .select("*")
+    .eq("coach_id", coachId)
+    .eq("name", folderName);
+
+  if (findError) {
+    alert(findError.message);
+    return null;
+  }
+
+  if (existingFolders && existingFolders.length > 0) {
+    return existingFolders[0];
+  }
+
+  const { data: newFolder, error: createError } = await supabase
+    .from("folders")
+    .insert({
+      coach_id: coachId,
+      name: folderName
+    })
+    .select()
+    .single();
+
+  if (createError) {
+    alert(createError.message);
+    return null;
+  }
+
+  return newFolder;
 }
 
-function savePlay() {
+async function savePlay() {
   if (steps.length < 1) {
     alert("Start builder and save at least one step first.");
     return;
   }
 
-  const name = prompt("Play name?", "New Play");
+  const user = await getCurrentUser();
+  if (!user) return;
 
-  if (!name) return;
+  const folderName = prompt("Folder name?", "My Plays");
+  if (!folderName) return;
 
-  const plays = getSavedPlays();
+  const playName = prompt("Play name?", "New Play");
+  if (!playName) return;
 
-  plays.push({
-    id: Date.now(),
-    name,
-    createdAt: new Date().toLocaleString(),
+  const folder = await getOrCreateFolder(user.id, folderName);
+  if (!folder) return;
+
+  const playData = {
     pitchMode,
     steps: clone(steps)
-  });
+  };
 
-  setSavedPlays(plays);
+  const { error } = await supabase
+    .from("plays")
+    .insert({
+      folder_id: folder.id,
+      coach_id: user.id,
+      name: playName,
+      play_data: playData
+    });
+
+  if (error) {
+    alert(error.message);
+    return;
+  }
+
+  alert("Play saved to your TEAM-CLARITY profile.");
   openPlayFolder();
 }
 
-function openPlayFolder() {
+async function openPlayFolder() {
+  const user = await getCurrentUser();
+  if (!user) return;
+
   const modal = document.getElementById("playModal");
   const list = document.getElementById("savedPlaysList");
 
-  const plays = getSavedPlays();
+  const { data: plays, error } = await supabase
+    .from("plays")
+    .select(`
+      id,
+      name,
+      created_at,
+      play_data,
+      folders (
+        name,
+        share_code
+      )
+    `)
+    .eq("coach_id", user.id)
+    .order("created_at", { ascending: false });
+
+  if (error) {
+    alert(error.message);
+    return;
+  }
 
   list.innerHTML = "";
 
-  if (plays.length === 0) {
+  if (!plays || plays.length === 0) {
     list.innerHTML = `<div class="emptyFolder">📂 No saved plays yet.</div>`;
   }
 
@@ -943,10 +999,20 @@ function openPlayFolder() {
     const item = document.createElement("div");
     item.className = "savedPlayItem";
 
+    const folderName = play.folders?.name || "No folder";
+    const shareCode = play.folders?.share_code || "";
+
     item.innerHTML = `
       <div>
         <div class="savedPlayName">📁 ${play.name}</div>
-        <div class="savedPlayMeta">${play.steps.length} steps | ${play.pitchMode || "full"} pitch | ${play.createdAt}</div>
+        <div class="savedPlayMeta">
+          Folder: ${folderName} |
+          ${play.play_data?.steps?.length || 0} steps |
+          ${play.play_data?.pitchMode || "full"} pitch
+        </div>
+        <div class="savedPlayMeta">
+          Share code: ${shareCode}
+        </div>
       </div>
 
       <div>
@@ -960,13 +1026,13 @@ function openPlayFolder() {
 
   list.querySelectorAll("[data-load]").forEach(btn => {
     btn.onclick = () => {
-      const id = Number(btn.dataset.load);
-      const play = getSavedPlays().find(p => p.id === id);
+      const id = btn.dataset.load;
+      const play = plays.find(p => p.id === id);
 
       if (!play) return;
 
-      pitchMode = play.pitchMode || play.steps?.[0]?.pitchMode || "full";
-      steps = play.steps || [];
+      pitchMode = play.play_data?.pitchMode || "full";
+      steps = play.play_data?.steps || [];
       builderStarted = true;
       updatePitchModeSelect();
 
@@ -978,19 +1044,25 @@ function openPlayFolder() {
   });
 
   list.querySelectorAll("[data-delete]").forEach(btn => {
-    btn.onclick = () => {
-      const id = Number(btn.dataset.delete);
-      setSavedPlays(getSavedPlays().filter(p => p.id !== id));
+    btn.onclick = async () => {
+      const id = btn.dataset.delete;
+
+      const { error: deleteError } = await supabase
+        .from("plays")
+        .delete()
+        .eq("id", id);
+
+      if (deleteError) {
+        alert(deleteError.message);
+        return;
+      }
+
       openPlayFolder();
     };
   });
 
   modal.classList.remove("hidden");
 }
-
-/* =========================================
-   BUTTON HOOKS
-========================================= */
 
 document.getElementById("builderMainBtn").onclick = builderMainAction;
 document.getElementById("playAnimationBtn").onclick = playAnimation;
@@ -1005,9 +1077,7 @@ document.getElementById("scrumBtn").onclick = () => setMode("scrum");
 document.getElementById("freeBtn").onclick = setFreeBall;
 
 document.getElementById("teamColor").onchange = e => applyTeamColor(e.target.value);
-
 document.getElementById("pitchMode").onchange = e => setPitchMode(e.target.value);
-
 
 document.getElementById("playerGroup").onchange = e => {
   playerGroup = e.target.value;
