@@ -32,5 +32,20 @@
       </a>
     </div>
   </div>
+<script src="/socket.io/socket.io.js"></script>
+<script src="coach.js"></script>
+
+<script type="module">
+  import { supabase } from './supabase.js'
+
+  const {
+    data: { session }
+  } = await supabase.auth.getSession()
+
+  if (!session) {
+    window.location.href = 'auth.html'
+  }
+</script>
+
 </body>
 </html>
