@@ -487,3 +487,101 @@ canvas.grabbing {
     height: calc(100vh - 162px);
   }
 }
+/* =========================
+   FOLDER SYSTEM
+========================= */
+
+.foldersList {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  margin-top: 24px;
+}
+
+.folderCard {
+  background: #111;
+  border: 3px solid #ff2d2d;
+  border-radius: 14px;
+  padding: 18px;
+  box-shadow: 0 0 20px rgba(255,0,0,0.15);
+}
+
+.folderTitle {
+  color: #ffe600;
+  font-size: 22px;
+  font-weight: 900;
+  margin-bottom: 10px;
+  text-transform: uppercase;
+}
+
+.folderCode {
+  color: white;
+  opacity: 0.8;
+  margin-bottom: 14px;
+  font-size: 14px;
+}
+
+.folderCreateRow {
+  display: flex;
+  gap: 12px;
+  margin-top: 20px;
+  margin-bottom: 24px;
+}
+
+.folderCreateRow input {
+  flex: 1;
+  background: black;
+  border: 2px solid white;
+  color: white;
+  padding: 14px;
+  font-size: 18px;
+  outline: none;
+}
+
+.folderCreateRow input::placeholder {
+  color: #777;
+}
+
+.folderCreateRow button {
+  background: #e50914;
+  border: none;
+  color: white;
+  font-weight: 900;
+  padding: 14px 20px;
+  cursor: pointer;
+  transition: 0.2s;
+}
+
+.folderCreateRow button:hover {
+  transform: scale(1.03);
+}
+
+.folderActions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.folderActions button {
+  background: black;
+  border: 2px solid white;
+  color: white;
+  padding: 10px 14px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.folderActions button:hover {
+  background: #ff2d2d;
+}
+
+.shareCodeBadge {
+  display: inline-block;
+  margin-top: 10px;
+  padding: 8px 12px;
+  background: #222;
+  border: 2px solid #ffe600;
+  color: #ffe600;
+  font-weight: 900;
+  letter-spacing: 2px;
+}

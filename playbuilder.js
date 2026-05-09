@@ -888,6 +888,52 @@ async function getCurrentUser() {
   return user;
 }
 
+async function loadCoachFolders() {
+  const user = await getCurrentUser();
+  if (!user) return [];
+
+  const { data, error } = await supabase
+    .from("folders")
+    .select("*")
+    .eq("coach_id", user.id)
+    .order("created_at", { ascending: false });
+
+  if (error) {
+    alert(error.message);
+    return [];
+  }
+
+  return data || [];
+}
+
+async function createFolder() {
+  const user = await getCurrentUser();
+  if (!user) return;
+
+  const input = document.getElementById("newFolderName");
+  const name = input.value.trim();
+
+  if (!name) {
+    alert("Enter a folder name.");
+    return;
+  }
+
+  const { error } = await supabase
+    .from("folders")
+    .insert({
+      coach_id: user.id,
+      name
+    });
+
+  if (error) {
+    alert(error.message);
+    return;
+  }
+
+  input.value = "";
+  openFoldersModal();
+}
+
 async function getOrCreateFolder(coachId, folderName) {
   const { data: existingFolders, error: findError } = await supabase
     .from("folders")
@@ -921,6 +967,55 @@ async function getOrCreateFolder(coachId, folderName) {
   return newFolder;
 }
 
+async function openFoldersModal() {
+  const modal = document.getElementById("foldersModal");
+  const list = document.getElementById("foldersList");
+
+  const folders = await loadCoachFolders();
+
+  list.innerHTML = "";
+
+  if (folders.length === 0) {
+    list.innerHTML = `<div class="emptyFolder">No folders created yet.</div>`;
+  }
+
+  folders.forEach(folder => {
+    const item = document.createElement("div");
+    item.className = "folderCard";
+
+    const joinLink = `${window.location.origin}/joinfolder.html`;
+
+    item.innerHTML = `
+      <div class="folderTitle">🗂 ${folder.name}</div>
+      <div class="folderCode">Share Code:</div>
+      <div class="shareCodeBadge">${folder.share_code}</div>
+
+      <div class="folderActions" style="margin-top:14px;">
+        <button data-copy="${folder.share_code}">Copy Code</button>
+        <button data-link="${joinLink}">Copy Join Link</button>
+      </div>
+    `;
+
+    list.appendChild(item);
+  });
+
+  list.querySelectorAll("[data-copy]").forEach(btn => {
+    btn.onclick = async () => {
+      await navigator.clipboard.writeText(btn.dataset.copy);
+      alert("Folder code copied.");
+    };
+  });
+
+  list.querySelectorAll("[data-link]").forEach(btn => {
+    btn.onclick = async () => {
+      await navigator.clipboard.writeText(btn.dataset.link);
+      alert("Join link copied.");
+    };
+  });
+
+  modal.classList.remove("hidden");
+}
+
 async function savePlay() {
   if (steps.length < 1) {
     alert("Start builder and save at least one step first.");
@@ -930,7 +1025,7 @@ async function savePlay() {
   const user = await getCurrentUser();
   if (!user) return;
 
-  const folderName = prompt("Folder name?", "My Plays");
+  const folderName = prompt("Save into which folder?", "My Plays");
   if (!folderName) return;
 
   const playName = prompt("Play name?", "New Play");
@@ -958,7 +1053,7 @@ async function savePlay() {
     return;
   }
 
-  alert("Play saved to your TEAM-CLARITY profile.");
+  alert(`Play saved into folder: ${folder.name}`);
   openPlayFolder();
 }
 
@@ -1069,7 +1164,11 @@ document.getElementById("playAnimationBtn").onclick = playAnimation;
 document.getElementById("clearStepsBtn").onclick = clearSteps;
 document.getElementById("savePlayBtn").onclick = savePlay;
 document.getElementById("loadPlayBtn").onclick = openPlayFolder;
+document.getElementById("foldersBtn").onclick = openFoldersModal;
+
 document.getElementById("closePlayModal").onclick = () => document.getElementById("playModal").classList.add("hidden");
+document.getElementById("closeFoldersModal").onclick = () => document.getElementById("foldersModal").classList.add("hidden");
+document.getElementById("createFolderBtn").onclick = createFolder;
 
 document.getElementById("lineoutTopBtn").onclick = () => setMode("lineout-top");
 document.getElementById("lineoutBottomBtn").onclick = () => setMode("lineout-bottom");

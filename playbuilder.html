@@ -26,6 +26,7 @@
         <button id="clearStepsBtn">Clear</button>
         <button id="savePlayBtn">💾 Save</button>
         <button id="loadPlayBtn">📂 Load</button>
+        <button id="foldersBtn">🗂 Folders</button>
       </div>
 
       <div class="toolGroup">
@@ -75,6 +76,29 @@
         <button id="closePlayModal">Close</button>
       </div>
       <div id="savedPlaysList"></div>
+    </div>
+  </div>
+
+  <div id="foldersModal" class="modal hidden">
+    <div class="modalCard">
+      <div class="modalHeader">
+        <h2>🗂 Team Folders</h2>
+        <button id="closeFoldersModal">Close</button>
+      </div>
+
+      <div class="folderCreateRow">
+        <input
+          type="text"
+          id="newFolderName"
+          placeholder="Folder name"
+        />
+
+        <button id="createFolderBtn">
+          Create Folder
+        </button>
+      </div>
+
+      <div id="foldersList" class="foldersList"></div>
     </div>
   </div>
 
