@@ -1,3 +1,5 @@
+import { supabase } from './supabase.js'
+
 const socket = io();
 
 const canvas = document.getElementById("field");
@@ -33,16 +35,25 @@ const FIELD = {
   bottom: H - 125
 };
 
-
-
 function getPitchField(mode = pitchMode) {
   if (mode === "lineout") {
     const lineoutWidth = Math.round((W - 140) * 0.62);
     const left = Math.round((W - lineoutWidth) / 2);
-    return { left, right: left + lineoutWidth, top: 95, bottom: H - 125 };
+
+    return {
+      left,
+      right: left + lineoutWidth,
+      top: 95,
+      bottom: H - 125
+    };
   }
 
-  return { left: 70, right: W - 70, top: 95, bottom: H - 125 };
+  return {
+    left: 70,
+    right: W - 70,
+    top: 95,
+    bottom: H - 125
+  };
 }
 
 function applyActiveField() {
@@ -51,7 +62,10 @@ function applyActiveField() {
 
 function updatePitchModeSelect() {
   const select = document.getElementById("pitchMode");
-  if (select) select.value = pitchMode;
+
+  if (select) {
+    select.value = pitchMode;
+  }
 }
 
 function clone(obj) {
@@ -60,17 +74,19 @@ function clone(obj) {
 
 function pixelText(text, x, y, size = 22, align = "center", color = "white") {
   ctx.save();
+
   ctx.font = `900 ${size}px Courier New`;
   ctx.textAlign = align;
   ctx.fillStyle = color;
+
   ctx.shadowColor = "#000";
   ctx.shadowOffsetX = 4;
   ctx.shadowOffsetY = 4;
-  ctx.fillText(text, x, y);
-  ctx.restore();
-}
 
-function drawPitchHeader(title) {
+  ctx.fillText(text, x, y);
+
+  ctx.restore();
+}function drawPitchHeader(title) {
   ctx.fillStyle = "#d71920";
   ctx.fillRect(0, 0, W, 52);
 
@@ -78,15 +94,40 @@ function drawPitchHeader(title) {
   ctx.fillRect(0, 52, W, 8);
 
   if (selectedPlay && selectedPlay.name) {
-    const modeLabel = pitchMode === "lineout"
-      ? "LINEOUT"
-      : pitchMode === "half"
-        ? "HALF PITCH"
-        : "FULL PITCH";
+    const modeLabel =
+      pitchMode === "lineout"
+        ? "LINEOUT"
+        : pitchMode === "half"
+          ? "HALF PITCH"
+          : "FULL PITCH";
 
-    pixelText(selectedPlay.name.toUpperCase(), 32, 36, 28, "left", "#ffd700");
-    pixelText("TEAM-CLARITY PLAYER SIMULATOR", W - 32, 28, 22, "right", "#fff");
-    pixelText(modeLabel, W - 32, 48, 13, "right", "#fff");
+    pixelText(
+      selectedPlay.name.toUpperCase(),
+      32,
+      36,
+      28,
+      "left",
+      "#ffd700"
+    );
+
+    pixelText(
+      "TEAM-CLARITY PLAYER SIMULATOR",
+      W - 32,
+      28,
+      22,
+      "right",
+      "#fff"
+    );
+
+    pixelText(
+      modeLabel,
+      W - 32,
+      48,
+      13,
+      "right",
+      "#fff"
+    );
+
     return;
   }
 
@@ -118,118 +159,127 @@ function drawFullPitch() {
   const right = FIELD.right;
   const top = FIELD.top;
   const bottom = FIELD.bottom;
+
   const pw = right - left;
   const ph = bottom - top;
+
   const X = p => left + pw * p;
   const Y = p => top + ph * p;
 
   ctx.strokeStyle = "#fff";
   ctx.lineWidth = 7;
   ctx.strokeRect(left, top, pw, ph);
+
   ctx.strokeStyle = "#fff";
   ctx.lineWidth = 5;
-  [0.06, 0.94].forEach(p => { ctx.beginPath(); ctx.moveTo(X(p), top); ctx.lineTo(X(p), bottom); ctx.stroke(); });
+
+  [0.06, 0.94].forEach(p => {
+    ctx.beginPath();
+    ctx.moveTo(X(p), top);
+    ctx.lineTo(X(p), bottom);
+    ctx.stroke();
+  });
+
   ctx.setLineDash([16, 14]);
-  [0.10, 0.90].forEach(p => { ctx.beginPath(); ctx.moveTo(X(p), top); ctx.lineTo(X(p), bottom); ctx.stroke(); });
+
+  [0.10, 0.90].forEach(p => {
+    ctx.beginPath();
+    ctx.moveTo(X(p), top);
+    ctx.lineTo(X(p), bottom);
+    ctx.stroke();
+  });
+
   ctx.setLineDash([]);
   ctx.lineWidth = 6;
-  [0.26, 0.74].forEach(p => { ctx.beginPath(); ctx.moveTo(X(p), top); ctx.lineTo(X(p), bottom); ctx.stroke(); });
+
+  [0.26, 0.74].forEach(p => {
+    ctx.beginPath();
+    ctx.moveTo(X(p), top);
+    ctx.lineTo(X(p), bottom);
+    ctx.stroke();
+  });
+
   ctx.setLineDash([20, 16]);
   ctx.lineWidth = 4;
-  [0.40, 0.60].forEach(p => { ctx.beginPath(); ctx.moveTo(X(p), top); ctx.lineTo(X(p), bottom); ctx.stroke(); });
-  ctx.setLineDash([]);
-  ctx.lineWidth = 6;
-  ctx.beginPath(); ctx.moveTo(X(0.50), top); ctx.lineTo(X(0.50), bottom); ctx.stroke();
-  ctx.setLineDash([18, 16]);
-  ctx.lineWidth = 4;
-  [0.08, 0.23, 0.77, 0.92].forEach(p => { ctx.beginPath(); ctx.moveTo(left, Y(p)); ctx.lineTo(right, Y(p)); ctx.stroke(); });
-  ctx.setLineDash([]);
 
-  ctx.save();
-  ctx.fillStyle = "#fff";
-  ctx.font = "900 18px Courier New";
-  ctx.textAlign = "center";
-  ctx.shadowColor = "#000";
-  ctx.shadowOffsetX = 3;
-  ctx.shadowOffsetY = 3;
-  [["5m", 0.10], ["22m", 0.26], ["40m", 0.40], ["50m", 0.50], ["40m", 0.60], ["22m", 0.74], ["5m", 0.90]].forEach(([label, p]) => ctx.fillText(label, X(p), bottom + 30));
-  ctx.textAlign = "left";
-  [["5m",0.08],["15m",0.23],["15m",0.77],["5m",0.92]].forEach(([label,p]) => ctx.fillText(label, left + 8, Y(p) - 8));
-  ctx.textAlign = "right";
-  [["5m",0.08],["15m",0.23],["15m",0.77],["5m",0.92]].forEach(([label,p]) => ctx.fillText(label, right - 8, Y(p) - 8));
-  ctx.restore();
-
-  drawPitchHeader("TEAM-CLARITY PLAYER SIMULATOR");
-}
-
-function drawHalfPitch() {
-  ctx.fillStyle = "#6ec65f";
-  ctx.fillRect(0, 0, W, H);
-  const { left, right, top, bottom } = FIELD;
-  const pw = right - left;
-  const ph = bottom - top;
-  const X = p => left + pw * p;
-  const Y = p => top + ph * p;
-  ctx.strokeStyle = "#fff";
-  ctx.lineWidth = 7;
-  ctx.strokeRect(left, top, pw, ph);
-  ctx.lineWidth = 6;
-  [["TRY", 1.0], ["5m", 0.88], ["22m", 0.56], ["40m", 0.22], ["50m", 0.0]].forEach(([label, p]) => {
-    ctx.beginPath(); ctx.moveTo(left, Y(p)); ctx.lineTo(right, Y(p)); ctx.stroke();
-    pixelText(label, left + 18, Y(p) - 8, 18, "left", "#fff");
+  [0.40, 0.60].forEach(p => {
+    ctx.beginPath();
+    ctx.moveTo(X(p), top);
+    ctx.lineTo(X(p), bottom);
+    ctx.stroke();
   });
-  ctx.setLineDash([18, 16]);
-  ctx.lineWidth = 4;
-  [["5m",0.08],["15m",0.23],["15m",0.77],["5m",0.92]].forEach(([label,p]) => {
-    ctx.beginPath(); ctx.moveTo(X(p), top); ctx.lineTo(X(p), bottom); ctx.stroke();
-    pixelText(label, X(p), bottom + 30, 16, "center", "#fff");
-  });
+
   ctx.setLineDash([]);
-  drawPitchHeader("TEAM-CLARITY PLAYER SIMULATOR | HALF PITCH");
-}
 
-function drawLineoutPitch() {
-  ctx.fillStyle = "#6ec65f";
-  ctx.fillRect(0, 0, W, H);
+  ctx.lineWidth = 6;
 
-  const { left, right, top, bottom } = FIELD;
-  const pw = right - left;
-
-  // Lineout pitch calibration: visible area = touchline to 15m line + 2m free space.
-  // 5m line = 5/17 across; 15m line = 15/17 across.
-  const X = metres => left + pw * (metres / 17);
-
-  ctx.strokeStyle = "#fff";
-  ctx.lineWidth = 7;
-  ctx.strokeRect(left, top, pw, bottom - top);
-
-  // Touchline = solid left edge.
-  ctx.lineWidth = 8;
   ctx.beginPath();
-  ctx.moveTo(X(0), top);
-  ctx.lineTo(X(0), bottom);
+  ctx.moveTo(X(0.50), top);
+  ctx.lineTo(X(0.50), bottom);
   ctx.stroke();
 
   ctx.setLineDash([18, 16]);
-  ctx.lineWidth = 5;
+  ctx.lineWidth = 4;
 
-  [["5m", 5], ["15m", 15]].forEach(([label, metres]) => {
+  [0.08, 0.23, 0.77, 0.92].forEach(p => {
     ctx.beginPath();
-    ctx.moveTo(X(metres), top);
-    ctx.lineTo(X(metres), bottom);
+    ctx.moveTo(left, Y(p));
+    ctx.lineTo(right, Y(p));
     ctx.stroke();
-    pixelText(label, X(metres), bottom + 34, 20, "center", "#fff");
   });
 
   ctx.setLineDash([]);
 
-  pixelText("5m", X(5), top + 34, 20, "center", "#fff");
-  pixelText("15m", X(15), top + 34, 20, "center", "#fff");
-
-  drawPitchHeader("TEAM-CLARITY PLAYER SIMULATOR | LINEOUT");
-}
-function drawBall(ballObj = ball) {
   ctx.save();
+
+  ctx.fillStyle = "#fff";
+  ctx.font = "900 18px Courier New";
+  ctx.textAlign = "center";
+
+  ctx.shadowColor = "#000";
+  ctx.shadowOffsetX = 3;
+  ctx.shadowOffsetY = 3;
+
+  [
+    ["5m", 0.10],
+    ["22m", 0.26],
+    ["40m", 0.40],
+    ["50m", 0.50],
+    ["40m", 0.60],
+    ["22m", 0.74],
+    ["5m", 0.90]
+  ].forEach(([label, p]) => {
+    ctx.fillText(label, X(p), bottom + 30);
+  });
+
+  ctx.textAlign = "left";
+
+  [
+    ["5m", 0.08],
+    ["15m", 0.23],
+    ["15m", 0.77],
+    ["5m", 0.92]
+  ].forEach(([label, p]) => {
+    ctx.fillText(label, left + 8, Y(p) - 8);
+  });
+
+  ctx.textAlign = "right";
+
+  [
+    ["5m", 0.08],
+    ["15m", 0.23],
+    ["15m", 0.77],
+    ["5m", 0.92]
+  ].forEach(([label, p]) => {
+    ctx.fillText(label, right - 8, Y(p) - 8);
+  });
+
+  ctx.restore();
+
+  drawPitchHeader("TEAM-CLARITY PLAYER SIMULATOR");
+}function drawBall(ballObj = ball) {
+  ctx.save();
+
   ctx.translate(ballObj.x, ballObj.y);
   ctx.rotate(-0.35);
 
@@ -264,6 +314,7 @@ function drawCirclePlayer(p, highlight = false, ghost = false) {
   ctx.fill();
 
   ctx.fillStyle = ghost ? "#ffffff" : highlight ? "#ffd700" : p.color || "#d71920";
+
   ctx.beginPath();
   ctx.arc(p.x, p.y, radius, 0, Math.PI * 2);
   ctx.fill();
@@ -288,10 +339,13 @@ function drawPlayer(p, highlight = false, ghost = false) {
   }
 
   ctx.save();
+
   ctx.translate(p.x, p.y);
 
   const s = playerSize === "medium" ? 0.37 : 0.55;
+
   ctx.scale(s, s);
+
   ctx.globalAlpha = ghost ? 0.28 : 1;
 
   ctx.fillStyle = "rgba(0,0,0,.25)";
@@ -346,11 +400,14 @@ function drawPlayer(p, highlight = false, ghost = false) {
 
   if (highlight && !ghost) {
     ctx.save();
+
     ctx.strokeStyle = "#ffd700";
     ctx.lineWidth = 4;
+
     ctx.beginPath();
     ctx.arc(p.x, p.y - 8, 32, 0, Math.PI * 2);
     ctx.stroke();
+
     ctx.restore();
   }
 }
@@ -363,7 +420,16 @@ function drawFooter() {
 
   if (!selectedPlay) {
     pixelText("LOAD A PLAY TO BEGIN", W / 2, footerTop + 34, 24, "center", "#ffd700");
-    pixelText("Choose a saved play from Play Builder, then scan QR codes for controllers", W / 2, footerTop + 70, 14, "center", "#fff");
+
+    pixelText(
+      "Choose a saved play from Play Builder, then scan QR codes for controllers",
+      W / 2,
+      footerTop + 70,
+      14,
+      "center",
+      "#fff"
+    );
+
     return;
   }
 
@@ -378,7 +444,14 @@ function drawFooter() {
     "#ffd700"
   );
 
-  pixelText("Follow the shadow guide, then confirm timing on your controller", W / 2, footerTop + 70, 14, "center", "#fff");
+  pixelText(
+    "Follow the shadow guide, then confirm timing on your controller",
+    W / 2,
+    footerTop + 70,
+    14,
+    "center",
+    "#fff"
+  );
 }
 
 function drawCountdown() {
@@ -411,133 +484,11 @@ function draw() {
   });
 
   drawBall(ball);
+
   drawFooter();
+
   drawCountdown();
-}
-
-function getSavedPlays() {
-  return JSON.parse(localStorage.getItem("teamClaritySavedPlays") || "[]");
-}
-
-function getTrainingLogs() {
-  return JSON.parse(localStorage.getItem("teamClarityTrainingLogs") || "[]");
-}
-
-function saveTrainingLog(log) {
-  const logs = getTrainingLogs();
-  logs.push(log);
-  localStorage.setItem("teamClarityTrainingLogs", JSON.stringify(logs));
-}
-
-function openPlayFolder() {
-  const modal = document.getElementById("playModal");
-  const list = document.getElementById("savedPlaysList");
-  const plays = getSavedPlays();
-
-  list.innerHTML = "";
-
-  if (plays.length === 0) {
-    list.innerHTML = `<div class="emptyFolder">📂 No saved plays found.</div>`;
-  }
-
-  plays.forEach(play => {
-    const item = document.createElement("div");
-    item.className = "savedPlayItem";
-
-    item.innerHTML = `
-      <div>
-        <div class="savedPlayName">📁 ${play.name}</div>
-        <div class="savedPlayMeta">${play.steps.length} steps | ${play.pitchMode || "full"} pitch</div>
-      </div>
-      <button data-load="${play.id}">Load</button>
-    `;
-
-    list.appendChild(item);
-  });
-
-  list.querySelectorAll("[data-load]").forEach(btn => {
-    btn.onclick = () => {
-      const id = Number(btn.dataset.load);
-      selectedPlay = plays.find(p => p.id === id);
-
-      if (!selectedPlay || !selectedPlay.steps || selectedPlay.steps.length === 0) return;
-
-      pitchMode = selectedPlay.pitchMode || selectedPlay.steps?.[0]?.pitchMode || "full";
-      applyActiveField();
-      updatePitchModeSelect();
-      loadStep(selectedPlay.steps[0], true);
-      modal.classList.add("hidden");
-    };
-  });
-
-  modal.classList.remove("hidden");
-}
-
-async function openQrCodes() {
-  const modal = document.getElementById("qrModal");
-  const grid = document.getElementById("qrGrid");
-
-  modal.classList.remove("hidden");
-  grid.innerHTML = "";
-
-  const res = await fetch("/api/sim-qrs");
-  const data = await res.json();
-
-  for (let i = 1; i <= 15; i++) {
-    const item = document.createElement("div");
-    item.className = "qrItem";
-    item.innerHTML = `
-      <div>Player ${i}</div>
-      <img src="${data.qrs[i]}">
-      <div>${data.baseUrl}/simcontroller.html?p=${i}</div>
-    `;
-    grid.appendChild(item);
-  }
-}
-
-function openLogs() {
-  const modal = document.getElementById("logsModal");
-  const list = document.getElementById("logsList");
-  const logs = getTrainingLogs().slice().reverse();
-
-  list.innerHTML = "";
-
-  if (logs.length === 0) {
-    list.innerHTML = `<div class="emptyFolder">No training logs yet.</div>`;
-  }
-
-  logs.forEach(log => {
-    const item = document.createElement("div");
-    item.className = "savedPlayItem";
-    item.innerHTML = `
-      <div>
-        <div class="savedPlayName">Player ${log.player} — ${log.score}/10</div>
-        <div class="savedPlayMeta">${log.play} | ${log.date}</div>
-        <div class="savedPlayMeta">
-          Positioning ${log.positioning}/5 | Timing ${log.timing}/5 | Execution ${log.execution}/5 |
-          Shadow ${log.shadowGuide ? "ON" : "OFF"} | Speed ${log.speed}x
-        </div>
-      </div>
-    `;
-    list.appendChild(item);
-  });
-
-  modal.classList.remove("hidden");
-}
-
-function loadStep(step, resetExpected = false) {
-  players = clone(step.players);
-  ball = clone(step.ball);
-  applyActiveField();
-
-  if (resetExpected) {
-    expectedPlayers = clone(step.players);
-  }
-
-  draw();
-}
-
-async function countdown() {
+}async function countdown() {
   for (const value of [3, 2, 1, 0]) {
     countdownValue = value;
     draw();
@@ -611,10 +562,10 @@ async function startSimulation() {
   simRunning = true;
 
   const duration = 900 / simSpeedMultiplier;
-  const steps = selectedPlay.steps;
+  const simSteps = selectedPlay.steps;
 
-  for (let i = 1; i < steps.length; i++) {
-    await animateBetweenSteps(steps[i - 1], steps[i], duration);
+  for (let i = 1; i < simSteps.length; i++) {
+    await animateBetweenSteps(simSteps[i - 1], simSteps[i], duration);
   }
 
   simRunning = false;
