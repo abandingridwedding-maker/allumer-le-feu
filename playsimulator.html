@@ -8,25 +8,60 @@
 </head>
 
 <body>
-  <div id="topbar">
+  <div id="topbar" class="simTopbar">
+  <div class="simHeaderRow">
     <div class="brand">🏃 PLAYER SIMULATOR</div>
+  </div>
 
-    <div class="toolGroup">
-  <button onclick="window.location.href='index.html'">Home</button>
+  <div class="simButtonRow">
+    <button onclick="window.location.href='index.html'">Home</button>
+    <button id="loadPlayBtn">📂 Choose Play</button>
+    <button onclick="window.location.href='joinfolder.html'">📂 Join Team Folder</button>
+    <button id="qrBtn">QR Codes</button>
+    <button id="startSimBtn">Start Rep</button>
+    <button id="resetSimBtn">Reset</button>
+    <button id="logsBtn">Training Log</button>
+  </div>
 
-  <button id="loadPlayBtn">📂 Choose Play</button>
+  <div class="simControlsRow">
+    <label>
+      Player:
+      <select id="playerNumber">
+        <option value="1">1</option>
+        <option value="2">2</option>
+        <option value="3">3</option>
+        <option value="4">4</option>
+        <option value="5">5</option>
+        <option value="6">6</option>
+        <option value="7" selected>7</option>
+        <option value="8">8</option>
+        <option value="9">9</option>
+        <option value="10">10</option>
+        <option value="11">11</option>
+        <option value="12">12</option>
+        <option value="13">13</option>
+        <option value="14">14</option>
+        <option value="15">15</option>
+      </select>
+    </label>
 
-  <button onclick="window.location.href='joinfolder.html'">
-    📂 Join Team Folder
-  </button>
+    <select id="playerSize">
+      <option value="normal">Normal Size</option>
+      <option value="medium">2/3 Size</option>
+      <option value="small" selected>Small Circle</option>
+    </select>
 
-  <button id="qrBtn">QR Codes</button>
+    <label class="speedLabel">
+      Sim Speed
+      <input id="simSpeed" type="range" min="0.25" max="2" step="0.25" value="0.5" />
+      <span id="simSpeedValue">0.5x</span>
+    </label>
 
-  <button id="startSimBtn">Start Rep</button>
-
-  <button id="resetSimBtn">Reset</button>
-
-  <button id="logsBtn">Training Log</button>
+    <label class="speedLabel">
+      Shadow Guide
+      <input id="shadowGuideToggle" type="checkbox" checked />
+    </label>
+  </div>
 </div>
 
       <div class="toolGroup">

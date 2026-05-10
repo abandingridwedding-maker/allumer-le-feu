@@ -584,4 +584,54 @@ canvas.grabbing {
   color: #ffe600;
   font-weight: 900;
   letter-spacing: 2px;
+}/* =========================
+   SIMULATOR TOPBAR CLEANUP
+========================= */
+
+.simTopbar {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px 18px;
+  height: auto;
+}
+
+.simHeaderRow {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.simHeaderRow .brand {
+  font-size: 28px;
+  text-align: center;
+}
+
+.simButtonRow,
+.simControlsRow {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.simButtonRow button,
+.simControlsRow button,
+.simControlsRow select {
+  white-space: nowrap;
+}
+
+.simControlsRow label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: white;
+  font-weight: 900;
+}
+
+.simControlsRow .speedLabel {
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
