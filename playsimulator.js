@@ -11,7 +11,7 @@ const H = canvas.height;
 
 let selectedPlay = null;
 let selectedPlayer = 7;
-let playerSize = "normal";
+let playerSize = "small";
 let shadowGuideOn = true;
 let simSpeedMultiplier = 0.5;
 let pitchMode = "full";
