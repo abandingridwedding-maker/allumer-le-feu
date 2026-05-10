@@ -22,7 +22,7 @@ const COLORS = {
 };
 
 let setupMode = "free";
-let playerSize = "small";
+let playerSize = "normal";
 let playerGroup = "all";
 let teamColorName = "red";
 let teamColor = COLORS.red;
