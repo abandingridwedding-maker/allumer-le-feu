@@ -783,12 +783,24 @@ function captureStep() {
 function applyStep(step) {
   players = clone(step.players);
   ball = clone(step.ball);
-  if (step.pitchMode) pitchMode = step.pitchMode;
+
+  if (step.pitchMode) {
+    pitchMode = step.pitchMode;
+  }
+
   applyActiveField();
 
   Object.values(players).forEach(p => {
     p.color = teamColor;
   });
+
+  updatePitchModeSelect();
+
+  const playerGroupSelect = document.getElementById("playerGroup");
+  if (playerGroupSelect) playerGroupSelect.value = playerGroup;
+
+  const playerSizeSelect = document.getElementById("playerSize");
+  if (playerSizeSelect) playerSizeSelect.value = playerSize;
 
   draw();
 }
