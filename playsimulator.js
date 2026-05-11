@@ -473,25 +473,7 @@ async function openPlayFolder() {
     list.appendChild(item);
   });
 
-  list.querySelectorAll("[data-load]").forEach(btn => {
-    btn.onclick = () => {
-      const id = btn.dataset.load;
-      const dbPlay = plays.find(p => p.id === id);
-
-      if (!dbPlay?.play_data?.steps?.length) return;
-
-      selectedPlay = {
-        id: dbPlay.id,
-        name: dbPlay.name,
-        pitchMode: dbPlay.play_data.pitchMode || "full",
-        steps: dbPlay.play_data.steps
-      };
-
-      pitchMode = selectedPlay.pitchMode || "full";
-      loadStep(selectedPlay.steps[0], true);
-      modal.classList.add("hidden");
-    };
-  });
+  
 
   modal.classList.remove("hidden");
 }

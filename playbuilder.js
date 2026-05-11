@@ -1035,9 +1035,11 @@ async function savePlay() {
   if (!folder) return;
 
   const playData = {
-    pitchMode,
-    steps: clone(steps)
-  };
+  pitchMode,
+  playerView: document.getElementById("playerGroup")?.value || "all",
+  playerSize: document.getElementById("playerSize")?.value || "normal",
+  steps: clone(steps)
+};
 
   const { error } = await supabase
     .from("plays")
