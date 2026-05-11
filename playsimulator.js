@@ -510,9 +510,7 @@ async function loadPlayablePlays(user) {
   const combined = [...(ownedPlays || []), ...sharedPlays];
   const unique = new Map();
 
-  combined.forEach(play => {
-    unique.set(play.id, play);
-  });
+  combined.forEach(play => unique.set(play.id, play));
 
   return Array.from(unique.values());
 }
@@ -606,39 +604,95 @@ async function openPlayFolder() {
   modal.classList.remove("hidden");
 }
 
-function getTrainingLogs() {
-  return JSON.parse(localStorage.getItem("teamClarityTrainingLogs") || "[]");
+async function saveTrainingLogToDatabase(log) {
+  const user = await getCurrentUser();
+  if (!user) return;
+
+  const { error } = await supabase.from("training_logs").insert({
+    user_id: user.id,
+    player_name: user.email,
+    player_number: log.player,
+    play_name: log.play,
+    score: log.score,
+    positioning: log.positioning,
+    timing: log.timing,
+    execution: log.execution,
+    distance: log.distance,
+    speed: log.speed,
+    shadow_guide: log.shadowGuide
+  });
+
+  if (error) {
+    console.error("Training log save failed:", error);
+  }
 }
 
-function saveTrainingLog(log) {
-  const logs = getTrainingLogs();
-  logs.push(log);
-  localStorage.setItem("teamClarityTrainingLogs", JSON.stringify(logs));
+async function getTrainingLogs() {
+  const { data, error } = await supabase
+    .from("training_logs")
+    .select("*")
+    .order("created_at", { ascending: false });
+
+  if (error) {
+    alert(error.message);
+    return [];
+  }
+
+  return data || [];
 }
 
-function openLogs() {
-  const modal = document.getElementById("logsModal");
+function renderLogs(logs, filteredName = null) {
   const list = document.getElementById("logsList");
-  const logs = getTrainingLogs().slice().reverse();
-
   list.innerHTML = "";
 
-  if (logs.length === 0) {
-    list.innerHTML = `<div class="emptyFolder">No training logs yet.</div>`;
+  if (filteredName) {
+    const back = document.createElement("button");
+    back.textContent = "← Back to all logs";
+    back.style.marginBottom = "18px";
+    back.onclick = openLogs;
+    list.appendChild(back);
+  }
+
+  if (!logs || logs.length === 0) {
+    list.innerHTML += `<div class="emptyFolder">No training logs yet.</div>`;
+    return;
   }
 
   logs.forEach(log => {
     const item = document.createElement("div");
     item.className = "savedPlayItem";
+
+    const date = new Date(log.created_at).toLocaleString();
+    const name = log.player_name || "Unknown player";
+
     item.innerHTML = `
       <div>
-        <div class="savedPlayName">Player ${log.player} — ${log.score}/10</div>
-        <div class="savedPlayMeta">${log.play} | ${log.date}</div>
+        <div class="savedPlayName" data-player="${name}" style="cursor:pointer;">
+          ${name}
+        </div>
+        <div class="savedPlayMeta">
+          ${date} | ${log.play_name || "Unknown play"} | Player ${log.player_number} | Score: ${log.score}/10
+        </div>
       </div>
     `;
+
     list.appendChild(item);
   });
 
+  list.querySelectorAll("[data-player]").forEach(nameEl => {
+    nameEl.onclick = async () => {
+      const playerName = nameEl.dataset.player;
+      const allLogs = await getTrainingLogs();
+      const filtered = allLogs.filter(log => log.player_name === playerName);
+      renderLogs(filtered, playerName);
+    };
+  });
+}
+
+async function openLogs() {
+  const modal = document.getElementById("logsModal");
+  const logs = await getTrainingLogs();
+  renderLogs(logs);
   modal.classList.remove("hidden");
 }
 
@@ -741,10 +795,10 @@ async function startSimulation() {
   }
 
   simRunning = false;
-  calculateScore();
+  await calculateScore();
 }
 
-function calculateScore() {
+async function calculateScore() {
   const finalStep = selectedPlay.steps[selectedPlay.steps.length - 1];
   const expected = finalStep.players[selectedPlayer];
   const actual = players[selectedPlayer];
@@ -771,9 +825,8 @@ function calculateScore() {
 
   const rawTotal = positionScore + timingScore + executionScore;
   const finalScore = Math.round((rawTotal / 15) * 10);
-  const timeSpentSeconds = sessionStartTime ? Math.round((Date.now() - sessionStartTime) / 1000) : 0;
 
-  saveTrainingLog({
+  const log = {
     player: selectedPlayer,
     play: selectedPlay?.name || "Unknown Play",
     score: finalScore,
@@ -782,10 +835,10 @@ function calculateScore() {
     execution: executionScore,
     distance: Math.round(dist),
     shadowGuide: shadowGuideOn,
-    speed: simSpeedMultiplier,
-    timeSpentSeconds,
-    date: new Date().toLocaleString()
-  });
+    speed: simSpeedMultiplier
+  };
+
+  await saveTrainingLogToDatabase(log);
 
   document.getElementById("scoreResult").innerHTML = `
     <div style="font-size:72px;font-weight:900;color:#ffd700;margin-bottom:25px;">${finalScore}/10</div>
