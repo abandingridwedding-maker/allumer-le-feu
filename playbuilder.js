@@ -56,32 +56,23 @@ function applyActiveField() {
   Object.assign(FIELD, getPitchField());
 }
 
-function updatePitchModeSelect() {
-  const select = document.getElementById("pitchMode");
-  if (select) select.value = pitchMode;
-}
-
-function setPitchMode(mode) {
-  pitchMode = ["full", "half", "lineout"].includes(mode) ? mode : "full";
-
-  if (pitchMode === "lineout") {
-    playerGroup = "forwards";
-    const playerGroupSelect = document.getElementById("playerGroup");
-    if (playerGroupSelect) playerGroupSelect.value = "forwards";
-  }
-
-  applyActiveField();
-  clampAllToField();
-  updatePitchModeSelect();
-  draw();
-}
-
 function clone(obj) {
   return JSON.parse(JSON.stringify(obj));
 }
 
 function clamp(v, min, max) {
   return Math.max(min, Math.min(max, v));
+}
+
+function syncControls() {
+  const pitchModeSelect = document.getElementById("pitchMode");
+  if (pitchModeSelect) pitchModeSelect.value = pitchMode;
+
+  const playerGroupSelect = document.getElementById("playerGroup");
+  if (playerGroupSelect) playerGroupSelect.value = playerGroup;
+
+  const playerSizeSelect = document.getElementById("playerSize");
+  if (playerSizeSelect) playerSizeSelect.value = playerSize;
 }
 
 function pixelText(text, x, y, size = 22, align = "center", color = "white") {
@@ -125,6 +116,19 @@ function updateModeButtons() {
 function setMode(mode) {
   setupMode = mode;
   updateModeButtons();
+  draw();
+}
+
+function setPitchMode(mode) {
+  pitchMode = ["full", "half", "lineout"].includes(mode) ? mode : "full";
+
+  if (pitchMode === "lineout") {
+    playerGroup = "forwards";
+  }
+
+  applyActiveField();
+  clampAllToField();
+  syncControls();
   draw();
 }
 
@@ -390,7 +394,9 @@ function drawFullPitch(title = "TEAM-CLARITY PLAY BUILDER") {
 
   ctx.restore();
   drawPitchHeader(title);
-}function drawHalfPitch(title = "TEAM-CLARITY PLAY BUILDER") {
+}
+
+function drawHalfPitch(title = "TEAM-CLARITY PLAY BUILDER") {
   ctx.fillStyle = "#6ec65f";
   ctx.fillRect(0, 0, W, H);
 
@@ -453,16 +459,14 @@ function drawLineoutPitch(title = "TEAM-CLARITY PLAY BUILDER") {
 
   const { left, right, top, bottom } = FIELD;
   const pw = right - left;
-  const ph = bottom - top;
 
   const X = metres => left + pw * (metres / 17);
 
   ctx.strokeStyle = "#fff";
   ctx.lineWidth = 7;
-  ctx.strokeRect(left, top, pw, ph);
+  ctx.strokeRect(left, top, pw, bottom - top);
 
   ctx.lineWidth = 8;
-
   ctx.beginPath();
   ctx.moveTo(X(0), top);
   ctx.lineTo(X(0), bottom);
@@ -489,43 +493,21 @@ function drawLineoutPitch(title = "TEAM-CLARITY PLAY BUILDER") {
   });
 
   ctx.setLineDash([]);
-
-  ctx.save();
-  ctx.fillStyle = "#fff";
-  ctx.font = "900 22px Courier New";
-  ctx.textAlign = "center";
-  ctx.shadowColor = "#000";
-  ctx.shadowOffsetX = 3;
-  ctx.shadowOffsetY = 3;
-
-  ctx.fillText("5m", X(5), top + 34);
-  ctx.fillText("15m", X(15), top + 34);
-
-  ctx.restore();
-
   drawPitchHeader(title + " | LINEOUT");
 }
 
 function drawPitch() {
   applyActiveField();
-  updatePitchModeSelect();
+  syncControls();
 
-  if (pitchMode === "half") {
-    drawHalfPitch();
-    return;
-  }
-
-  if (pitchMode === "lineout") {
-    drawLineoutPitch();
-    return;
-  }
+  if (pitchMode === "half") return drawHalfPitch();
+  if (pitchMode === "lineout") return drawLineoutPitch();
 
   drawFullPitch();
 }
 
 function drawBall() {
   ctx.save();
-
   ctx.translate(ball.x, ball.y);
   ctx.rotate(-0.35);
 
@@ -551,14 +533,12 @@ function drawCirclePlayer(p) {
   const radius = 16;
 
   ctx.save();
-
   ctx.fillStyle = "rgba(0,0,0,.25)";
   ctx.beginPath();
   ctx.ellipse(p.x + 3, p.y + 4, radius + 2, radius * 0.6, 0, 0, Math.PI * 2);
   ctx.fill();
 
   ctx.fillStyle = p.color || "#d71920";
-
   ctx.beginPath();
   ctx.arc(p.x, p.y, radius, 0, Math.PI * 2);
   ctx.fill();
@@ -572,13 +552,11 @@ function drawCirclePlayer(p) {
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
   ctx.fillText(p.number, p.x, p.y + 1);
-
   ctx.restore();
 }
 
 function drawPixelPlayer(p) {
   ctx.save();
-
   ctx.translate(p.x, p.y);
 
   const s = playerSize === "medium" ? 0.37 : 0.55;
@@ -602,7 +580,6 @@ function drawPixelPlayer(p) {
   ctx.fillRect(-18, -56, 36, 34);
 
   ctx.fillStyle = "#15100c";
-
   if (p.number <= 8) {
     ctx.fillRect(-27, -66, 54, 14);
     ctx.fillRect(-31, -54, 12, 22);
@@ -644,7 +621,9 @@ function drawPlayer(p) {
   }
 
   drawPixelPlayer(p);
-}function drawFooter() {
+}
+
+function drawFooter() {
   const footerTop = H - 72;
 
   ctx.fillStyle = "rgba(0,0,0,0.42)";
@@ -709,20 +688,9 @@ canvas.addEventListener("mousedown", e => {
 
   const p = canvasPoint(e);
 
-  if (setupMode === "lineout-top") {
-    placeLineout("top", p.x);
-    return;
-  }
-
-  if (setupMode === "lineout-bottom") {
-    placeLineout("bottom", p.x);
-    return;
-  }
-
-  if (setupMode === "scrum") {
-    placeScrum(p.x, p.y);
-    return;
-  }
+  if (setupMode === "lineout-top") return placeLineout("top", p.x);
+  if (setupMode === "lineout-bottom") return placeLineout("bottom", p.x);
+  if (setupMode === "scrum") return placeScrum(p.x, p.y);
 
   if (ballHitTest(p)) {
     draggingType = "ball";
@@ -776,7 +744,9 @@ function captureStep() {
   return {
     players: clone(players),
     ball: clone(ball),
-    pitchMode
+    pitchMode,
+    playerGroup,
+    playerSize
   };
 }
 
@@ -784,9 +754,9 @@ function applyStep(step) {
   players = clone(step.players);
   ball = clone(step.ball);
 
-  if (step.pitchMode) {
-    pitchMode = step.pitchMode;
-  }
+  pitchMode = step.pitchMode || pitchMode;
+  playerGroup = step.playerGroup || playerGroup || "all";
+  playerSize = step.playerSize || playerSize || "small";
 
   applyActiveField();
 
@@ -794,23 +764,14 @@ function applyStep(step) {
     p.color = teamColor;
   });
 
-  updatePitchModeSelect();
-
-  const playerGroupSelect = document.getElementById("playerGroup");
-  if (playerGroupSelect) playerGroupSelect.value = playerGroup;
-
-  const playerSizeSelect = document.getElementById("playerSize");
-  if (playerSizeSelect) playerSizeSelect.value = playerSize;
-
+  syncControls();
   draw();
 }
 
 function updateBuilderButton() {
-  if (!builderStarted) {
-    builderBtn.textContent = "Start Builder";
-  } else {
-    builderBtn.textContent = `Save Step ${steps.length + 1}`;
-  }
+  builderBtn.textContent = builderStarted
+    ? `Save Step ${steps.length + 1}`
+    : "Start Builder";
 }
 
 function builderMainAction() {
@@ -859,11 +820,8 @@ function animateBetweenSteps(from, to, duration = 900) {
 
       draw();
 
-      if (t < 1) {
-        requestAnimationFrame(frame);
-      } else {
-        resolve();
-      }
+      if (t < 1) requestAnimationFrame(frame);
+      else resolve();
     }
 
     requestAnimationFrame(frame);
@@ -1047,11 +1005,12 @@ async function savePlay() {
   if (!folder) return;
 
   const playData = {
-  pitchMode,
-  playerView: document.getElementById("playerGroup")?.value || "all",
-  playerSize: document.getElementById("playerSize")?.value || "normal",
-  steps: clone(steps)
-};
+    pitchMode,
+    playerView: playerGroup,
+    playerGroup,
+    playerSize,
+    steps: clone(steps)
+  };
 
   const { error } = await supabase
     .from("plays")
@@ -1117,7 +1076,8 @@ async function openPlayFolder() {
         <div class="savedPlayMeta">
           Folder: ${folderName} |
           ${play.play_data?.steps?.length || 0} steps |
-          ${play.play_data?.pitchMode || "full"} pitch
+          ${play.play_data?.pitchMode || "full"} pitch |
+          ${play.play_data?.playerGroup || play.play_data?.playerView || "all"}
         </div>
         <div class="savedPlayMeta">
           Share code: ${shareCode}
@@ -1142,31 +1102,25 @@ async function openPlayFolder() {
 
       const loadedData = play.play_data || {};
 
-pitchMode = loadedData.pitchMode || "full";
-playerGroup = loadedData.playerView || "all";
-playerSize = loadedData.playerSize || "small";
-steps = loadedData.steps || [];
-builderStarted = true;
+      pitchMode = loadedData.pitchMode || "full";
+      playerGroup = loadedData.playerGroup || loadedData.playerView || "all";
+      playerSize = loadedData.playerSize || "small";
+      steps = loadedData.steps || [];
+      builderStarted = true;
 
-const playerGroupSelect = document.getElementById("playerGroup");
-if (playerGroupSelect) playerGroupSelect.value = playerGroup;
+      steps = steps.map(step => ({
+        ...step,
+        playerGroup: step.playerGroup || playerGroup,
+        playerSize: step.playerSize || playerSize
+      }));
 
-const playerSizeSelect = document.getElementById("playerSize");
-if (playerSizeSelect) playerSizeSelect.value = playerSize;
+      syncControls();
 
-updatePitchModeSelect();
+      if (steps[0]) applyStep(steps[0]);
 
-if (steps[0]) applyStep(steps[0]);
-
-playerGroup = loadedData.playerView || "all";
-playerSize = loadedData.playerSize || "small";
-
-if (playerGroupSelect) playerGroupSelect.value = playerGroup;
-if (playerSizeSelect) playerSizeSelect.value = playerSize;
-
-updateBuilderButton();
-draw();
-modal.classList.add("hidden");
+      updateBuilderButton();
+      draw();
+      modal.classList.add("hidden");
     };
   });
 
@@ -1212,16 +1166,18 @@ document.getElementById("pitchMode").onchange = e => setPitchMode(e.target.value
 
 document.getElementById("playerGroup").onchange = e => {
   playerGroup = e.target.value;
+  syncControls();
   draw();
 };
 
 document.getElementById("playerSize").onchange = e => {
   playerSize = e.target.value;
+  syncControls();
   draw();
 };
 
 applyActiveField();
-updatePitchModeSelect();
+syncControls();
 
 const builderSpeed = document.getElementById("builderSpeed");
 if (builderSpeed) {
@@ -1236,4 +1192,5 @@ if (builderSpeed) {
 initPlayers();
 updateBuilderButton();
 updateModeButtons();
+syncControls();
 draw();
