@@ -15,6 +15,7 @@ let playerSize = "small";
 let shadowGuideOn = true;
 let simSpeedMultiplier = 0.5;
 let pitchMode = "full";
+let playerGroup = "all";
 
 let players = {};
 let expectedPlayers = {};
@@ -50,6 +51,13 @@ function pixelText(text, x, y, size = 22, align = "center", color = "white") {
   ctx.restore();
 }
 
+function shouldShowPlayer(number) {
+  if (playerGroup === "all") return true;
+  if (playerGroup === "forwards") return number >= 1 && number <= 8;
+  if (playerGroup === "backs") return number >= 9 && number <= 15;
+  return true;
+}
+
 function getPitchField(mode = pitchMode) {
   if (mode === "lineout") {
     const lineoutWidth = Math.round((W - 140) * 0.62);
@@ -62,6 +70,17 @@ function getPitchField(mode = pitchMode) {
 
 function applyActiveField() {
   Object.assign(FIELD, getPitchField());
+}
+
+function updateControls() {
+  const sizeSelect = document.getElementById("playerSize");
+  if (sizeSelect) sizeSelect.value = playerSize;
+
+  const playerSelect = document.getElementById("playerNumber");
+  if (playerSelect) playerSelect.value = selectedPlayer;
+
+  const speedValue = document.getElementById("simSpeedValue");
+  if (speedValue) speedValue.textContent = simSpeedMultiplier + "x";
 }
 
 function updatePitchModeSelect() {
@@ -268,6 +287,7 @@ function drawCirclePlayer(p, highlight = false, ghost = false) {
 
 function drawPlayer(p, highlight = false, ghost = false) {
   if (!p) return;
+  if (!shouldShowPlayer(Number(p.number))) return;
 
   if (playerSize === "small") {
     drawCirclePlayer(p, highlight, ghost);
@@ -377,7 +397,7 @@ function draw() {
   }
 
   Object.values(players).forEach(p => {
-    drawPlayer(p, p.number === selectedPlayer, false);
+    drawPlayer(p, Number(p.number) === selectedPlayer, false);
   });
 
   drawBall(ball);
@@ -385,21 +405,39 @@ function draw() {
   drawCountdown();
 }
 
+function normalizeStep(step, defaults = {}) {
+  return {
+    ...step,
+    pitchMode: step.pitchMode || defaults.pitchMode || "full",
+    playerGroup: step.playerGroup || defaults.playerGroup || defaults.playerView || "all",
+    playerSize: step.playerSize || defaults.playerSize || "small",
+    players: step.players || {},
+    ball: step.ball || { x: 820, y: 430 }
+  };
+}
+
 function loadStep(step, resetExpected = false) {
   if (!step) return;
 
-  players = clone(step.players || {});
-  ball = clone(step.ball || { x: 820, y: 430 });
+  const normalized = normalizeStep(step, {
+    pitchMode,
+    playerGroup,
+    playerSize
+  });
 
-  if (step.pitchMode) {
-    pitchMode = step.pitchMode;
-  }
+  pitchMode = normalized.pitchMode || pitchMode;
+  playerGroup = normalized.playerGroup || playerGroup || "all";
+  playerSize = normalized.playerSize || playerSize || "small";
+
+  players = clone(normalized.players);
+  ball = clone(normalized.ball);
 
   applyActiveField();
+  updateControls();
   updatePitchModeSelect();
 
   if (resetExpected) {
-    expectedPlayers = clone(step.players || {});
+    expectedPlayers = clone(normalized.players);
   }
 
   draw();
@@ -416,13 +454,7 @@ async function getCurrentUser() {
   return user;
 }
 
-async function openPlayFolder() {
-  const user = await getCurrentUser();
-  if (!user) return;
-
-  const modal = document.getElementById("playModal");
-  const list = document.getElementById("savedPlaysList");
-
+async function loadPlayablePlays(user) {
   const { data: ownedPlays, error: ownedError } = await supabase
     .from("plays")
     .select(`
@@ -430,6 +462,7 @@ async function openPlayFolder() {
       name,
       created_at,
       play_data,
+      folder_id,
       folders (
         id,
         name,
@@ -439,14 +472,68 @@ async function openPlayFolder() {
     .eq("coach_id", user.id)
     .order("created_at", { ascending: false });
 
-  if (ownedError) {
-    alert(ownedError.message);
+  if (ownedError) throw ownedError;
+
+  const { data: memberships, error: memberError } = await supabase
+    .from("folder_members")
+    .select("folder_id")
+    .eq("player_id", user.id);
+
+  if (memberError) throw memberError;
+
+  const folderIds = [...new Set((memberships || []).map(m => m.folder_id).filter(Boolean))];
+
+  let sharedPlays = [];
+
+  if (folderIds.length > 0) {
+    const { data, error } = await supabase
+      .from("plays")
+      .select(`
+        id,
+        name,
+        created_at,
+        play_data,
+        folder_id,
+        folders (
+          id,
+          name,
+          share_code
+        )
+      `)
+      .in("folder_id", folderIds)
+      .order("created_at", { ascending: false });
+
+    if (error) throw error;
+    sharedPlays = data || [];
+  }
+
+  const combined = [...(ownedPlays || []), ...sharedPlays];
+  const unique = new Map();
+
+  combined.forEach(play => {
+    unique.set(play.id, play);
+  });
+
+  return Array.from(unique.values());
+}
+
+async function openPlayFolder() {
+  const user = await getCurrentUser();
+  if (!user) return;
+
+  const modal = document.getElementById("playModal");
+  const list = document.getElementById("savedPlaysList");
+
+  let plays = [];
+
+  try {
+    plays = await loadPlayablePlays(user);
+  } catch (error) {
+    alert(error.message);
     return;
   }
 
   list.innerHTML = "";
-
-  const plays = ownedPlays || [];
 
   if (plays.length === 0) {
     list.innerHTML = `<div class="emptyFolder">📂 No saved plays found.</div>`;
@@ -459,12 +546,13 @@ async function openPlayFolder() {
     const folderName = play.folders?.name || "No folder";
     const playData = play.play_data || {};
     const playSteps = playData.steps || [];
+    const groupLabel = playData.playerGroup || playData.playerView || "all";
 
     item.innerHTML = `
       <div>
         <div class="savedPlayName">📁 ${play.name}</div>
         <div class="savedPlayMeta">
-          Folder: ${folderName} | ${playSteps.length} steps | ${playData.pitchMode || "full"} pitch
+          Folder: ${folderName} | ${playSteps.length} steps | ${playData.pitchMode || "full"} pitch | ${groupLabel}
         </div>
       </div>
       <button data-load="${play.id}">Load</button>
@@ -473,7 +561,47 @@ async function openPlayFolder() {
     list.appendChild(item);
   });
 
-  
+  list.querySelectorAll("[data-load]").forEach(btn => {
+    btn.onclick = () => {
+      const id = btn.dataset.load;
+      const play = plays.find(p => p.id === id);
+
+      if (!play) return;
+
+      const playData = play.play_data || {};
+
+      pitchMode = playData.pitchMode || "full";
+      playerGroup = playData.playerGroup || playData.playerView || "all";
+      playerSize = playData.playerSize || "small";
+
+      const loadedSteps = playData.steps || [];
+
+      const normalizedSteps = loadedSteps.map(step =>
+        normalizeStep(step, {
+          pitchMode,
+          playerGroup,
+          playerSize
+        })
+      );
+
+      selectedPlay = {
+        id: play.id,
+        name: play.name,
+        pitchMode,
+        playerGroup,
+        playerSize,
+        steps: normalizedSteps
+      };
+
+      if (selectedPlay.steps[0]) {
+        loadStep(selectedPlay.steps[0], true);
+      }
+
+      updateControls();
+      modal.classList.add("hidden");
+      draw();
+    };
+  });
 
   modal.classList.remove("hidden");
 }
@@ -707,6 +835,7 @@ document.getElementById("playerNumber").onchange = e => {
 
 document.getElementById("playerSize").onchange = e => {
   playerSize = e.target.value;
+  updateControls();
   draw();
 };
 
@@ -723,7 +852,7 @@ document.getElementById("resetSimBtn").onclick = () => {
 
 document.getElementById("simSpeed").oninput = e => {
   simSpeedMultiplier = Number(e.target.value);
-  document.getElementById("simSpeedValue").textContent = simSpeedMultiplier + "x";
+  updateControls();
   draw();
 };
 
@@ -732,4 +861,5 @@ document.getElementById("shadowGuideToggle").onchange = e => {
   draw();
 };
 
+updateControls();
 draw();
