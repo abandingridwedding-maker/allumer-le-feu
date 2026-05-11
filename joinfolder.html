@@ -2,113 +2,85 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>TEAM-CLARITY | Join Folder</title>
-
-  <script type="module">
-    import { supabase } from './supabase.js'
-
-    async function joinFolder() {
-      const code = document.getElementById("shareCode").value.trim().toUpperCase()
-
-      if (!code) {
-        alert("Enter a folder code.")
-        return
-      }
-
-      const {
-        data: { user }
-      } = await supabase.auth.getUser()
-
-      if (!user) {
-        window.location.href = "auth.html"
-        return
-      }
-
-      const { data: folder, error: folderError } = await supabase
-        .from("folders")
-        .select("*")
-        .eq("share_code", code)
-        .single()
-
-      if (folderError || !folder) {
-        alert("Folder not found.")
-        return
-      }
-
-      const { error: joinError } = await supabase
-        .from("folder_members")
-        .insert({
-          folder_id: folder.id,
-          player_id: user.id
-        })
-
-      if (joinError && !joinError.message.includes("duplicate")) {
-        alert(joinError.message)
-        return
-      }
-
-      alert("Folder joined successfully.")
-
-      window.location.href = "playsimulator.html"
-    }
-
-    window.joinFolder = joinFolder
-  </script>
 
   <style>
     body {
       margin: 0;
+      min-height: 100vh;
       background: #111;
-      font-family: Courier New;
-      color: white;
+      color: #fff;
+      font-family: Arial, sans-serif;
       display: flex;
       justify-content: center;
       align-items: center;
-      height: 100vh;
     }
 
     .box {
+      width: 380px;
+      max-width: 90%;
+      padding: 36px;
+      border: 4px solid #e71920;
       background: #1a1a1a;
-      border: 4px solid #d71920;
-      padding: 40px;
-      width: 420px;
       text-align: center;
-      box-shadow: 0 0 40px rgba(0,0,0,.5);
+      box-shadow: 0 0 30px rgba(0,0,0,.4);
     }
 
     h1 {
-      color: #ffd700;
-      margin-bottom: 30px;
-      font-size: 34px;
+      color: #ffe000;
+      font-size: 28px;
+      margin-bottom: 28px;
+      letter-spacing: 2px;
     }
 
     input {
       width: 100%;
       padding: 16px;
-      font-size: 22px;
-      text-transform: uppercase;
+      font-size: 20px;
       text-align: center;
       background: #111;
-      border: 3px solid #fff;
       color: #fff;
-      margin-bottom: 25px;
+      border: 3px solid #fff;
+      margin-bottom: 22px;
       box-sizing: border-box;
+      text-transform: uppercase;
     }
 
     button {
       width: 100%;
       padding: 16px;
-      font-size: 22px;
+      font-size: 20px;
       font-weight: 900;
-      cursor: pointer;
-      background: #d71920;
-      color: white;
+      background: #e71920;
+      color: #fff;
       border: none;
+      cursor: pointer;
+      transition: 0.2s ease;
     }
 
     button:hover {
       background: #ff2e38;
+    }
+
+    button:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+
+    #joinMessage {
+      margin-top: 18px;
+      font-size: 16px;
+      font-weight: 700;
+      min-height: 22px;
+    }
+
+    .success {
+      color: #36ff72;
+    }
+
+    .error {
+      color: #ff4d4d;
     }
   </style>
 </head>
@@ -120,13 +92,19 @@
 
     <input
       id="shareCode"
+      type="text"
       placeholder="ENTER SHARE CODE"
+      autocomplete="off"
     />
 
-    <button onclick="joinFolder()">
+    <button id="joinFolderBtn">
       JOIN FOLDER
     </button>
+
+    <div id="joinMessage"></div>
   </div>
+
+  <script type="module" src="joinfolder.js"></script>
 
 </body>
 </html>
