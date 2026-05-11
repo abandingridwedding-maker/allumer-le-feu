@@ -26,7 +26,7 @@ let countdownValue = null;
 let timingClicks = {};
 let sessionStartTime = null;
 
-const PLAYER_SPEED = 7;
+const BASE_PLAYER_SPEED = 3;
 
 const FIELD = {
   left: 70,
@@ -806,8 +806,10 @@ socket.on("sim-player-move", data => {
 
   if (!player) return;
 
-  player.x += Number(data.dx || 0) * PLAYER_SPEED;
-  player.y += Number(data.dy || 0) * PLAYER_SPEED;
+  const movementSpeed = BASE_PLAYER_SPEED * simSpeedMultiplier;
+
+  player.x += Number(data.dx || 0) * movementSpeed;
+  player.y += Number(data.dy || 0) * movementSpeed;
 
   player.x = Math.max(FIELD.left + 22, Math.min(FIELD.right - 22, player.x));
   player.y = Math.max(FIELD.top + 24, Math.min(FIELD.bottom - 24, player.y));
