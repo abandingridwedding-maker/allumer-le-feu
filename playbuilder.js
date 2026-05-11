@@ -1128,15 +1128,33 @@ async function openPlayFolder() {
 
       if (!play) return;
 
-      pitchMode = play.play_data?.pitchMode || "full";
-      steps = play.play_data?.steps || [];
-      builderStarted = true;
-      updatePitchModeSelect();
+      const loadedData = play.play_data || {};
 
-      if (steps[0]) applyStep(steps[0]);
+pitchMode = loadedData.pitchMode || "full";
+playerGroup = loadedData.playerView || "all";
+playerSize = loadedData.playerSize || "small";
+steps = loadedData.steps || [];
+builderStarted = true;
 
-      updateBuilderButton();
-      modal.classList.add("hidden");
+const playerGroupSelect = document.getElementById("playerGroup");
+if (playerGroupSelect) playerGroupSelect.value = playerGroup;
+
+const playerSizeSelect = document.getElementById("playerSize");
+if (playerSizeSelect) playerSizeSelect.value = playerSize;
+
+updatePitchModeSelect();
+
+if (steps[0]) applyStep(steps[0]);
+
+playerGroup = loadedData.playerView || "all";
+playerSize = loadedData.playerSize || "small";
+
+if (playerGroupSelect) playerGroupSelect.value = playerGroup;
+if (playerSizeSelect) playerSizeSelect.value = playerSize;
+
+updateBuilderButton();
+draw();
+modal.classList.add("hidden");
     };
   });
 
