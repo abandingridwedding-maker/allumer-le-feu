@@ -11,7 +11,7 @@ codeInput.addEventListener("keydown", (e) => {
 });
 
 async function joinFolder() {
-  const code = codeInput.value.trim().toUpperCase();
+  const code = codeInput.value.trim();
 
   if (!code) {
     showMessage("Enter a folder code.", "error");
