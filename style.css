@@ -2,138 +2,164 @@
   box-sizing: border-box;
 }
 
+:root {
+  --orange: #ff5a00;
+  --orange-dark: #e64a00;
+  --orange-soft: #fff1e8;
+  --bg: #f7f7f5;
+  --card: #ffffff;
+  --text: #151515;
+  --muted: #6f6f6f;
+  --line: #e8e8e8;
+  --shadow: 0 10px 30px rgba(20, 20, 20, 0.08);
+  --radius: 18px;
+}
+
 body {
   margin: 0;
-  background: #080808;
-  color: white;
-  font-family: "Courier New", monospace;
+  background: var(--bg);
+  color: var(--text);
+  font-family: Inter, Arial, sans-serif;
   overflow: hidden;
 }
 
-/* =========================
-   TOP BAR
-========================= */
+/* TOP BAR */
 #topbar {
-  min-height: 82px;
-  background: #d71920;
-  border-bottom: 8px solid #111;
+  min-height: 76px;
+  background: rgba(255,255,255,0.94);
+  border-bottom: 1px solid var(--line);
   display: flex;
   align-items: center;
   gap: 14px;
-  padding: 8px 14px 10px 14px;
+  padding: 12px 18px;
+  box-shadow: 0 6px 24px rgba(0,0,0,0.05);
 }
 
 .brand {
-  font-size: 27px;
+  font-size: 24px;
   font-weight: 900;
-  text-shadow: 3px 3px #000;
+  color: var(--text);
   white-space: nowrap;
   min-width: 240px;
+  letter-spacing: -0.5px;
+}
+
+.brand::first-letter {
+  color: var(--orange);
 }
 
 .tools {
   flex: 1;
   display: flex;
   align-items: center;
-  gap: 7px;
+  gap: 8px;
   flex-wrap: wrap;
   justify-content: flex-end;
-  padding-right: 6px;
 }
 
 .toolGroup {
   display: flex;
   align-items: center;
-  gap: 7px;
+  gap: 8px;
   flex-wrap: wrap;
 }
 
-/* =========================
-   BUTTONS / SELECTS / INPUTS
-========================= */
+/* BUTTONS */
 button,
 select {
-  font-family: "Courier New", monospace;
-  font-weight: 900;
-  border: 3px solid #fff;
-  background: #111;
-  color: #fff;
-  padding: 8px 10px;
-  border-radius: 8px;
+  font-family: Inter, Arial, sans-serif;
+  font-weight: 800;
+  border: 1px solid var(--line);
+  background: #fff;
+  color: var(--text);
+  padding: 10px 14px;
+  border-radius: 12px;
   cursor: pointer;
   font-size: 13px;
-  min-height: 38px;
-  box-shadow: 3px 3px 0 #000;
-  transition:
-    transform 0.08s ease,
-    box-shadow 0.08s ease,
-    background 0.12s ease,
-    outline 0.12s ease;
+  min-height: 40px;
+  box-shadow: none;
+  transition: all 0.15s ease;
 }
 
 button:hover,
 select:hover {
-  background: #292929;
-  outline: 2px solid #ffd700;
-  outline-offset: 2px;
+  border-color: var(--orange);
+  background: var(--orange-soft);
+  transform: translateY(-1px);
 }
 
 button:active,
 select:active {
-  transform: translate(3px, 3px);
-  box-shadow: 0 0 0 #000;
+  transform: translateY(0);
 }
 
 button.active,
 select.active,
-.modeActive {
-  background: #ffd700 !important;
-  color: #111 !important;
-  border-color: #fff;
-  outline: 3px solid #111;
-  outline-offset: 2px;
+.modeActive,
+.builderOnly {
+  background: var(--orange) !important;
+  color: white !important;
+  border-color: var(--orange) !important;
 }
 
 button:focus-visible,
 select:focus-visible,
 input:focus-visible {
-  outline: 3px solid #ffd700;
+  outline: 3px solid rgba(255,90,0,0.25);
   outline-offset: 2px;
 }
 
 label {
-  font-weight: 900;
+  font-weight: 800;
   white-space: nowrap;
+  color: var(--text);
 }
 
 .speedLabel {
   display: flex;
   align-items: center;
-  gap: 7px;
-}
-
-input {
-  vertical-align: middle;
+  gap: 8px;
 }
 
 #speed,
 #simSpeed {
-  width: 115px;
-  accent-color: #ffd700;
+  width: 120px;
+  accent-color: var(--orange);
 }
 
-/* =========================
-   CANVAS FIELD
-========================= */
+/* FIELD AREA */
+#fieldShell {
+  position: relative;
+  width: calc(100vw - 32px);
+  height: calc(100vh - 108px);
+  margin: 16px;
+  background: #ffffff;
+  border-radius: 24px;
+  box-shadow: var(--shadow);
+  padding: 12px;
+}
+
 canvas {
   display: block;
-  width: calc(100vw - 18px);
-  height: calc(100vh - 104px);
-  margin: 9px;
-  image-rendering: pixelated;
-  background: #6ec65f;
-  border-radius: 6px;
+  width: calc(100vw - 32px);
+  height: calc(100vh - 108px);
+  margin: 16px;
+  background-image: url("assets/rugby-pitch.png");
+background-size: 100% 100%;
+background-position: center;
+background-repeat: no-repeat;
+background-color: #6ec65f;
+  border-radius: 22px;
   cursor: grab;
+  box-shadow: var(--shadow);
+}
+
+#fieldShell canvas {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  border-radius: 18px;
+  box-shadow: none;
 }
 
 #field.grabbing,
@@ -141,30 +167,12 @@ canvas.grabbing {
   cursor: grabbing;
 }
 
-/* =========================
-   BUILDER MODE BUTTONS
-========================= */
-.builderOnly {
-  background: #ffd700;
-  color: #111;
-  border: 3px solid #111;
-}
-
-.builderOnly:hover {
-  background: #ffe97a;
-}
-
-.hidden {
-  display: none !important;
-}
-
-/* =========================
-   MODALS
-========================= */
+/* MODALS */
 .modal {
   position: fixed;
   inset: 0;
-  background: rgba(0,0,0,.82);
+  background: rgba(15,15,15,.45);
+  backdrop-filter: blur(8px);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -175,17 +183,19 @@ canvas.grabbing {
   width: 92vw;
   max-height: 90vh;
   overflow: auto;
-  background: #111;
-  border: 5px solid #fff;
-  padding: 20px;
-  box-shadow: 0 0 0 8px #d71920;
+  background: white;
+  color: var(--text);
+  border: 1px solid var(--line);
+  border-radius: 24px;
+  padding: 24px;
+  box-shadow: var(--shadow);
 }
 
 .modalHeader {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 15px;
+  margin-bottom: 18px;
 }
 
 .modalHeader h2 {
@@ -201,12 +211,14 @@ canvas.grabbing {
 
 .qrItem {
   background: #fff;
-  color: #111;
+  color: var(--text);
   text-align: center;
-  padding: 10px;
-  border: 4px solid #d71920;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
   font-weight: 900;
   overflow-wrap: anywhere;
+  box-shadow: var(--shadow);
 }
 
 .qrItem img {
@@ -214,14 +226,12 @@ canvas.grabbing {
   max-width: 150px;
 }
 
-/* =========================
-   PAYWALL
-========================= */
+/* PAYWALL */
 .paywall {
   position: fixed;
   inset: 0;
-  background: rgba(0,0,0,0.78);
-  backdrop-filter: blur(6px);
+  background: rgba(20,20,20,0.55);
+  backdrop-filter: blur(8px);
   z-index: 9999;
   display: flex;
   align-items: center;
@@ -231,13 +241,13 @@ canvas.grabbing {
 .paywallCard {
   width: 460px;
   max-width: 90vw;
-  background: #111;
-  color: white;
-  border: 5px solid #d71920;
-  border-radius: 18px;
-  padding: 32px;
+  background: white;
+  color: var(--text);
+  border: 1px solid var(--line);
+  border-radius: 26px;
+  padding: 34px;
   text-align: center;
-  box-shadow: 0 0 40px rgba(0,0,0,0.8);
+  box-shadow: var(--shadow);
 }
 
 .paywallCard h1 {
@@ -247,21 +257,23 @@ canvas.grabbing {
 
 .paywallCard p {
   font-size: 17px;
+  color: var(--muted);
 }
 
 .price {
-  font-size: 34px;
+  font-size: 36px;
   font-weight: 900;
   margin: 24px 0;
-  color: #ffd700;
+  color: var(--orange);
 }
 
 #unlockBtn,
 #promoBtn {
-  background: #d71920;
-  border: 3px solid white;
-  border-radius: 10px;
-  padding: 12px 18px;
+  background: var(--orange);
+  border: none;
+  color: white;
+  border-radius: 12px;
+  padding: 13px 18px;
   font-weight: 900;
   cursor: pointer;
 }
@@ -271,37 +283,27 @@ canvas.grabbing {
   margin-bottom: 22px;
 }
 
-.promoBox {
-  margin-top: 12px;
-}
-
 #promoInput {
   width: 100%;
-  padding: 12px;
+  padding: 13px;
   margin-bottom: 10px;
-  border-radius: 8px;
-  border: 3px solid #fff;
+  border-radius: 12px;
+  border: 1px solid var(--line);
   text-align: center;
   font-weight: 900;
 }
 
-#promoMessage {
-  margin-top: 10px;
-  min-height: 20px;
-  font-weight: 900;
-}
-
-/* =========================
-   V2 HOME SCREEN
-========================= */
+/* HOME SCREEN */
 .homeBody {
   overflow: auto;
-  background: #080808;
+  background:
+    radial-gradient(circle at top left, rgba(255,90,0,0.12), transparent 32%),
+    var(--bg);
 }
 
 .homeScreen {
   min-height: 100vh;
-  padding: 48px 24px;
+  padding: 54px 24px;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -309,110 +311,149 @@ canvas.grabbing {
 }
 
 .homeLogo {
-  font-size: 48px;
-  font-weight: 900;
-  text-shadow: 4px 4px #d71920;
+  font-size: 54px;
+  font-weight: 950;
   margin-bottom: 10px;
   text-align: center;
+  color: var(--text);
+  letter-spacing: -2px;
+}
+
+.homeLogo span,
+.homeLogo em {
+  color: var(--orange);
+  font-style: normal;
 }
 
 .homeSubtitle {
-  font-size: 20px;
-  color: #ffd700;
-  font-weight: 900;
-  margin-bottom: 38px;
+  font-size: 18px;
+  color: var(--muted);
+  font-weight: 800;
+  margin-bottom: 40px;
   text-transform: uppercase;
   text-align: center;
+  letter-spacing: 0.5px;
 }
 
 .homeCards {
   display: grid;
-  grid-template-columns: repeat(3, minmax(220px, 320px));
+  grid-template-columns: repeat(3, minmax(220px, 330px));
   gap: 22px;
 }
 
 .homeCard {
-  background: #111;
-  color: white;
+  background: white;
+  color: var(--text);
   text-decoration: none;
-  border: 5px solid white;
-  border-radius: 18px;
-  padding: 28px;
+  border: 1px solid var(--line);
+  border-radius: 24px;
+  padding: 30px;
   text-align: center;
-  box-shadow: 8px 8px 0 #d71920;
-  transition:
-    transform 0.1s ease,
-    box-shadow 0.1s ease,
-    background 0.12s ease,
-    outline 0.12s ease;
+  box-shadow: var(--shadow);
+  transition: all 0.15s ease;
 }
 
 .homeCard:hover {
-  transform: translateY(-4px);
-  background: #1b1b1b;
-  outline: 3px solid #ffd700;
-  outline-offset: 4px;
-}
-
-.homeCard:active {
-  transform: translate(4px, 4px);
-  box-shadow: 2px 2px 0 #d71920;
+  transform: translateY(-5px);
+  border-color: var(--orange);
+  box-shadow: 0 16px 38px rgba(255,90,0,0.16);
 }
 
 .homeIcon {
-  font-size: 46px;
+  font-size: 44px;
 }
 
 .homeCard h2 {
-  color: #ffd700;
+  color: var(--orange);
 }
 
-/* =========================
-   V2 SAVED PLAY / LOG LISTS
-========================= */
+/* LISTS / FOLDERS */
 #savedPlaysList,
-#logsList {
+#logsList,
+.foldersList {
   display: flex;
   flex-direction: column;
   gap: 14px;
 }
 
-.savedPlayItem {
+.savedPlayItem,
+.folderCard {
   display: flex;
   justify-content: space-between;
   gap: 16px;
   align-items: center;
-  background: #222;
-  border: 4px solid #fff;
-  padding: 14px;
-  box-shadow: 4px 4px 0 #d71920;
+  background: white;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  padding: 16px;
+  box-shadow: var(--shadow);
 }
 
-.savedPlayName {
+.savedPlayName,
+.folderTitle {
   font-size: 20px;
   font-weight: 900;
-  color: #ffd700;
+  color: var(--orange);
 }
 
-.savedPlayMeta {
+.savedPlayMeta,
+.folderCode {
   font-size: 13px;
-  opacity: 0.85;
+  color: var(--muted);
 }
 
-.emptyFolder {
-  padding: 24px;
-  font-size: 22px;
+.folderCreateRow {
+  display: flex;
+  gap: 12px;
+  margin: 20px 0 24px;
+}
+
+.folderCreateRow input {
+  flex: 1;
+  background: white;
+  border: 1px solid var(--line);
+  color: var(--text);
+  padding: 14px;
+  font-size: 16px;
+  border-radius: 12px;
+}
+
+.folderCreateRow button {
+  background: var(--orange);
+  border: none;
+  color: white;
   font-weight: 900;
-  color: #ffd700;
+  padding: 14px 20px;
+  border-radius: 12px;
 }
 
-/* =========================
-   SCORE UI
-========================= */
+.folderActions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.shareCodeBadge {
+  display: inline-block;
+  margin-top: 10px;
+  padding: 8px 12px;
+  background: var(--orange-soft);
+  border: 1px solid var(--orange);
+  color: var(--orange);
+  border-radius: 10px;
+  font-weight: 900;
+  letter-spacing: 2px;
+}
+
+.hidden {
+  display: none !important;
+}
+
+/* SCORE */
 .bigScore {
   font-size: 72px;
-  font-weight: 900;
-  color: #ffd700;
+  font-weight: 950;
+  color: var(--orange);
 }
 
 .scoreLine {
@@ -420,9 +461,31 @@ canvas.grabbing {
   margin-bottom: 12px;
 }
 
-/* =========================
-   RESPONSIVE
-========================= */
+/* SIMULATOR TOPBAR */
+.simTopbar {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px 18px;
+  height: auto;
+}
+
+.simHeaderRow,
+.simButtonRow,
+.simControlsRow {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.simHeaderRow .brand {
+  font-size: 28px;
+  text-align: center;
+}
+
+/* RESPONSIVE */
 @media (max-width: 1200px) {
   #topbar {
     flex-direction: column;
@@ -438,7 +501,11 @@ canvas.grabbing {
   }
 
   canvas {
-    height: calc(100vh - 162px);
+    height: calc(100vh - 168px);
+  }
+
+  #fieldShell {
+    height: calc(100vh - 168px);
   }
 }
 
@@ -448,190 +515,20 @@ canvas.grabbing {
   }
 
   .homeLogo {
-    font-size: 34px;
+    font-size: 38px;
   }
 
   .homeSubtitle {
-    font-size: 16px;
+    font-size: 15px;
   }
 
   #qrGrid {
     grid-template-columns: repeat(2, 1fr);
   }
 
-  .savedPlayItem {
+  .savedPlayItem,
+  .folderCard {
     flex-direction: column;
     align-items: flex-start;
   }
-}
-
-
-/* =========================
-   V3 PITCH MODES
-========================= */
-#fieldShell {
-  position: relative;
-  width: calc(100vw - 18px);
-  height: calc(100vh - 104px);
-  margin: 9px;
-}
-
-#fieldShell canvas {
-  width: 100%;
-  height: 100%;
-  margin: 0;
-}
-
-@media (max-width: 1200px) {
-  #fieldShell {
-    height: calc(100vh - 162px);
-  }
-}
-/* =========================
-   FOLDER SYSTEM
-========================= */
-
-.foldersList {
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
-  margin-top: 24px;
-}
-
-.folderCard {
-  background: #111;
-  border: 3px solid #ff2d2d;
-  border-radius: 14px;
-  padding: 18px;
-  box-shadow: 0 0 20px rgba(255,0,0,0.15);
-}
-
-.folderTitle {
-  color: #ffe600;
-  font-size: 22px;
-  font-weight: 900;
-  margin-bottom: 10px;
-  text-transform: uppercase;
-}
-
-.folderCode {
-  color: white;
-  opacity: 0.8;
-  margin-bottom: 14px;
-  font-size: 14px;
-}
-
-.folderCreateRow {
-  display: flex;
-  gap: 12px;
-  margin-top: 20px;
-  margin-bottom: 24px;
-}
-
-.folderCreateRow input {
-  flex: 1;
-  background: black;
-  border: 2px solid white;
-  color: white;
-  padding: 14px;
-  font-size: 18px;
-  outline: none;
-}
-
-.folderCreateRow input::placeholder {
-  color: #777;
-}
-
-.folderCreateRow button {
-  background: #e50914;
-  border: none;
-  color: white;
-  font-weight: 900;
-  padding: 14px 20px;
-  cursor: pointer;
-  transition: 0.2s;
-}
-
-.folderCreateRow button:hover {
-  transform: scale(1.03);
-}
-
-.folderActions {
-  display: flex;
-  gap: 10px;
-  flex-wrap: wrap;
-}
-
-.folderActions button {
-  background: black;
-  border: 2px solid white;
-  color: white;
-  padding: 10px 14px;
-  font-weight: 700;
-  cursor: pointer;
-}
-
-.folderActions button:hover {
-  background: #ff2d2d;
-}
-
-.shareCodeBadge {
-  display: inline-block;
-  margin-top: 10px;
-  padding: 8px 12px;
-  background: #222;
-  border: 2px solid #ffe600;
-  color: #ffe600;
-  font-weight: 900;
-  letter-spacing: 2px;
-}/* =========================
-   SIMULATOR TOPBAR CLEANUP
-========================= */
-
-.simTopbar {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  padding: 14px 18px;
-  height: auto;
-}
-
-.simHeaderRow {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-}
-
-.simHeaderRow .brand {
-  font-size: 28px;
-  text-align: center;
-}
-
-.simButtonRow,
-.simControlsRow {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  gap: 10px;
-  flex-wrap: wrap;
-}
-
-.simButtonRow button,
-.simControlsRow button,
-.simControlsRow select {
-  white-space: nowrap;
-}
-
-.simControlsRow label {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  color: white;
-  font-weight: 900;
-}
-
-.simControlsRow .speedLabel {
-  display: flex;
-  align-items: center;
-  gap: 8px;
 }

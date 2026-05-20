@@ -7,6 +7,12 @@ ctx.imageSmoothingEnabled = false;
 const W = canvas.width;
 const H = canvas.height;
 
+// New V7 professional pitch artwork.
+// Make sure your image is saved exactly here: assets/rugby-pitch.png
+const rugbyPitchImg = new Image();
+rugbyPitchImg.src = "assets/rugby-pitch.png";
+rugbyPitchImg.onload = () => draw();
+
 let state = null;
 let setupMode = "free";
 let playerGroup = "all";
@@ -102,8 +108,6 @@ const TEXT = {
     invalid: "Code promo invalide."
   }
 };
-
-
 
 function getPitchField(mode = pitchMode) {
   if (mode === "lineout") {
@@ -263,48 +267,69 @@ if (langToggle) {
   };
 }
 
-document.getElementById("pitchMode").onchange = e => setPitchMode(e.target.value);
+const pitchModeSelect = document.getElementById("pitchMode");
+if (pitchModeSelect) pitchModeSelect.onchange = e => setPitchMode(e.target.value);
 
+const sportModeSelect = document.getElementById("sportMode");
+if (sportModeSelect) {
+  sportModeSelect.onchange = e => {
+    sportMode = e.target.value;
+    socket.emit("coach-sport-mode", sportMode);
+    updateToolVisibility();
+    draw();
+  };
+}
 
-document.getElementById("sportMode").onchange = e => {
-  sportMode = e.target.value;
-  socket.emit("coach-sport-mode", sportMode);
-  updateToolVisibility();
-  draw();
-};
+document.getElementById("lineoutTopBtn")?.addEventListener("click", () => setMode("lineout-top"));
+document.getElementById("lineoutBottomBtn")?.addEventListener("click", () => setMode("lineout-bottom"));
+document.getElementById("scrumBtn")?.addEventListener("click", () => setMode("scrum"));
+document.getElementById("freeBtn")?.addEventListener("click", () => setMode("free"));
 
-document.getElementById("lineoutTopBtn").onclick = () => setMode("lineout-top");
-document.getElementById("lineoutBottomBtn").onclick = () => setMode("lineout-bottom");
-document.getElementById("scrumBtn").onclick = () => setMode("scrum");
-document.getElementById("freeBtn").onclick = () => setMode("free");
+const teamColorSelect = document.getElementById("teamColor");
+if (teamColorSelect) {
+  teamColorSelect.onchange = e => {
+    socket.emit("coach-team-color", e.target.value);
+  };
+}
 
-document.getElementById("teamColor").onchange = e => {
-  socket.emit("coach-team-color", e.target.value);
-};
+const playerGroupSelect = document.getElementById("playerGroup");
+if (playerGroupSelect) {
+  playerGroupSelect.onchange = e => {
+    playerGroup = e.target.value;
+    draw();
+  };
+}
 
-document.getElementById("playerGroup").onchange = e => {
-  playerGroup = e.target.value;
-  draw();
-};
+const playerSizeSelect = document.getElementById("playerSize");
+if (playerSizeSelect) {
+  playerSizeSelect.onchange = e => {
+    playerSize = e.target.value;
+    draw();
+  };
+}
 
-document.getElementById("playerSize").onchange = e => {
-  playerSize = e.target.value;
-  draw();
-};
+const resetBtn = document.getElementById("resetBtn");
+if (resetBtn) {
+  resetBtn.onclick = () => {
+    socket.emit("coach-reset");
+    setMode("free");
+  };
+}
 
-document.getElementById("resetBtn").onclick = () => {
-  socket.emit("coach-reset");
-  setMode("free");
-};
+const freezeBtn = document.getElementById("freezeBtn");
+if (freezeBtn) {
+  freezeBtn.onclick = () => {
+    if (!state) return;
+    socket.emit("coach-freeze", !state.frozen);
+  };
+}
 
-document.getElementById("freezeBtn").onclick = () => {
-  if (!state) return;
-  socket.emit("coach-freeze", !state.frozen);
-};
-
-document.getElementById("speed").oninput = e => {
-  socket.emit("coach-speed", Number(e.target.value));
-};
+const speedInput = document.getElementById("speed");
+if (speedInput) {
+  speedInput.oninput = e => {
+    socket.emit("coach-speed", Number(e.target.value));
+  };
+}
 
 /* ================================
    MOUSE / TOUCH GEOMETRY
@@ -475,35 +500,41 @@ canvas.addEventListener("dblclick", e => {
    QR MODAL
 ================================ */
 
-document.getElementById("qrBtn").onclick = async () => {
-  const modal = document.getElementById("qrModal");
-  const grid = document.getElementById("qrGrid");
+const qrBtn = document.getElementById("qrBtn");
+if (qrBtn) {
+  qrBtn.onclick = async () => {
+    const modal = document.getElementById("qrModal");
+    const grid = document.getElementById("qrGrid");
 
-  modal.classList.remove("hidden");
-  grid.innerHTML = "";
+    modal.classList.remove("hidden");
+    grid.innerHTML = "";
 
-  const res = await fetch("/api/qrs");
-  const data = await res.json();
+    const res = await fetch("/api/qrs");
+    const data = await res.json();
 
-  const maxPlayers = sportMode === "football" ? 11 : 15;
+    const maxPlayers = sportMode === "football" ? 11 : 15;
 
-  for (let i = 1; i <= maxPlayers; i++) {
-    const item = document.createElement("div");
-    item.className = "qrItem";
+    for (let i = 1; i <= maxPlayers; i++) {
+      const item = document.createElement("div");
+      item.className = "qrItem";
 
-    item.innerHTML = `
-      <div>Player ${i}</div>
-      <img src="${data.qrs[i]}" />
-      <div>${data.baseUrl}/controller.html?p=${i}</div>
-    `;
+      item.innerHTML = `
+        <div>Player ${i}</div>
+        <img src="${data.qrs[i]}" />
+        <div>${data.baseUrl}/controller.html?p=${i}</div>
+      `;
 
-    grid.appendChild(item);
-  }
-};
+      grid.appendChild(item);
+    }
+  };
+}
 
-document.getElementById("closeQr").onclick = () => {
-  document.getElementById("qrModal").classList.add("hidden");
-};
+const closeQr = document.getElementById("closeQr");
+if (closeQr) {
+  closeQr.onclick = () => {
+    document.getElementById("qrModal").classList.add("hidden");
+  };
+}
 
 /* ================================
    DRAW HELPERS
@@ -551,56 +582,16 @@ function drawRugbyPitch() {
 }
 
 function drawFullRugbyPitch() {
-  ctx.fillStyle = "#6ec65f";
-  ctx.fillRect(0, 0, W, H);
+  if (rugbyPitchImg.complete && rugbyPitchImg.naturalWidth > 0) {
+    ctx.drawImage(rugbyPitchImg, 0, 0, W, H);
+  } else {
+    ctx.fillStyle = "#6ec65f";
+    ctx.fillRect(0, 0, W, H);
+  }
 
-  const left = FIELD.left;
-  const right = FIELD.right;
-  const top = FIELD.top;
-  const bottom = FIELD.bottom;
-  const pw = right - left;
-  const ph = bottom - top;
-  const X = p => left + pw * p;
-  const Y = p => top + ph * p;
-
-  ctx.strokeStyle = "#fff";
-  ctx.lineWidth = 7;
-  ctx.strokeRect(left, top, pw, ph);
-
-  ctx.strokeStyle = "#fff";
-  ctx.lineWidth = 5;
-  [0.06, 0.94].forEach(p => { ctx.beginPath(); ctx.moveTo(X(p), top); ctx.lineTo(X(p), bottom); ctx.stroke(); });
-  ctx.setLineDash([16, 14]);
-  [0.10, 0.90].forEach(p => { ctx.beginPath(); ctx.moveTo(X(p), top); ctx.lineTo(X(p), bottom); ctx.stroke(); });
-  ctx.setLineDash([]);
-  ctx.lineWidth = 6;
-  [0.26, 0.74].forEach(p => { ctx.beginPath(); ctx.moveTo(X(p), top); ctx.lineTo(X(p), bottom); ctx.stroke(); });
-  ctx.setLineDash([20, 16]);
-  ctx.lineWidth = 4;
-  [0.40, 0.60].forEach(p => { ctx.beginPath(); ctx.moveTo(X(p), top); ctx.lineTo(X(p), bottom); ctx.stroke(); });
-  ctx.setLineDash([]);
-  ctx.lineWidth = 6;
-  ctx.beginPath(); ctx.moveTo(X(0.50), top); ctx.lineTo(X(0.50), bottom); ctx.stroke();
-  ctx.setLineDash([18, 16]);
-  ctx.lineWidth = 4;
-  [0.08, 0.23, 0.77, 0.92].forEach(p => { ctx.beginPath(); ctx.moveTo(left, Y(p)); ctx.lineTo(right, Y(p)); ctx.stroke(); });
-  ctx.setLineDash([]);
-
-  ctx.save();
-  ctx.fillStyle = "#fff";
-  ctx.font = "900 18px Courier New";
-  ctx.textAlign = "center";
-  ctx.shadowColor = "#000";
-  ctx.shadowOffsetX = 3;
-  ctx.shadowOffsetY = 3;
-  [["5m", 0.10], ["22m", 0.26], ["40m", 0.40], ["50m", 0.50], ["40m", 0.60], ["22m", 0.74], ["5m", 0.90]].forEach(([label, p]) => ctx.fillText(label, X(p), bottom + 30));
-  ctx.textAlign = "left";
-  [["5m",0.08],["15m",0.23],["15m",0.77],["5m",0.92]].forEach(([label,p]) => ctx.fillText(label, left + 8, Y(p) - 8));
-  ctx.textAlign = "right";
-  [["5m",0.08],["15m",0.23],["15m",0.77],["5m",0.92]].forEach(([label,p]) => ctx.fillText(label, right - 8, Y(p) - 8));
-  ctx.restore();
-
-  drawPitchHeader(t("slogan"));
+  // The new premium pitch image already contains the full field markings.
+  // We stop here so the old pixel field lines and red banner are not drawn over it.
+  return;
 }
 
 function drawHalfPitch() {
@@ -671,6 +662,7 @@ function drawLineoutPitch() {
 
   drawPitchHeader(t("slogan") + " | LINEOUT");
 }
+
 function drawFootballPitch() {
   ctx.fillStyle = "#2f9e44";
   ctx.fillRect(0, 0, W, H);
@@ -857,13 +849,13 @@ function drawFooter() {
 }
 
 function draw() {
-  if (!state) return;
-
   if (sportMode === "football") {
     drawFootballPitch();
   } else {
     drawRugbyPitch();
   }
+
+  if (!state) return;
 
   Object.values(state.players).forEach(drawPlayer);
   drawBall(state.ball);
