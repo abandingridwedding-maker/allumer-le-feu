@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>TEAM-CLARITY | Join Folder</title>
+
+  <style>
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background: #111;
+      color: #fff;
+      font-family: Arial, sans-serif;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+
+    .box {
+      width: 380px;
+      max-width: 90%;
+      padding: 36px;
+      border: 4px solid #e71920;
+      background: #1a1a1a;
+      text-align: center;
+      box-shadow: 0 0 30px rgba(0,0,0,.4);
+    }
+
+    h1 {
+      color: #ffe000;
+      font-size: 28px;
+      margin-bottom: 28px;
+      letter-spacing: 2px;
+    }
+
+    input {
+      width: 100%;
+      padding: 16px;
+      font-size: 20px;
+      text-align: center;
+      background: #111;
+      color: #fff;
+      border: 3px solid #fff;
+      margin-bottom: 22px;
+      box-sizing: border-box;
+      text-transform: uppercase;
+    }
+
+    button {
+      width: 100%;
+      padding: 16px;
+      font-size: 20px;
+      font-weight: 900;
+      background: #e71920;
+      color: #fff;
+      border: none;
+      cursor: pointer;
+      transition: 0.2s ease;
+    }
+
+    button:hover {
+      background: #ff2e38;
+    }
+
+    button:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+
+    #joinMessage {
+      margin-top: 18px;
+      font-size: 16px;
+      font-weight: 700;
+      min-height: 22px;
+    }
+
+    .success {
+      color: #36ff72;
+    }
+
+    .error {
+      color: #ff4d4d;
+    }
+  </style>
+</head>
+
+<body>
+
+  <div class="box">
+    <h1>JOIN TEAM FOLDER</h1>
+
+    <input
+      id="shareCode"
+      type="text"
+      placeholder="ENTER SHARE CODE"
+      autocomplete="off"
+    />
+
+    <button id="joinFolderBtn">
+      JOIN FOLDER
+    </button>
+
+    <div id="joinMessage"></div>
+  </div>
+
+  <script type="module" src="joinfolder.js"></script>
+
+</body>
+</html>

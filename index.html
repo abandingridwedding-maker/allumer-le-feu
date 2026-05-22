@@ -1,108 +1,53 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>TEAM-CLARITY — Coach Screen</title>
-<link rel="stylesheet" href="style.css" />
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>TEAM-CLARITY</title>
+  <link rel="stylesheet" href="style.css" />
 </head>
 
-<body class="coach">
-  <div id="topbar">
-    <div class="brand">🔥 TEAM-CLARITY</div>
+<body class="homeBody">
+  <div class="homeScreen">
+    <div class="homeLogo">🔥 TEAM-CLARITY</div>
+    <div class="homeSubtitle">Clarity creates intensity</div>
 
-    <div class="tools">
+    <div class="homeCards">
+      <a class="homeCard" href="clarity.html">
+        <div class="homeIcon">🎮</div>
+        <h2>CLARITY LIVE</h2>
+        <p>Run the live team clarity session with connected players.</p>
+      </a>
 
-      <button id="qrBtn">QR Codes</button>
+      <a class="homeCard" href="playbuilder.html">
+        <div class="homeIcon">📋</div>
+        <h2>PLAY BUILDER</h2>
+        <p>Create, save and animate team plays.</p>
+      </a>
 
-      <select id="langToggle">
-        <option value="en">EN</option>
-        <option value="fr">FR</option>
-      </select>
+      <a class="homeCard" href="playsimulator.html">
+        <div class="homeIcon">🏃</div>
+        <h2>PLAYER SIMULATOR</h2>
+        <p>Players train their role and timing inside saved plays.</p>
+      </a>
 
-      <select id="sportMode">
-        <option value="rugby">Rugby</option>
-        <option value="football">Football</option>
-      </select>
-
-      <div class="toolGroup rugbyOnly">
-        <button id="lineoutTopBtn">Lineout Top</button>
-        <button id="lineoutBottomBtn">Lineout Bottom</button>
-        <button id="scrumBtn">Scrum</button>
-        <button id="freeBtn">Free Ball</button>
-
-        <select id="attackDirection">
-          <option value="rtl">Right → Left</option>
-          <option value="ltr">Left → Right</option>
-        </select>
-      </div>
-
-      <div class="toolGroup sharedTools">
-        <select id="teamColor">
-          <option value="#d71920">Red</option>
-          <option value="#111111">Black</option>
-          <option value="#0057ff">Blue</option>
-          <option value="#00a651">Green</option>
-          <option value="#ffffff">White</option>
-          <option value="#ffd700">Gold</option>
-        </select>
-
-        <select id="playerGroup" class="rugbyOnly">
-          <option value="all">All Players</option>
-          <option value="forwards">Forwards Only</option>
-          <option value="backs">Backs Only</option>
-        </select>
-
-        <select id="playerSize">
-          <option value="normal">Normal Size</option>
-          <option value="medium">2/3 Size</option>
-          <option value="small">Small Circle</option>
-        </select>
-
-        <button id="freezeBtn">Freeze</button>
-        <button id="resetBtn">Reset</button>
-
-        <label class="speedLabel">
-          Speed
-          <input id="speed" type="range" min="1" max="9" step="0.2" value="4.2" />
-        </label>
-      </div>
-
+      
     </div>
   </div>
 
-  <canvas id="field" width="1400" height="820"></canvas>
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="coach.js"></script>
 
-  <div id="qrModal" class="modal hidden">
-    <div class="modalCard">
-      <div class="modalHeader">
-        <h2 id="qrTitle">Scan to control players</h2>
-        <button id="closeQr">Close</button>
-      </div>
-      <div id="qrGrid"></div>
-    </div>
-  </div>
+  <script type="module">
+    import { supabase } from './supabase.js'
 
-  <div id="paywallOverlay" class="paywall hidden">
-    <div class="paywallCard">
-      <h1 id="paywallTitle">SESSION LIVE 🔴</h1>
-      <p id="paywallLine1">Your session is connected.</p>
-      <p id="paywallLine2">To keep players connected and continue managing your team:</p>
+    const {
+      data: { session }
+    } = await supabase.auth.getSession()
 
-      <div class="price" id="paywallPrice">€9.99 / year</div>
-
-      <button id="unlockBtn">Unlock Access</button>
-
-      <div class="promoBox">
-        <label id="promoLabel">Promo code:</label>
-        <input id="promoInput" type="text" placeholder="Enter code" />
-        <button id="promoBtn">Apply Promo Code</button>
-        <div id="promoMessage"></div>
-      </div>
-    </div>
-  </div>
-
-<script src="/socket.io/socket.io.js"></script>
-<script src="coach.js"></script>
+    if (!session) {
+      window.location.href = 'auth.html'
+    }
+  </script>
 </body>
 </html>

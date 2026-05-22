@@ -1,4 +1,5 @@
 const socket = io();
+
 const canvas = document.getElementById("field");
 const ctx = canvas.getContext("2d");
 ctx.imageSmoothingEnabled = false;
@@ -6,20 +7,189 @@ ctx.imageSmoothingEnabled = false;
 const W = canvas.width;
 const H = canvas.height;
 
-let state = null;
+/* ================================
+   V7 PITCH ARTWORK
+   Files must exist exactly here:
+   assets/rugby-pitch.png
+   assets/half-pitch.png
+   assets/lineout-pitch.png
+================================ */
+
+const rugbyPitchImg = new Image();
+rugbyPitchImg.src = "assets/rugby-pitch.png";
+rugbyPitchImg.onload = () => draw();
+
+const halfPitchImg = new Image();
+halfPitchImg.src = "assets/half-pitch.png";
+halfPitchImg.onload = () => draw();
+
+const lineoutPitchImg = new Image();
+lineoutPitchImg.src = "assets/lineout-pitch.png";
+lineoutPitchImg.onload = () => draw();
+
+/* ================================
+   STATE
+================================ */
+
 let setupMode = "free";
 let playerGroup = "all";
-let playerSize = "normal";
-let attackDirection = "rtl";
+let playerSize = "small";
 let sportMode = "rugby";
+let pitchMode = "full";
 let currentLang = "en";
 
 let draggingBall = false;
 let draggingPlayerNumber = null;
+let dragOffset = { x: 0, y: 0 };
+
+const COLORS = {
+  red: "#d71920",
+  white: "#ffffff",
+  black: "#111111",
+  blue: "#1f6feb"
+};
+
+/* ================================
+   FIELD / MOVEMENT BOUNDS
+   Movement bounds sit OUTSIDE the visible pitch outline.
+   This fixes the old invisible wall around the 5m line.
+================================ */
+
+const FIELD = {
+  left: 35,
+  right: W - 35,
+  top: 72,
+  bottom: H - 82
+};
+
+function getPitchField(mode = pitchMode) {
+  // All three artwork files are full-canvas images.
+  // Movement bounds are therefore full usable canvas bounds, inside only a small safety margin.
+  return {
+    left: 35,
+    right: W - 35,
+    top: 72,
+    bottom: H - 82
+  };
+}
+
+function applyActiveField() {
+  Object.assign(FIELD, getPitchField());
+}
+
+function playerClampPadding() {
+  if (playerSize === "small") return { x: 18, y: 18 };
+  if (playerSize === "medium") return { x: 24, y: 34 };
+  return { x: 34, y: 48 };
+}
+
+function ballClampPadding() {
+  return { x: 24, y: 24 };
+}
+
+function clamp(v, min, max) {
+  return Math.max(min, Math.min(max, v));
+}
+
+function clampPointToField(point, isBall = false) {
+  const pad = isBall ? ballClampPadding() : playerClampPadding();
+
+  return {
+    x: clamp(point.x, FIELD.left + pad.x, FIELD.right - pad.x),
+    y: clamp(point.y, FIELD.top + pad.y, FIELD.bottom - pad.y)
+  };
+}
+
+function clampPlayer(player) {
+  const p = clampPointToField(player, false);
+  player.x = p.x;
+  player.y = p.y;
+}
+
+function clampBall(ball) {
+  const p = clampPointToField(ball, true);
+  ball.x = p.x;
+  ball.y = p.y;
+}
+
+/* ================================
+   LOCAL FALLBACK STATE
+   This makes Live still visible even before socket/server state arrives.
+================================ */
+
+function createDefaultPlayers() {
+  const players = {};
+
+  for (let i = 1; i <= 15; i++) {
+    players[i] = {
+      number: i,
+      x: 500,
+      y: 300,
+      color: COLORS.red,
+      connected: false
+    };
+  }
+
+  return players;
+}
+
+function placeDefaultLineout(players, ball) {
+  const xForwards = 920;
+  const startY = 165;
+  const spacing = 34;
+
+  [1, 3, 4, 5, 6, 7, 8].forEach((n, i) => {
+    players[n].x = xForwards;
+    players[n].y = startY + i * spacing;
+  });
+
+  players[2].x = xForwards - 78;
+  players[2].y = startY;
+
+  players[9].x = xForwards + 76;
+  players[9].y = startY + spacing * 4.2;
+
+  players[10].x = xForwards + 185;
+  players[10].y = startY + spacing * 3.5;
+
+  players[12].x = xForwards + 290;
+  players[12].y = startY + spacing * 4.3;
+
+  players[13].x = xForwards + 405;
+  players[13].y = startY + spacing * 5;
+
+  players[15].x = xForwards + 515;
+  players[15].y = startY + spacing * 5.9;
+
+  players[14].x = xForwards + 620;
+  players[14].y = startY + spacing * 6.8;
+
+  players[11].x = xForwards + 345;
+  players[11].y = startY + spacing * 1.6;
+
+  ball.x = xForwards + 34;
+  ball.y = startY + spacing * 1.4;
+
+  Object.values(players).forEach(clampPlayer);
+  clampBall(ball);
+}
+
+let state = {
+  players: createDefaultPlayers(),
+  ball: { x: 950, y: 230 },
+  frozen: false,
+  sportMode: "rugby",
+  pitchMode: "full"
+};
+
+placeDefaultLineout(state.players, state.ball);
+
+/* ================================
+   TEXT
+================================ */
 
 const TEXT = {
   en: {
-    slogan: "CLARITY CREATES INTENSITY",
     qrCodes: "QR Codes",
     qrTitle: "Scan to control players",
     close: "Close",
@@ -29,8 +199,6 @@ const TEXT = {
     lineoutBottom: "Lineout Bottom",
     scrum: "Scrum",
     freeBall: "Free Ball",
-    rightLeft: "Right → Left",
-    leftRight: "Left → Right",
     allPlayers: "All Players",
     forwardsOnly: "Forwards Only",
     backsOnly: "Backs Only",
@@ -40,6 +208,13 @@ const TEXT = {
     freeze: "Freeze",
     reset: "Reset",
     speed: "Speed",
+    freeBallMode: "FREE BALL MODE",
+    lineoutTopMode: "LINEOUT TOP",
+    lineoutBottomMode: "LINEOUT BOTTOM",
+    scrumMode: "SCRUM",
+    footballMode: "FOOTBALL MODE",
+    attack: "ATTACK: RIGHT → LEFT",
+    footer: "Click player = drag | Click grass = move ball | Double-click player = attach ball",
     session: "SESSION LIVE 🔴",
     message1: "Your session is connected.",
     message2: "To keep players connected and continue managing your team:",
@@ -48,187 +223,255 @@ const TEXT = {
     promo: "Promo code:",
     promoPlaceholder: "Enter code",
     applyPromo: "Apply Promo Code",
-    invalid: "Invalid promo code.",
-    footballMode: "FOOTBALL MODE | SAME PHONE CONTROLLERS",
-    attackRTL: "ATTACK: RIGHT → LEFT",
-    attackLTR: "ATTACK: LEFT → RIGHT",
-    lineoutTopMode: "LINEOUT TOP",
-    lineoutBottomMode: "LINEOUT BOTTOM",
-    scrumMode: "SCRUM",
-    freeBallMode: "FREE BALL MODE",
-    footer: "Click/drag player = coach reposition | Click/drag grass = move ball | Double click player = attach ball"
-  },
-  fr: {
-    slogan: "LA CLARTÉ CRÉE L’INTENSITÉ",
-    qrCodes: "QR Codes",
-    qrTitle: "Scanner pour contrôler les joueurs",
-    close: "Fermer",
-    rugby: "Rugby",
-    football: "Football",
-    lineoutTop: "Touche haut",
-    lineoutBottom: "Touche bas",
-    scrum: "Mêlée",
-    freeBall: "Ballon libre",
-    rightLeft: "Droite → Gauche",
-    leftRight: "Gauche → Droite",
-    allPlayers: "Tous les joueurs",
-    forwardsOnly: "Avants seulement",
-    backsOnly: "Arrières seulement",
-    normalSize: "Taille normale",
-    mediumSize: "Taille 2/3",
-    smallCircle: "Petit cercle",
-    freeze: "Bloquer",
-    reset: "Réinitialiser",
-    speed: "Vitesse",
-    session: "SESSION ACTIVE 🔴",
-    message1: "Votre session est connectée.",
-    message2: "Pour garder les joueurs connectés et continuer à gérer votre équipe :",
-    price: "9,99€ / an",
-    unlock: "Débloquer l’accès",
-    promo: "Code promo :",
-    promoPlaceholder: "Entrer le code",
-    applyPromo: "Appliquer le code promo",
-    invalid: "Code promo invalide.",
-    footballMode: "MODE FOOTBALL | MÊMES CONTRÔLEURS TÉLÉPHONE",
-    attackRTL: "ATTAQUE : DROITE → GAUCHE",
-    attackLTR: "ATTAQUE : GAUCHE → DROITE",
-    lineoutTopMode: "TOUCHE HAUT",
-    lineoutBottomMode: "TOUCHE BAS",
-    scrumMode: "MÊLÉE",
-    freeBallMode: "BALLON LIBRE",
-    footer: "Cliquer/glisser joueur = repositionner | Cliquer/glisser terrain = bouger ballon | Double-clic joueur = attacher ballon"
+    invalid: "Invalid promo code."
   }
 };
 
 function t(key) {
-  return TEXT[currentLang][key] || TEXT.en[key] || key;
+  return TEXT.en[key] || key;
+}
+
+function safeText(id, value) {
+  const el = document.getElementById(id);
+  if (el) el.textContent = value;
+}
+
+function safeOption(selector, value) {
+  const el = document.querySelector(selector);
+  if (el) el.textContent = value;
+}
+
+function setCanvasDragging(isDragging) {
+  canvas.classList.toggle("grabbing", isDragging);
 }
 
 function applyTranslations() {
-  document.getElementById("qrBtn").textContent = t("qrCodes");
-  document.getElementById("qrTitle").textContent = t("qrTitle");
-  document.getElementById("closeQr").textContent = t("close");
+  safeText("qrBtn", t("qrCodes"));
+  safeText("qrTitle", t("qrTitle"));
+  safeText("closeQr", t("close"));
 
-  document.querySelector('#sportMode option[value="rugby"]').textContent = t("rugby");
-  document.querySelector('#sportMode option[value="football"]').textContent = t("football");
+  safeOption('#sportMode option[value="rugby"]', t("rugby"));
+  safeOption('#sportMode option[value="football"]', t("football"));
 
-  document.getElementById("lineoutTopBtn").textContent = t("lineoutTop");
-  document.getElementById("lineoutBottomBtn").textContent = t("lineoutBottom");
-  document.getElementById("scrumBtn").textContent = t("scrum");
-  document.getElementById("freeBtn").textContent = t("freeBall");
+  safeText("lineoutTopBtn", t("lineoutTop"));
+  safeText("lineoutBottomBtn", t("lineoutBottom"));
+  safeText("scrumBtn", t("scrum"));
+  safeText("freeBtn", t("freeBall"));
 
-  document.querySelector('#attackDirection option[value="rtl"]').textContent = t("rightLeft");
-  document.querySelector('#attackDirection option[value="ltr"]').textContent = t("leftRight");
+  safeOption('#playerGroup option[value="all"]', t("allPlayers"));
+  safeOption('#playerGroup option[value="forwards"]', t("forwardsOnly"));
+  safeOption('#playerGroup option[value="backs"]', t("backsOnly"));
 
-  document.querySelector('#playerGroup option[value="all"]').textContent = t("allPlayers");
-  document.querySelector('#playerGroup option[value="forwards"]').textContent = t("forwardsOnly");
-  document.querySelector('#playerGroup option[value="backs"]').textContent = t("backsOnly");
+  safeOption('#playerSize option[value="normal"]', t("normalSize"));
+  safeOption('#playerSize option[value="medium"]', t("mediumSize"));
+  safeOption('#playerSize option[value="small"]', t("smallCircle"));
 
-  document.querySelector('#playerSize option[value="normal"]').textContent = t("normalSize");
-  document.querySelector('#playerSize option[value="medium"]').textContent = t("mediumSize");
-  document.querySelector('#playerSize option[value="small"]').textContent = t("smallCircle");
-
-  document.getElementById("freezeBtn").textContent = t("freeze");
-  document.getElementById("resetBtn").textContent = t("reset");
+  safeText("freezeBtn", t("freeze"));
+  safeText("resetBtn", t("reset"));
 
   const speedLabel = document.querySelector(".speedLabel");
-  if (speedLabel) {
+  if (speedLabel && speedLabel.childNodes[0]) {
     speedLabel.childNodes[0].nodeValue = t("speed") + " ";
   }
 
-  document.getElementById("paywallTitle").textContent = t("session");
-  document.getElementById("paywallLine1").textContent = t("message1");
-  document.getElementById("paywallLine2").textContent = t("message2");
-  document.getElementById("paywallPrice").textContent = t("price");
-  document.getElementById("unlockBtn").textContent = t("unlock");
-  document.getElementById("promoLabel").textContent = t("promo");
-  document.getElementById("promoInput").placeholder = t("promoPlaceholder");
-  document.getElementById("promoBtn").textContent = t("applyPromo");
+  safeText("paywallTitle", t("session"));
+  safeText("paywallLine1", t("message1"));
+  safeText("paywallLine2", t("message2"));
+  safeText("paywallPrice", t("price"));
+  safeText("unlockBtn", t("unlock"));
+  safeText("promoLabel", t("promo"));
+  safeText("promoBtn", t("applyPromo"));
+
+  const promoInput = document.getElementById("promoInput");
+  if (promoInput) promoInput.placeholder = t("promoPlaceholder");
+}
+
+/* ================================
+   UI MODES
+================================ */
+
+function syncControls() {
+  const pitchModeSelect = document.getElementById("pitchMode");
+  if (pitchModeSelect) pitchModeSelect.value = pitchMode;
+
+  const playerGroupSelect = document.getElementById("playerGroup");
+  if (playerGroupSelect) playerGroupSelect.value = playerGroup;
+
+  const playerSizeSelect = document.getElementById("playerSize");
+  if (playerSizeSelect) playerSizeSelect.value = playerSize;
+
+  const sportModeSelect = document.getElementById("sportMode");
+  if (sportModeSelect) sportModeSelect.value = sportMode;
+}
+
+function setPitchMode(mode, emit = true) {
+  pitchMode = ["full", "half", "lineout"].includes(mode) ? mode : "full";
+  state.pitchMode = pitchMode;
+
+  if (pitchMode === "lineout") {
+    playerGroup = "forwards";
+  }
+
+  applyActiveField();
+  Object.values(state.players || {}).forEach(clampPlayer);
+  if (state.ball) clampBall(state.ball);
+
+  syncControls();
+  if (emit) socket.emit("coach-pitch-mode", pitchMode);
+  draw();
+}
+
+function clearModeButtons() {
+  ["lineoutTopBtn", "lineoutBottomBtn", "scrumBtn", "freeBtn"].forEach(id => {
+    document.getElementById(id)?.classList.remove("modeActive");
+  });
+}
+
+function updateModeButtons() {
+  clearModeButtons();
+
+  if (setupMode === "lineout-top") document.getElementById("lineoutTopBtn")?.classList.add("modeActive");
+  if (setupMode === "lineout-bottom") document.getElementById("lineoutBottomBtn")?.classList.add("modeActive");
+  if (setupMode === "scrum") document.getElementById("scrumBtn")?.classList.add("modeActive");
+  if (setupMode === "free") document.getElementById("freeBtn")?.classList.add("modeActive");
+}
+
+function setMode(mode) {
+  setupMode = mode;
+  updateModeButtons();
+  draw();
 }
 
 function updateToolVisibility() {
   document.querySelectorAll(".rugbyOnly").forEach(item => {
-    if (sportMode === "rugby") {
-      item.classList.remove("hidden");
-    } else {
-      item.classList.add("hidden");
-    }
+    item.classList.toggle("hidden", sportMode !== "rugby");
   });
 
-  if (sportMode === "football") {
-    setupMode = "free";
-  }
+  if (sportMode === "football") setupMode = "free";
+
+  updateModeButtons();
 }
 
-function fitMouse(e) {
+/* ================================
+   SOCKET STATE
+================================ */
+
+socket.on("state", serverState => {
+  if (!serverState) return;
+
+  state = serverState;
+
+  if (state.sportMode) sportMode = state.sportMode;
+  if (state.pitchMode) pitchMode = state.pitchMode;
+
+  applyActiveField();
+  syncControls();
+  updateToolVisibility();
+  draw();
+});
+
+/* ================================
+   DOM CONTROLS
+================================ */
+
+const langToggle = document.getElementById("langToggle");
+if (langToggle) {
+  langToggle.onchange = () => {
+    currentLang = "en";
+    localStorage.setItem("teamClarityLang", currentLang);
+    applyTranslations();
+    draw();
+  };
+}
+
+const pitchModeSelect = document.getElementById("pitchMode");
+if (pitchModeSelect) pitchModeSelect.onchange = e => setPitchMode(e.target.value);
+
+const sportModeSelect = document.getElementById("sportMode");
+if (sportModeSelect) {
+  sportModeSelect.onchange = e => {
+    sportMode = e.target.value;
+    state.sportMode = sportMode;
+    socket.emit("coach-sport-mode", sportMode);
+    updateToolVisibility();
+    syncControls();
+    draw();
+  };
+}
+
+document.getElementById("lineoutTopBtn")?.addEventListener("click", () => setMode("lineout-top"));
+document.getElementById("lineoutBottomBtn")?.addEventListener("click", () => setMode("lineout-bottom"));
+document.getElementById("scrumBtn")?.addEventListener("click", () => setMode("scrum"));
+document.getElementById("freeBtn")?.addEventListener("click", () => setMode("free"));
+
+const teamColorSelect = document.getElementById("teamColor");
+if (teamColorSelect) {
+  teamColorSelect.onchange = e => {
+    const color = COLORS[e.target.value] || COLORS.red;
+    Object.values(state.players || {}).forEach(p => {
+      p.color = color;
+    });
+    socket.emit("coach-team-color", e.target.value);
+    draw();
+  };
+}
+
+const playerGroupSelect = document.getElementById("playerGroup");
+if (playerGroupSelect) {
+  playerGroupSelect.onchange = e => {
+    playerGroup = e.target.value;
+    syncControls();
+    draw();
+  };
+}
+
+const playerSizeSelect = document.getElementById("playerSize");
+if (playerSizeSelect) {
+  playerSizeSelect.onchange = e => {
+    playerSize = e.target.value;
+    Object.values(state.players || {}).forEach(clampPlayer);
+    if (state.ball) clampBall(state.ball);
+    syncControls();
+    draw();
+  };
+}
+
+const resetBtn = document.getElementById("resetBtn");
+if (resetBtn) {
+  resetBtn.onclick = () => {
+    socket.emit("coach-reset");
+    setMode("free");
+  };
+}
+
+const freezeBtn = document.getElementById("freezeBtn");
+if (freezeBtn) {
+  freezeBtn.onclick = () => {
+    state.frozen = !state.frozen;
+    socket.emit("coach-freeze", state.frozen);
+    draw();
+  };
+}
+
+const speedInput = document.getElementById("speed");
+if (speedInput) {
+  speedInput.oninput = e => {
+    socket.emit("coach-speed", Number(e.target.value));
+  };
+}
+
+/* ================================
+   MOUSE / TOUCH GEOMETRY
+================================ */
+
+function mousePoint(e) {
   const rect = canvas.getBoundingClientRect();
+
   return {
     x: (e.clientX - rect.left) * (canvas.width / rect.width),
     y: (e.clientY - rect.top) * (canvas.height / rect.height)
   };
 }
-
-socket.on("state", s => {
-  state = s;
-  sportMode = state.sportMode || sportMode;
-  updateToolVisibility();
-  draw();
-});
-
-function setMode(mode) {
-  setupMode = mode;
-  draw();
-}
-
-document.getElementById("langToggle").onchange = e => {
-  currentLang = e.target.value;
-  localStorage.setItem("teamClarityLang", currentLang);
-  applyTranslations();
-  draw();
-};
-
-document.getElementById("sportMode").onchange = e => {
-  sportMode = e.target.value;
-  updateToolVisibility();
-  socket.emit("coach-sport-mode", sportMode);
-  draw();
-};
-
-document.getElementById("lineoutTopBtn").onclick = () => setMode("lineout-top");
-document.getElementById("lineoutBottomBtn").onclick = () => setMode("lineout-bottom");
-document.getElementById("scrumBtn").onclick = () => setMode("scrum");
-document.getElementById("freeBtn").onclick = () => setMode("free");
-
-document.getElementById("attackDirection").onchange = e => {
-  attackDirection = e.target.value;
-  socket.emit("coach-attack-direction", attackDirection);
-  draw();
-};
-
-document.getElementById("teamColor").onchange = e => {
-  socket.emit("coach-team-color", e.target.value);
-};
-
-document.getElementById("playerGroup").onchange = e => {
-  playerGroup = e.target.value;
-  draw();
-};
-
-document.getElementById("playerSize").onchange = e => {
-  playerSize = e.target.value;
-  draw();
-};
-
-document.getElementById("resetBtn").onclick = () => socket.emit("coach-reset");
-
-document.getElementById("freezeBtn").onclick = () => {
-  if (!state) return;
-  socket.emit("coach-freeze", !state.frozen);
-};
-
-document.getElementById("speed").oninput = e => {
-  socket.emit("coach-speed", e.target.value);
-};
 
 function shouldShowPlayer(number) {
   if (sportMode === "football" && number > 11) return false;
@@ -242,149 +485,309 @@ function shouldShowPlayer(number) {
   return true;
 }
 
-function getClosestPlayerToMouse(mousePoint) {
+function playerHitRadius() {
+  if (playerSize === "small") return 18;
+  if (playerSize === "medium") return 20;
+  return 24;
+}
+
+function getClosestPlayer(point) {
   if (!state || !state.players) return null;
 
   let closest = null;
-  let bestDistance = 9999;
+  let best = Infinity;
+  const radius = playerHitRadius();
 
-  for (const player of Object.values(state.players)) {
-    if (!shouldShowPlayer(player.number)) continue;
+  Object.values(state.players).forEach(player => {
+    if (!shouldShowPlayer(player.number)) return;
 
-    const distance = Math.hypot(player.x - mousePoint.x, player.y - mousePoint.y);
+    const d = Math.hypot(player.x - point.x, player.y - point.y);
 
-    if (distance < bestDistance) {
-      bestDistance = distance;
+    if (d < best) {
+      best = d;
       closest = player;
     }
-  }
+  });
 
-  if (bestDistance < 45) return closest;
-  return null;
+  return best <= radius ? closest : null;
 }
 
+function isBallHit(point) {
+  if (!state || !state.ball) return false;
+  return Math.hypot(state.ball.x - point.x, state.ball.y - point.y) <= 28;
+}
+
+/* ================================
+   SET PIECES LOCAL PREVIEW
+================================ */
+
+function localPlaceLineout(side, x) {
+  if (!state || !state.players || !state.ball) return;
+
+  const xForwards = clamp(x || 920, FIELD.left + 220, FIELD.right - 520);
+  const spacing = side === "top" ? 34 : -34;
+  const startY = side === "top" ? FIELD.top + 72 : FIELD.bottom - 72;
+  const players = state.players;
+
+  [1, 3, 4, 5, 6, 7, 8].forEach((n, i) => {
+    players[n].x = xForwards;
+    players[n].y = startY + i * spacing;
+  });
+
+  players[2].x = xForwards - 78;
+  players[2].y = startY - spacing * 0.2;
+
+  players[9].x = xForwards + 76;
+  players[9].y = startY + spacing * 4.2;
+
+  const backsStartX = clamp(xForwards + 185, FIELD.left + 120, FIELD.right - 100);
+
+  players[10].x = backsStartX;
+  players[10].y = clamp(startY + spacing * 3.5, FIELD.top + 50, FIELD.bottom - 50);
+
+  players[12].x = clamp(backsStartX + 105, FIELD.left + 100, FIELD.right - 70);
+  players[12].y = clamp(startY + spacing * 4.3, FIELD.top + 50, FIELD.bottom - 50);
+
+  players[13].x = clamp(backsStartX + 220, FIELD.left + 100, FIELD.right - 70);
+  players[13].y = clamp(startY + spacing * 5.0, FIELD.top + 50, FIELD.bottom - 50);
+
+  players[15].x = clamp(backsStartX + 330, FIELD.left + 100, FIELD.right - 70);
+  players[15].y = clamp(startY + spacing * 5.9, FIELD.top + 50, FIELD.bottom - 50);
+
+  players[14].x = clamp(backsStartX + 435, FIELD.left + 100, FIELD.right - 70);
+  players[14].y = clamp(startY + spacing * 6.8, FIELD.top + 50, FIELD.bottom - 50);
+
+  players[11].x = clamp(backsStartX + 160, FIELD.left + 100, FIELD.right - 70);
+  players[11].y = clamp(startY + spacing * 1.6, FIELD.top + 50, FIELD.bottom - 50);
+
+  state.ball.x = xForwards + 34;
+  state.ball.y = startY + spacing * 1.4;
+
+  Object.values(players).forEach(clampPlayer);
+  clampBall(state.ball);
+}
+
+function localPlaceScrum(x, y) {
+  if (!state || !state.players || !state.ball) return;
+
+  const players = state.players;
+  const cx = clamp(x || 720, FIELD.left + 180, FIELD.right - 580);
+  const cy = clamp(y || 445, FIELD.top + 155, FIELD.bottom - 220);
+
+  const gapX = 38;
+  const gapY = 38;
+
+  players[1].x = cx - gapX;
+  players[1].y = cy - gapY;
+  players[2].x = cx;
+  players[2].y = cy - gapY;
+  players[3].x = cx + gapX;
+  players[3].y = cy - gapY;
+
+  players[4].x = cx - 19;
+  players[4].y = cy;
+  players[5].x = cx + 19;
+  players[5].y = cy;
+
+  players[6].x = cx - 66;
+  players[6].y = cy + gapY;
+  players[7].x = cx + 66;
+  players[7].y = cy + gapY;
+  players[8].x = cx;
+  players[8].y = cy + gapY + 18;
+
+  players[9].x = cx + 150;
+  players[9].y = cy + 14;
+
+  players[10].x = clamp(cx + 265, FIELD.left + 100, FIELD.right - 70);
+  players[10].y = clamp(cy + 42, FIELD.top + 50, FIELD.bottom - 50);
+
+  players[12].x = clamp(cx + 375, FIELD.left + 100, FIELD.right - 70);
+  players[12].y = clamp(cy + 82, FIELD.top + 50, FIELD.bottom - 50);
+
+  players[13].x = clamp(cx + 500, FIELD.left + 100, FIELD.right - 70);
+  players[13].y = clamp(cy + 132, FIELD.top + 50, FIELD.bottom - 50);
+
+  players[15].x = clamp(cx + 605, FIELD.left + 100, FIELD.right - 70);
+  players[15].y = clamp(cy + 195, FIELD.top + 50, FIELD.bottom - 50);
+
+  players[14].x = clamp(cx + 710, FIELD.left + 100, FIELD.right - 70);
+  players[14].y = clamp(cy + 245, FIELD.top + 50, FIELD.bottom - 50);
+
+  players[11].x = clamp(cx + 440, FIELD.left + 100, FIELD.right - 70);
+  players[11].y = clamp(cy - 118, FIELD.top + 50, FIELD.bottom - 50);
+
+  state.ball.x = cx + 105;
+  state.ball.y = cy + 8;
+
+  Object.values(players).forEach(clampPlayer);
+  clampBall(state.ball);
+}
+
+/* ================================
+   CANVAS INTERACTION
+================================ */
+
 canvas.addEventListener("mousedown", e => {
-  const p = fitMouse(e);
+  const rawPoint = mousePoint(e);
+  const playerPoint = clampPointToField(rawPoint, false);
+  const ballPoint = clampPointToField(rawPoint, true);
 
-  if (sportMode === "rugby") {
-    if (setupMode === "lineout-top") {
-      socket.emit("coach-setpiece", {
-        type: "lineout",
-        side: "top",
-        x: p.x,
-        y: p.y,
-        direction: attackDirection
-      });
-      return;
-    }
-
-    if (setupMode === "lineout-bottom") {
-      socket.emit("coach-setpiece", {
-        type: "lineout",
-        side: "bottom",
-        x: p.x,
-        y: p.y,
-        direction: attackDirection
-      });
-      return;
-    }
-
-    if (setupMode === "scrum") {
-      socket.emit("coach-setpiece", {
-        type: "scrum",
-        x: p.x,
-        y: p.y,
-        direction: attackDirection
-      });
-      return;
-    }
+  if (sportMode === "rugby" && setupMode === "lineout-top") {
+    localPlaceLineout("top", playerPoint.x);
+    socket.emit("coach-setpiece", { type: "lineout", side: "top", x: playerPoint.x, y: playerPoint.y });
+    setMode("free");
+    draw();
+    return;
   }
 
-  const player = getClosestPlayerToMouse(p);
+  if (sportMode === "rugby" && setupMode === "lineout-bottom") {
+    localPlaceLineout("bottom", playerPoint.x);
+    socket.emit("coach-setpiece", { type: "lineout", side: "bottom", x: playerPoint.x, y: playerPoint.y });
+    setMode("free");
+    draw();
+    return;
+  }
+
+  if (sportMode === "rugby" && setupMode === "scrum") {
+    localPlaceScrum(playerPoint.x, playerPoint.y);
+    socket.emit("coach-setpiece", { type: "scrum", x: playerPoint.x, y: playerPoint.y });
+    setMode("free");
+    draw();
+    return;
+  }
+
+  if (isBallHit(rawPoint)) {
+    draggingBall = true;
+    draggingPlayerNumber = null;
+    dragOffset.x = rawPoint.x - state.ball.x;
+    dragOffset.y = rawPoint.y - state.ball.y;
+
+    state.ball.x = ballPoint.x;
+    state.ball.y = ballPoint.y;
+    socket.emit("coach-ball", ballPoint);
+    setCanvasDragging(true);
+    draw();
+    return;
+  }
+
+  const player = getClosestPlayer(rawPoint);
 
   if (player) {
     draggingPlayerNumber = player.number;
     draggingBall = false;
+    dragOffset.x = rawPoint.x - player.x;
+    dragOffset.y = rawPoint.y - player.y;
 
-    socket.emit("coach-move-player", {
-      number: draggingPlayerNumber,
-      x: p.x,
-      y: p.y
-    });
+    player.x = playerPoint.x;
+    player.y = playerPoint.y;
+    clampPlayer(player);
 
+    socket.emit("coach-move-player", { number: player.number, x: player.x, y: player.y });
+    setCanvasDragging(true);
+    draw();
     return;
   }
 
   draggingBall = true;
   draggingPlayerNumber = null;
-  socket.emit("coach-ball", p);
+  state.ball.x = ballPoint.x;
+  state.ball.y = ballPoint.y;
+  socket.emit("coach-ball", ballPoint);
+  setCanvasDragging(true);
+  draw();
 });
 
 canvas.addEventListener("mousemove", e => {
-  const p = fitMouse(e);
+  const rawPoint = mousePoint(e);
 
   if (draggingPlayerNumber) {
-    socket.emit("coach-move-player", {
-      number: draggingPlayerNumber,
-      x: p.x,
-      y: p.y
-    });
+    const player = state.players[draggingPlayerNumber];
+    if (!player) return;
+
+    player.x = rawPoint.x - dragOffset.x;
+    player.y = rawPoint.y - dragOffset.y;
+    clampPlayer(player);
+
+    socket.emit("coach-move-player", { number: draggingPlayerNumber, x: player.x, y: player.y });
+    draw();
     return;
   }
 
   if (draggingBall) {
-    socket.emit("coach-ball", p);
+    state.ball.x = rawPoint.x - dragOffset.x;
+    state.ball.y = rawPoint.y - dragOffset.y;
+    clampBall(state.ball);
+
+    socket.emit("coach-ball", { x: state.ball.x, y: state.ball.y });
+    draw();
   }
 });
 
-canvas.addEventListener("mouseup", () => {
+window.addEventListener("mouseup", () => {
   draggingBall = false;
   draggingPlayerNumber = null;
+  setCanvasDragging(false);
 });
 
 canvas.addEventListener("mouseleave", () => {
   draggingBall = false;
   draggingPlayerNumber = null;
+  setCanvasDragging(false);
 });
 
 canvas.addEventListener("dblclick", e => {
-  if (!state) return;
+  const rawPoint = mousePoint(e);
+  const player = getClosestPlayer(rawPoint);
 
-  const p = fitMouse(e);
-  const player = getClosestPlayerToMouse(p);
-
-  if (player) {
-    socket.emit("coach-attach-ball", player.number);
-  }
+  if (player) socket.emit("coach-attach-ball", player.number);
 });
 
-document.getElementById("qrBtn").onclick = async () => {
-  const modal = document.getElementById("qrModal");
-  modal.classList.remove("hidden");
+/* ================================
+   QR MODAL
+================================ */
 
-  const res = await fetch("/api/qrs");
-  const data = await res.json();
+const qrBtn = document.getElementById("qrBtn");
+if (qrBtn) {
+  qrBtn.onclick = async () => {
+    const modal = document.getElementById("qrModal");
+    const grid = document.getElementById("qrGrid");
 
-  const grid = document.getElementById("qrGrid");
-  grid.innerHTML = "";
+    if (!modal || !grid) return;
 
-  const maxPlayers = sportMode === "football" ? 11 : 15;
+    modal.classList.remove("hidden");
+    grid.innerHTML = "";
 
-  for (let i = 1; i <= maxPlayers; i++) {
-    const item = document.createElement("div");
-    item.className = "qrItem";
-    item.innerHTML = `
-      <div>Player ${i}</div>
-      <img src="${data.qrs[i]}">
-      <div>${data.baseUrl}/controller.html?p=${i}</div>
-    `;
-    grid.appendChild(item);
-  }
-};
+    const res = await fetch("/api/qrs");
+    const data = await res.json();
 
-document.getElementById("closeQr").onclick = () => {
-  document.getElementById("qrModal").classList.add("hidden");
-};
+    const maxPlayers = sportMode === "football" ? 11 : 15;
+
+    for (let i = 1; i <= maxPlayers; i++) {
+      const item = document.createElement("div");
+      item.className = "qrItem";
+
+      item.innerHTML = `
+        <div>Player ${i}</div>
+        <img src="${data.qrs[i]}" />
+        <div>${data.baseUrl}/controller.html?p=${i}</div>
+      `;
+
+      grid.appendChild(item);
+    }
+  };
+}
+
+const closeQr = document.getElementById("closeQr");
+if (closeQr) {
+  closeQr.onclick = () => {
+    document.getElementById("qrModal")?.classList.add("hidden");
+  };
+}
+
+/* ================================
+   DRAW HELPERS
+================================ */
 
 function pixelText(text, x, y, size = 22, align = "center", color = "white") {
   ctx.save();
@@ -398,99 +801,51 @@ function pixelText(text, x, y, size = 22, align = "center", color = "white") {
   ctx.restore();
 }
 
-function drawPitch() {
-  if (sportMode === "football") {
-    drawFootballPitch();
+/* ================================
+   FIELD DRAWING
+================================ */
+
+function drawRugbyPitch() {
+  applyActiveField();
+  syncControls();
+
+  if (pitchMode === "half") {
+    drawHalfPitch();
     return;
   }
 
-  ctx.fillStyle = "#6ec65f";
-  ctx.fillRect(0, 0, W, H);
+  if (pitchMode === "lineout") {
+    drawLineoutPitch();
+    return;
+  }
 
-  const left = 70;
-  const right = W - 70;
-  const top = 70;
-  const bottom = H - 70;
-  const pw = right - left;
-  const ph = bottom - top;
+  drawFullRugbyPitch();
+}
 
-  ctx.strokeStyle = "#fff";
-  ctx.lineWidth = 7;
-  ctx.strokeRect(left, top, pw, ph);
-
-  const X = pct => left + pw * pct;
-  const Y = pct => top + ph * pct;
-
-  ctx.strokeStyle = "#fff";
-  ctx.lineWidth = 5;
-
-  ctx.beginPath(); ctx.moveTo(X(0.06), top); ctx.lineTo(X(0.06), bottom); ctx.stroke();
-  ctx.beginPath(); ctx.moveTo(X(0.94), top); ctx.lineTo(X(0.94), bottom); ctx.stroke();
-
-  ctx.setLineDash([16, 14]);
-  ctx.beginPath(); ctx.moveTo(X(0.10), top); ctx.lineTo(X(0.10), bottom); ctx.stroke();
-  ctx.beginPath(); ctx.moveTo(X(0.90), top); ctx.lineTo(X(0.90), bottom); ctx.stroke();
-
-  ctx.setLineDash([]);
-  ctx.lineWidth = 6;
-  ctx.beginPath(); ctx.moveTo(X(0.26), top); ctx.lineTo(X(0.26), bottom); ctx.stroke();
-  ctx.beginPath(); ctx.moveTo(X(0.74), top); ctx.lineTo(X(0.74), bottom); ctx.stroke();
-
-  ctx.setLineDash([20, 16]);
-  ctx.lineWidth = 4;
-  ctx.beginPath(); ctx.moveTo(X(0.40), top); ctx.lineTo(X(0.40), bottom); ctx.stroke();
-  ctx.beginPath(); ctx.moveTo(X(0.60), top); ctx.lineTo(X(0.60), bottom); ctx.stroke();
-
-  ctx.setLineDash([]);
-  ctx.lineWidth = 6;
-  ctx.beginPath(); ctx.moveTo(X(0.50), top); ctx.lineTo(X(0.50), bottom); ctx.stroke();
-
-  ctx.setLineDash([18, 16]);
-  ctx.lineWidth = 4;
-  ctx.beginPath(); ctx.moveTo(left, Y(0.08)); ctx.lineTo(right, Y(0.08)); ctx.stroke();
-  ctx.beginPath(); ctx.moveTo(left, Y(0.92)); ctx.lineTo(right, Y(0.92)); ctx.stroke();
-  ctx.beginPath(); ctx.moveTo(left, Y(0.23)); ctx.lineTo(right, Y(0.23)); ctx.stroke();
-  ctx.beginPath(); ctx.moveTo(left, Y(0.77)); ctx.lineTo(right, Y(0.77)); ctx.stroke();
-  ctx.setLineDash([]);
-
-  ctx.save();
-  ctx.fillStyle = "#fff";
-  ctx.font = "900 18px Courier New";
-  ctx.textAlign = "center";
-  ctx.shadowColor = "#000";
-  ctx.shadowOffsetX = 3;
-  ctx.shadowOffsetY = 3;
-
-  [["5m", 0.10], ["22m", 0.26], ["40m", 0.40], ["50m", 0.50], ["40m", 0.60], ["22m", 0.74], ["5m", 0.90]].forEach(([label, p]) => {
-    ctx.fillText(label, X(p), top - 14);
-    ctx.fillText(label, X(p), bottom + 32);
-  });
-
-  ctx.textAlign = "left";
-  ctx.fillText("5m", left + 8, Y(0.08) - 8);
-  ctx.fillText("15m", left + 8, Y(0.23) - 8);
-  ctx.fillText("15m", left + 8, Y(0.77) - 8);
-  ctx.fillText("5m", left + 8, Y(0.92) - 8);
-
-  ctx.textAlign = "right";
-  ctx.fillText("5m", right - 8, Y(0.08) - 8);
-  ctx.fillText("15m", right - 8, Y(0.23) - 8);
-  ctx.fillText("15m", right - 8, Y(0.77) - 8);
-  ctx.fillText("5m", right - 8, Y(0.92) - 8);
-  ctx.restore();
-
-  ctx.fillStyle = "#d71920";
-  ctx.fillRect(0, 0, W, 52);
-
-  ctx.fillStyle = "#111";
-  ctx.fillRect(0, 52, W, 8);
-
-  pixelText(t("slogan"), W / 2, 37, 30, "center", "#fff");
-
-  if (state?.frozen) {
-    ctx.fillStyle = "rgba(0,0,0,.35)";
+function drawFullRugbyPitch() {
+  if (rugbyPitchImg.complete && rugbyPitchImg.naturalWidth > 0) {
+    ctx.drawImage(rugbyPitchImg, 0, 0, W, H);
+  } else {
+    ctx.fillStyle = "#6ec65f";
     ctx.fillRect(0, 0, W, H);
-    pixelText(t("freeze"), W / 2, H / 2, 90, "center", "#fff");
+  }
+}
+
+function drawHalfPitch() {
+  if (halfPitchImg.complete && halfPitchImg.naturalWidth > 0) {
+    ctx.drawImage(halfPitchImg, 0, 0, W, H);
+  } else {
+    ctx.fillStyle = "#6ec65f";
+    ctx.fillRect(0, 0, W, H);
+  }
+}
+
+function drawLineoutPitch() {
+  if (lineoutPitchImg.complete && lineoutPitchImg.naturalWidth > 0) {
+    ctx.drawImage(lineoutPitchImg, 0, 0, W, H);
+  } else {
+    ctx.fillStyle = "#6ec65f";
+    ctx.fillRect(0, 0, W, H);
   }
 }
 
@@ -498,62 +853,19 @@ function drawFootballPitch() {
   ctx.fillStyle = "#2f9e44";
   ctx.fillRect(0, 0, W, H);
 
-  const left = 90;
-  const right = W - 90;
-  const top = 85;
-  const bottom = H - 85;
-  const midX = W / 2;
-  const midY = H / 2;
-
-  ctx.strokeStyle = "#fff";
-  ctx.lineWidth = 6;
-  ctx.strokeRect(left, top, right - left, bottom - top);
-
-  ctx.beginPath();
-  ctx.moveTo(midX, top);
-  ctx.lineTo(midX, bottom);
-  ctx.stroke();
-
-  ctx.beginPath();
-  ctx.arc(midX, midY, 95, 0, Math.PI * 2);
-  ctx.stroke();
-
-  ctx.fillStyle = "#fff";
-  ctx.beginPath();
-  ctx.arc(midX, midY, 5, 0, Math.PI * 2);
-  ctx.fill();
-
-  ctx.strokeRect(left, midY - 170, 170, 340);
-  ctx.strokeRect(right - 170, midY - 170, 170, 340);
-
-  ctx.strokeRect(left, midY - 80, 65, 160);
-  ctx.strokeRect(right - 65, midY - 80, 65, 160);
-
-  ctx.strokeRect(left - 25, midY - 55, 25, 110);
-  ctx.strokeRect(right, midY - 55, 25, 110);
-
-  ctx.fillStyle = "#fff";
-  ctx.beginPath();
-  ctx.arc(left + 115, midY, 5, 0, Math.PI * 2);
-  ctx.fill();
-
-  ctx.beginPath();
-  ctx.arc(right - 115, midY, 5, 0, Math.PI * 2);
-  ctx.fill();
-
   ctx.fillStyle = "#111";
   ctx.fillRect(0, 0, W, 60);
 
   pixelText("TEAM-CLARITY | FOOTBALL MODE", W / 2, 39, 30, "center", "#fff");
-
-  if (state?.frozen) {
-    ctx.fillStyle = "rgba(0,0,0,.35)";
-    ctx.fillRect(0, 0, W, H);
-    pixelText(t("freeze"), W / 2, H / 2, 90, "center", "#fff");
-  }
 }
 
+/* ================================
+   BALL / PLAYERS
+================================ */
+
 function drawBall(ball) {
+  if (!ball) return;
+
   ctx.save();
   ctx.translate(ball.x, ball.y);
 
@@ -562,23 +874,9 @@ function drawBall(ball) {
     ctx.beginPath();
     ctx.arc(0, 0, 16, 0, Math.PI * 2);
     ctx.fill();
-
     ctx.strokeStyle = "#111";
     ctx.lineWidth = 3;
     ctx.stroke();
-
-    ctx.fillStyle = "#111";
-    ctx.beginPath();
-    ctx.arc(0, 0, 5, 0, Math.PI * 2);
-    ctx.fill();
-
-    ctx.beginPath();
-    ctx.moveTo(0, -16);
-    ctx.lineTo(0, 16);
-    ctx.moveTo(-16, 0);
-    ctx.lineTo(16, 0);
-    ctx.stroke();
-
     ctx.restore();
     return;
   }
@@ -604,16 +902,16 @@ function drawBall(ball) {
 }
 
 function drawCirclePlayer(p) {
-  ctx.save();
-
   const radius = 16;
+
+  ctx.save();
 
   ctx.fillStyle = "rgba(0,0,0,.25)";
   ctx.beginPath();
   ctx.ellipse(p.x + 3, p.y + 4, radius + 2, radius * 0.6, 0, 0, Math.PI * 2);
   ctx.fill();
 
-  ctx.fillStyle = p.color;
+  ctx.fillStyle = p.color || COLORS.red;
   ctx.beginPath();
   ctx.arc(p.x, p.y, radius, 0, Math.PI * 2);
   ctx.fill();
@@ -636,14 +934,7 @@ function drawCirclePlayer(p) {
   ctx.fill();
 }
 
-function drawPlayer(p) {
-  if (!shouldShowPlayer(p.number)) return;
-
-  if (playerSize === "small") {
-    drawCirclePlayer(p);
-    return;
-  }
-
+function drawPixelPlayer(p) {
   ctx.save();
   ctx.translate(p.x, p.y);
 
@@ -653,7 +944,7 @@ function drawPlayer(p) {
   ctx.fillStyle = "rgba(0,0,0,.25)";
   ctx.fillRect(-24, 30, 48, 8);
 
-  ctx.fillStyle = p.color;
+  ctx.fillStyle = p.color || COLORS.red;
   ctx.fillRect(-22, -24, 44, 50);
 
   ctx.fillStyle = "#fff";
@@ -706,49 +997,80 @@ function drawPlayer(p) {
   ctx.fill();
 }
 
-function draw() {
-  if (!state) return;
+function drawPlayer(p) {
+  if (!p || !shouldShowPlayer(p.number)) return;
 
-  drawPitch();
-  Object.values(state.players).forEach(drawPlayer);
-  drawBall(state.ball);
+  if (playerSize === "small") {
+    drawCirclePlayer(p);
+    return;
+  }
+
+  drawPixelPlayer(p);
+}
+
+/* ================================
+   MAIN DRAW
+================================ */
+
+function drawFooter() {
+  const footerTop = H - 72;
+
+  ctx.fillStyle = "rgba(0,0,0,0.42)";
+  ctx.fillRect(0, footerTop, W, 72);
 
   let modeText = "";
 
   if (sportMode === "football") {
     modeText = t("footballMode");
+  } else if (setupMode === "lineout-top") {
+    modeText = `${t("lineoutTopMode")} | CLICK FIELD TO PLACE`;
+  } else if (setupMode === "lineout-bottom") {
+    modeText = `${t("lineoutBottomMode")} | CLICK FIELD TO PLACE`;
+  } else if (setupMode === "scrum") {
+    modeText = `${t("scrumMode")} | CLICK FIELD TO PLACE`;
   } else {
-    modeText = attackDirection === "rtl" ? t("attackRTL") : t("attackLTR");
-
-    if (setupMode === "lineout-top") modeText = `${t("lineoutTopMode")}: ${modeText}`;
-    if (setupMode === "lineout-bottom") modeText = `${t("lineoutBottomMode")}: ${modeText}`;
-    if (setupMode === "scrum") modeText = `${t("scrumMode")}: ${modeText}`;
-    if (setupMode === "free") modeText = `${t("freeBallMode")} | ${modeText}`;
+    modeText = `${t("freeBallMode")} | ${t("attack")} | ${pitchMode.toUpperCase()} PITCH`;
   }
 
-  ctx.fillStyle = "rgba(0,0,0,0.35)";
-  ctx.fillRect(0, H - 82, W, 82);
-
-  pixelText(modeText, W / 2, H - 58, 18, "center", "#ffd700");
-  pixelText(t("footer"), W / 2, H - 28, 14, "center", "#ffffff");
+  pixelText(modeText, W / 2, footerTop + 28, 18, "center", "#ffd700");
+  pixelText(t("footer"), W / 2, footerTop + 54, 13, "center", "#ffffff");
 }
 
-// ================================
-// PAYWALL — COACH SIDE ONLY
-// ================================
+function draw() {
+  if (sportMode === "football") {
+    drawFootballPitch();
+  } else {
+    drawRugbyPitch();
+  }
+
+  if (state && state.players) {
+    Object.values(state.players).forEach(drawPlayer);
+  }
+
+  if (state && state.ball) {
+    drawBall(state.ball);
+  }
+
+  if (state && state.frozen) {
+    ctx.fillStyle = "rgba(0,0,0,.35)";
+    ctx.fillRect(0, 0, W, H);
+    pixelText(t("freeze"), W / 2, H / 2, 90, "center", "#fff");
+  }
+
+  drawFooter();
+}
+
+/* ================================
+   PAYWALL
+================================ */
 
 const STRIPE_PAYMENT_LINK = "https://buy.stripe.com/28EeVdesG4TgcBz7D06Vq00";
-
-// Final wait time: 5 minutes
 const PAYWALL_WAIT_TIME = 5 * 60 * 1000;
 
 let promoUnlockedThisPageLoad = false;
 
 function hasValidAccess() {
-  if (localStorage.getItem("subscriptionActive") === "true") {
-    return true;
-  }
-
+  if (localStorage.getItem("subscriptionActive") === "true") return true;
   return promoUnlockedThisPageLoad === true;
 }
 
@@ -756,16 +1078,12 @@ function showPaywall() {
   if (hasValidAccess()) return;
 
   const overlay = document.getElementById("paywallOverlay");
-  if (overlay) {
-    overlay.classList.remove("hidden");
-  }
+  if (overlay) overlay.classList.remove("hidden");
 }
 
 function hidePaywall() {
   const overlay = document.getElementById("paywallOverlay");
-  if (overlay) {
-    overlay.classList.add("hidden");
-  }
+  if (overlay) overlay.classList.add("hidden");
 }
 
 function unlockPromoForThisPageLoadOnly() {
@@ -773,22 +1091,29 @@ function unlockPromoForThisPageLoadOnly() {
   hidePaywall();
 }
 
-window.addEventListener("load", () => {
-  const savedLang = localStorage.getItem("teamClarityLang");
+/* ================================
+   STARTUP
+================================ */
 
-  if (savedLang === "fr" || savedLang === "en") {
-    currentLang = savedLang;
-    document.getElementById("langToggle").value = currentLang;
-  }
+window.addEventListener("load", () => {
+  currentLang = "en";
+
+  const langToggle = document.getElementById("langToggle");
+  if (langToggle) langToggle.value = currentLang;
 
   applyTranslations();
+  applyActiveField();
+  syncControls();
   updateToolVisibility();
+  updateModeButtons();
+  draw();
 
   if (!hasValidAccess()) {
     setTimeout(showPaywall, PAYWALL_WAIT_TIME);
   }
 
   const unlockBtn = document.getElementById("unlockBtn");
+
   if (unlockBtn) {
     unlockBtn.onclick = () => {
       window.location.href = STRIPE_PAYMENT_LINK;
@@ -796,6 +1121,7 @@ window.addEventListener("load", () => {
   }
 
   const promoBtn = document.getElementById("promoBtn");
+
   if (promoBtn) {
     promoBtn.onclick = () => {
       const input = document.getElementById("promoInput");

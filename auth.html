@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>TEAM-CLARITY Login</title>
+
+  <style>
+    body{
+      margin:0;
+      background:#0b0b0b;
+      color:white;
+      font-family:Arial, Helvetica, sans-serif;
+      display:flex;
+      justify-content:center;
+      align-items:center;
+      height:100vh;
+    }
+
+    .loginBox{
+      width:320px;
+      background:#151515;
+      padding:40px;
+      border-radius:20px;
+      border:1px solid #2b2b2b;
+    }
+
+    h1{
+      text-align:center;
+      margin-bottom:30px;
+    }
+
+    input{
+      width:100%;
+      padding:14px;
+      margin-bottom:15px;
+      border-radius:10px;
+      border:none;
+      background:#222;
+      color:white;
+      box-sizing:border-box;
+    }
+
+    button{
+      width:100%;
+      padding:14px;
+      border:none;
+      border-radius:10px;
+      background:#00ff88;
+      color:black;
+      font-weight:bold;
+      cursor:pointer;
+    }
+
+    .switch{
+      text-align:center;
+      margin-top:15px;
+      cursor:pointer;
+      color:#888;
+    }
+  </style>
+</head>
+
+<body>
+
+<div class="loginBox">
+
+  <h1>TEAM-CLARITY</h1>
+
+  <input type="email" id="email" placeholder="Email" />
+
+  <input type="password" id="password" placeholder="Password" />
+
+  <button id="loginBtn">LOGIN / SIGNUP</button>
+
+  <div class="switch">
+    Your account will automatically be created if it does not exist.
+  </div>
+
+</div>
+
+<script type="module">
+
+import { supabase } from './supabase.js'
+
+const loginBtn = document.getElementById('loginBtn')
+
+loginBtn.addEventListener('click', async () => {
+
+  const email = document.getElementById('email').value
+  const password = document.getElementById('password').value
+
+  const { error: loginError } = await supabase.auth.signInWithPassword({
+    email,
+    password
+  })
+
+  if (!loginError) {
+    window.location.href = 'index.html'
+    return
+  }
+
+  const { error: signupError } = await supabase.auth.signUp({
+    email,
+    password
+  })
+
+  if (signupError) {
+    alert(signupError.message)
+    return
+  }
+
+  alert('Account created. Please login again.')
+})
+
+</script>
+
+</body>
+</html>

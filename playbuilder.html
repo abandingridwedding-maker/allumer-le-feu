@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>TEAM-CLARITY — Play Builder</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+
+<body>
+  <div id="topbar">
+    <div class="brand">🔥 PLAY BUILDER</div>
+
+    <div class="tools">
+      <div class="toolGroup">
+        <button onclick="window.location.href='index.html'">Home</button>
+
+        <select id="pitchMode" title="Pitch Mode">
+          <option value="full">Full Pitch</option>
+          <option value="half">Half Pitch</option>
+          <option value="lineout">Lineout</option>
+        </select>
+
+        <button id="builderMainBtn">Start Builder</button>
+        <button id="playAnimationBtn">Play Animation</button>
+        <button id="clearStepsBtn">Clear</button>
+        <button id="savePlayBtn">💾 Save</button>
+        <button id="loadPlayBtn">📂 Load</button>
+        <button id="foldersBtn">🗂 Folders</button>
+      </div>
+
+      <div class="toolGroup">
+        <button id="lineoutTopBtn">Lineout Top</button>
+        <button id="lineoutBottomBtn">Lineout Bottom</button>
+        <button id="scrumBtn">Scrum</button>
+        <button id="freeBtn">Free Ball</button>
+      </div>
+
+      <div class="toolGroup">
+        <select id="teamColor">
+          <option value="red">Red</option>
+          <option value="white">White</option>
+          <option value="black">Black</option>
+          <option value="blue">Blue</option>
+        </select>
+
+        <select id="playerGroup">
+          <option value="all">All Players</option>
+          <option value="forwards">Forwards Only</option>
+          <option value="backs">Backs Only</option>
+        </select>
+
+        <select id="playerSize">
+          <option value="normal">Normal Size</option>
+          <option value="medium">2/3 Size</option>
+          <option value="small" selected>Small Circle</option>
+        </select>
+
+        <label class="speedLabel">
+          Builder Speed
+          <input id="builderSpeed" type="range" min="0.25" max="2" step="0.25" value="1" />
+          <span id="builderSpeedValue">1x</span>
+        </label>
+      </div>
+    </div>
+  </div>
+
+  <div id="fieldShell">
+    <canvas id="field" width="1600" height="900"></canvas>
+  </div>
+
+  <div id="playModal" class="modal hidden">
+    <div class="modalCard">
+      <div class="modalHeader">
+        <h2>📂 Saved Plays</h2>
+        <button id="closePlayModal">Close</button>
+      </div>
+      <div id="savedPlaysList"></div>
+    </div>
+  </div>
+
+  <div id="foldersModal" class="modal hidden">
+    <div class="modalCard">
+      <div class="modalHeader">
+        <h2>🗂 Team Folders</h2>
+        <button id="closeFoldersModal">Close</button>
+      </div>
+
+      <div class="folderCreateRow">
+        <input
+          type="text"
+          id="newFolderName"
+          placeholder="Folder name"
+        />
+
+        <button id="createFolderBtn">
+          Create Folder
+        </button>
+      </div>
+
+      <div id="foldersList" class="foldersList"></div>
+    </div>
+  </div>
+
+  <script src="/socket.io/socket.io.js"></script>
+
+  <script type="module">
+    import { supabase } from './supabase.js'
+
+    const {
+      data: { session }
+    } = await supabase.auth.getSession()
+
+    if (!session) {
+      window.location.href = 'auth.html'
+    }
+  </script>
+
+  <script type="module" src="playbuilder.js"></script>
+</body>
+</html>

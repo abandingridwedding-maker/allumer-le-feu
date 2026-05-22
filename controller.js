@@ -1,40 +1,45 @@
 const socket = io();
 
 const params = new URLSearchParams(window.location.search);
-const playerNumber = Number(params.get("p"));
+const playerNumber = Number(params.get("p") || 1);
 
 const statusEl = document.getElementById("status");
 const playerNumberEl = document.getElementById("playerNumber");
 const joystick = document.getElementById("joystick");
 const stick = document.getElementById("stick");
 
-playerNumberEl.textContent = playerNumber || "?";
-
-if (!playerNumber || playerNumber < 1 || playerNumber > 15) {
-  statusEl.textContent = "Invalid player QR code";
-} else {
-  statusEl.textContent = `Player ${playerNumber} connected`;
-  socket.emit("join-player", playerNumber);
-}
+playerNumberEl.textContent = playerNumber;
 
 let active = false;
+let moveInterval = null;
+let currentMove = { dx: 0, dy: 0 };
 
-function centerStick() {
+socket.emit("controller-connect", playerNumber);
+
+statusEl.textContent = "Connected ✅";
+
+function resetStick() {
   stick.style.left = "50%";
   stick.style.top = "50%";
-  stick.style.transform = "translate(-50%, -50%)";
+  currentMove = { dx: 0, dy: 0 };
 }
 
-function sendMove(clientX, clientY) {
+function getJoystickCenter() {
   const rect = joystick.getBoundingClientRect();
 
-  const cx = rect.left + rect.width / 2;
-  const cy = rect.top + rect.height / 2;
+  return {
+    x: rect.left + rect.width / 2,
+    y: rect.top + rect.height / 2
+  };
+}
 
-  let dx = clientX - cx;
-  let dy = clientY - cy;
+function updateStick(clientX, clientY) {
+  const center = getJoystickCenter();
 
-  const max = rect.width / 2 - 48;
+  let dx = clientX - center.x;
+  let dy = clientY - center.y;
+
+  const max = 82;
   const dist = Math.hypot(dx, dy);
 
   if (dist > max) {
@@ -42,37 +47,95 @@ function sendMove(clientX, clientY) {
     dy = (dy / dist) * max;
   }
 
-  stick.style.left = `${rect.width / 2 + dx}px`;
-  stick.style.top = `${rect.height / 2 + dy}px`;
-  stick.style.transform = "translate(-50%, -50%)";
+  stick.style.left = `calc(50% + ${dx}px)`;
+  stick.style.top = `calc(50% + ${dy}px)`;
 
-  socket.emit("move", {
-    x: dx / max,
-    y: dy / max
+  currentMove = {
+    dx: dx / max,
+    dy: dy / max
+  };
+}
+
+function startMoving() {
+  if (moveInterval) return;
+
+  moveInterval = setInterval(() => {
+    socket.emit("controller-move", {
+      dx: currentMove.dx,
+      dy: currentMove.dy
+    });
+  }, 40);
+}
+
+function stopMoving() {
+  clearInterval(moveInterval);
+  moveInterval = null;
+
+  resetStick();
+
+  socket.emit("controller-move", {
+    dx: 0,
+    dy: 0
   });
 }
 
-function stopMove() {
-  active = false;
-  centerStick();
-  socket.emit("move", { x: 0, y: 0 });
-}
+joystick.addEventListener("touchstart", e => {
+  e.preventDefault();
 
-joystick.addEventListener("pointerdown", e => {
   active = true;
-  joystick.setPointerCapture(e.pointerId);
-  sendMove(e.clientX, e.clientY);
-});
 
-joystick.addEventListener("pointermove", e => {
+  const t = e.touches[0];
+
+  updateStick(t.clientX, t.clientY);
+  startMoving();
+}, { passive: false });
+
+joystick.addEventListener("touchmove", e => {
+  e.preventDefault();
+
   if (!active) return;
-  sendMove(e.clientX, e.clientY);
+
+  const t = e.touches[0];
+
+  updateStick(t.clientX, t.clientY);
+}, { passive: false });
+
+joystick.addEventListener("touchend", e => {
+  e.preventDefault();
+
+  active = false;
+  stopMoving();
+}, { passive: false });
+
+joystick.addEventListener("mousedown", e => {
+  active = true;
+
+  updateStick(e.clientX, e.clientY);
+  startMoving();
 });
 
-joystick.addEventListener("pointerup", stopMove);
-joystick.addEventListener("pointercancel", stopMove);
-joystick.addEventListener("pointerleave", stopMove);
+window.addEventListener("mousemove", e => {
+  if (!active) return;
+
+  updateStick(e.clientX, e.clientY);
+});
+
+window.addEventListener("mouseup", () => {
+  if (!active) return;
+
+  active = false;
+  stopMoving();
+});
+
+socket.on("connect", () => {
+  socket.emit("controller-connect", playerNumber);
+  statusEl.textContent = "Connected ✅";
+});
+
+socket.on("disconnect", () => {
+  statusEl.textContent = "Disconnected";
+});
 
 window.addEventListener("beforeunload", () => {
-  socket.emit("move", { x: 0, y: 0 });
+  stopMoving();
 });

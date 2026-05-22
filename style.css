@@ -2,107 +2,177 @@
   box-sizing: border-box;
 }
 
+:root {
+  --orange: #ff5a00;
+  --orange-dark: #e64a00;
+  --orange-soft: #fff1e8;
+  --bg: #f7f7f5;
+  --card: #ffffff;
+  --text: #151515;
+  --muted: #6f6f6f;
+  --line: #e8e8e8;
+  --shadow: 0 10px 30px rgba(20, 20, 20, 0.08);
+  --radius: 18px;
+}
+
 body {
   margin: 0;
-  background: #080808;
-  color: white;
-  font-family: "Courier New", monospace;
+  background: var(--bg);
+  color: var(--text);
+  font-family: Inter, Arial, sans-serif;
   overflow: hidden;
 }
 
+/* TOP BAR */
 #topbar {
-  min-height: 82px;
-  background: #d71920;
-  border-bottom: 8px solid #111;
+  min-height: 76px;
+  background: rgba(255,255,255,0.94);
+  border-bottom: 1px solid var(--line);
   display: flex;
   align-items: center;
   gap: 14px;
-  padding: 8px 14px 10px 14px;
+  padding: 12px 18px;
+  box-shadow: 0 6px 24px rgba(0,0,0,0.05);
 }
 
 .brand {
-  font-size: 27px;
+  font-size: 24px;
   font-weight: 900;
-  letter-spacing: 1px;
-  text-shadow: 3px 3px #000;
+  color: var(--text);
   white-space: nowrap;
   min-width: 240px;
+  letter-spacing: -0.5px;
+}
+
+.brand::first-letter {
+  color: var(--orange);
 }
 
 .tools {
   flex: 1;
   display: flex;
   align-items: center;
-  gap: 7px;
+  gap: 8px;
   flex-wrap: wrap;
   justify-content: flex-end;
-  padding-right: 6px;
 }
 
 .toolGroup {
   display: flex;
   align-items: center;
-  gap: 7px;
+  gap: 8px;
   flex-wrap: wrap;
 }
 
+/* BUTTONS */
 button,
 select {
-  font-family: "Courier New", monospace;
-  font-weight: 900;
-  border: 3px solid #fff;
-  background: #111;
-  color: #fff;
-  padding: 8px 10px;
-  border-radius: 8px;
+  font-family: Inter, Arial, sans-serif;
+  font-weight: 800;
+  border: 1px solid var(--line);
+  background: #fff;
+  color: var(--text);
+  padding: 10px 14px;
+  border-radius: 12px;
   cursor: pointer;
   font-size: 13px;
-  min-height: 38px;
-  box-shadow: 2px 2px 0 #000;
+  min-height: 40px;
+  box-shadow: none;
+  transition: all 0.15s ease;
 }
 
 button:hover,
 select:hover {
-  background: #333;
+  border-color: var(--orange);
+  background: var(--orange-soft);
+  transform: translateY(-1px);
+}
+
+button:active,
+select:active {
+  transform: translateY(0);
+}
+
+button.active,
+select.active,
+.modeActive,
+.builderOnly {
+  background: var(--orange) !important;
+  color: white !important;
+  border-color: var(--orange) !important;
+}
+
+button:focus-visible,
+select:focus-visible,
+input:focus-visible {
+  outline: 3px solid rgba(255,90,0,0.25);
+  outline-offset: 2px;
 }
 
 label {
-  font-weight: 900;
+  font-weight: 800;
   white-space: nowrap;
+  color: var(--text);
 }
 
 .speedLabel {
   display: flex;
   align-items: center;
-  gap: 7px;
+  gap: 8px;
 }
 
-input {
-  vertical-align: middle;
+#speed,
+#simSpeed {
+  width: 120px;
+  accent-color: var(--orange);
 }
 
-#speed {
-  width: 115px;
+/* FIELD AREA */
+#fieldShell {
+  position: relative;
+  width: calc(100vw - 32px);
+  height: calc(100vh - 108px);
+  margin: 16px;
+  background: #ffffff;
+  border-radius: 24px;
+  box-shadow: var(--shadow);
+  padding: 12px;
 }
 
 canvas {
   display: block;
-  width: calc(100vw - 10px);
-  height: calc(100vh - 92px);
-  margin: 5px;
-  image-rendering: pixelated;
-  background: #6ec65f;
-  border-radius: 6px;
+  width: calc(100vw - 32px);
+  height: calc(100vh - 108px);
+  margin: 16px;
+  background-image: url("assets/rugby-pitch.png");
+background-size: 100% 100%;
+background-position: center;
+background-repeat: no-repeat;
+background-color: #6ec65f;
+  border-radius: 22px;
+  cursor: grab;
+  box-shadow: var(--shadow);
 }
 
-.hidden {
-  display: none !important;
+#fieldShell canvas {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  border-radius: 18px;
+  box-shadow: none;
 }
 
+#field.grabbing,
+canvas.grabbing {
+  cursor: grabbing;
+}
+
+/* MODALS */
 .modal {
   position: fixed;
   inset: 0;
-  background: rgba(0,0,0,.82);
+  background: rgba(15,15,15,.45);
+  backdrop-filter: blur(8px);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -113,17 +183,19 @@ canvas {
   width: 92vw;
   max-height: 90vh;
   overflow: auto;
-  background: #111;
-  border: 5px solid #fff;
-  padding: 20px;
-  box-shadow: 0 0 0 8px #d71920;
+  background: white;
+  color: var(--text);
+  border: 1px solid var(--line);
+  border-radius: 24px;
+  padding: 24px;
+  box-shadow: var(--shadow);
 }
 
 .modalHeader {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 15px;
+  margin-bottom: 18px;
 }
 
 .modalHeader h2 {
@@ -139,25 +211,27 @@ canvas {
 
 .qrItem {
   background: #fff;
-  color: #111;
+  color: var(--text);
   text-align: center;
-  padding: 10px;
-  border: 4px solid #d71920;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
   font-weight: 900;
   overflow-wrap: anywhere;
+  box-shadow: var(--shadow);
 }
 
 .qrItem img {
   width: 100%;
   max-width: 150px;
-  image-rendering: auto;
 }
 
+/* PAYWALL */
 .paywall {
   position: fixed;
   inset: 0;
-  background: rgba(0,0,0,0.78);
-  backdrop-filter: blur(6px);
+  background: rgba(20,20,20,0.55);
+  backdrop-filter: blur(8px);
   z-index: 9999;
   display: flex;
   align-items: center;
@@ -167,14 +241,13 @@ canvas {
 .paywallCard {
   width: 460px;
   max-width: 90vw;
-  background: #111;
-  color: white;
-  border: 5px solid #d71920;
-  border-radius: 18px;
-  padding: 32px;
+  background: white;
+  color: var(--text);
+  border: 1px solid var(--line);
+  border-radius: 26px;
+  padding: 34px;
   text-align: center;
-  font-family: "Courier New", monospace;
-  box-shadow: 0 0 40px rgba(0,0,0,0.8);
+  box-shadow: var(--shadow);
 }
 
 .paywallCard h1 {
@@ -184,65 +257,239 @@ canvas {
 
 .paywallCard p {
   font-size: 17px;
-  line-height: 1.4;
+  color: var(--muted);
 }
 
 .price {
-  font-size: 34px;
+  font-size: 36px;
   font-weight: 900;
   margin: 24px 0;
-  color: #ffd700;
+  color: var(--orange);
 }
 
 #unlockBtn,
 #promoBtn {
-  background: #d71920;
+  background: var(--orange);
+  border: none;
   color: white;
-  border: 3px solid white;
-  border-radius: 10px;
-  padding: 12px 18px;
+  border-radius: 12px;
+  padding: 13px 18px;
   font-weight: 900;
   cursor: pointer;
-  font-family: "Courier New", monospace;
 }
 
 #unlockBtn {
-  font-size: 18px;
   width: 100%;
   margin-bottom: 22px;
 }
 
-.promoBox {
-  margin-top: 12px;
-}
-
-.promoBox label {
-  display: block;
-  margin-bottom: 8px;
-  font-weight: 900;
-}
-
 #promoInput {
   width: 100%;
-  padding: 12px;
+  padding: 13px;
   margin-bottom: 10px;
-  border-radius: 8px;
-  border: 3px solid #fff;
-  font-family: "Courier New", monospace;
+  border-radius: 12px;
+  border: 1px solid var(--line);
+  text-align: center;
   font-weight: 900;
+}
+
+/* HOME SCREEN */
+.homeBody {
+  overflow: auto;
+  background:
+    radial-gradient(circle at top left, rgba(255,90,0,0.12), transparent 32%),
+    var(--bg);
+}
+
+.homeScreen {
+  min-height: 100vh;
+  padding: 54px 24px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+.homeLogo {
+  font-size: 54px;
+  font-weight: 950;
+  margin-bottom: 10px;
+  text-align: center;
+  color: var(--text);
+  letter-spacing: -2px;
+}
+
+.homeLogo span,
+.homeLogo em {
+  color: var(--orange);
+  font-style: normal;
+}
+
+.homeSubtitle {
+  font-size: 18px;
+  color: var(--muted);
+  font-weight: 800;
+  margin-bottom: 40px;
+  text-transform: uppercase;
+  text-align: center;
+  letter-spacing: 0.5px;
+}
+
+.homeCards {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(220px, 330px));
+  gap: 22px;
+}
+
+.homeCard {
+  background: white;
+  color: var(--text);
+  text-decoration: none;
+  border: 1px solid var(--line);
+  border-radius: 24px;
+  padding: 30px;
+  text-align: center;
+  box-shadow: var(--shadow);
+  transition: all 0.15s ease;
+}
+
+.homeCard:hover {
+  transform: translateY(-5px);
+  border-color: var(--orange);
+  box-shadow: 0 16px 38px rgba(255,90,0,0.16);
+}
+
+.homeIcon {
+  font-size: 44px;
+}
+
+.homeCard h2 {
+  color: var(--orange);
+}
+
+/* LISTS / FOLDERS */
+#savedPlaysList,
+#logsList,
+.foldersList {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.savedPlayItem,
+.folderCard {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  align-items: center;
+  background: white;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  padding: 16px;
+  box-shadow: var(--shadow);
+}
+
+.savedPlayName,
+.folderTitle {
+  font-size: 20px;
+  font-weight: 900;
+  color: var(--orange);
+}
+
+.savedPlayMeta,
+.folderCode {
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.folderCreateRow {
+  display: flex;
+  gap: 12px;
+  margin: 20px 0 24px;
+}
+
+.folderCreateRow input {
+  flex: 1;
+  background: white;
+  border: 1px solid var(--line);
+  color: var(--text);
+  padding: 14px;
+  font-size: 16px;
+  border-radius: 12px;
+}
+
+.folderCreateRow button {
+  background: var(--orange);
+  border: none;
+  color: white;
+  font-weight: 900;
+  padding: 14px 20px;
+  border-radius: 12px;
+}
+
+.folderActions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.shareCodeBadge {
+  display: inline-block;
+  margin-top: 10px;
+  padding: 8px 12px;
+  background: var(--orange-soft);
+  border: 1px solid var(--orange);
+  color: var(--orange);
+  border-radius: 10px;
+  font-weight: 900;
+  letter-spacing: 2px;
+}
+
+.hidden {
+  display: none !important;
+}
+
+/* SCORE */
+.bigScore {
+  font-size: 72px;
+  font-weight: 950;
+  color: var(--orange);
+}
+
+.scoreLine {
+  font-size: 22px;
+  margin-bottom: 12px;
+}
+
+/* SIMULATOR TOPBAR */
+.simTopbar {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px 18px;
+  height: auto;
+}
+
+.simHeaderRow,
+.simButtonRow,
+.simControlsRow {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.simHeaderRow .brand {
+  font-size: 28px;
   text-align: center;
 }
 
-#promoMessage {
-  margin-top: 10px;
-  min-height: 20px;
-  font-weight: 900;
-}
-
+/* RESPONSIVE */
 @media (max-width: 1200px) {
   #topbar {
-    align-items: flex-start;
     flex-direction: column;
+    align-items: flex-start;
   }
 
   .brand {
@@ -254,6 +501,34 @@ canvas {
   }
 
   canvas {
-    height: calc(100vh - 150px);
+    height: calc(100vh - 168px);
+  }
+
+  #fieldShell {
+    height: calc(100vh - 168px);
+  }
+}
+
+@media (max-width: 900px) {
+  .homeCards {
+    grid-template-columns: 1fr;
+  }
+
+  .homeLogo {
+    font-size: 38px;
+  }
+
+  .homeSubtitle {
+    font-size: 15px;
+  }
+
+  #qrGrid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .savedPlayItem,
+  .folderCard {
+    flex-direction: column;
+    align-items: flex-start;
   }
 }
