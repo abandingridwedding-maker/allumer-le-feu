@@ -7,33 +7,189 @@ ctx.imageSmoothingEnabled = false;
 const W = canvas.width;
 const H = canvas.height;
 
-// New V7 professional pitch artwork.
-// Make sure your image is saved exactly here: assets/rugby-pitch.png
+/* ================================
+   V7 PITCH ARTWORK
+   Files must exist exactly here:
+   assets/rugby-pitch.png
+   assets/half-pitch.png
+   assets/lineout-pitch.png
+================================ */
+
 const rugbyPitchImg = new Image();
 rugbyPitchImg.src = "assets/rugby-pitch.png";
 rugbyPitchImg.onload = () => draw();
 
-let state = null;
+const halfPitchImg = new Image();
+halfPitchImg.src = "assets/half-pitch.png";
+halfPitchImg.onload = () => draw();
+
+const lineoutPitchImg = new Image();
+lineoutPitchImg.src = "assets/lineout-pitch.png";
+lineoutPitchImg.onload = () => draw();
+
+/* ================================
+   STATE
+================================ */
+
 let setupMode = "free";
 let playerGroup = "all";
 let playerSize = "small";
 let sportMode = "rugby";
 let pitchMode = "full";
-let currentLang = "en"; // English only
+let currentLang = "en";
 
 let draggingBall = false;
 let draggingPlayerNumber = null;
+let dragOffset = { x: 0, y: 0 };
+
+const COLORS = {
+  red: "#d71920",
+  white: "#ffffff",
+  black: "#111111",
+  blue: "#1f6feb"
+};
+
+/* ================================
+   FIELD / MOVEMENT BOUNDS
+   Movement bounds sit OUTSIDE the visible pitch outline.
+   This fixes the old invisible wall around the 5m line.
+================================ */
 
 const FIELD = {
-  left: 70,
-  right: W - 70,
-  top: 95,
-  bottom: H - 145
+  left: 35,
+  right: W - 35,
+  top: 72,
+  bottom: H - 82
 };
+
+function getPitchField(mode = pitchMode) {
+  // All three artwork files are full-canvas images.
+  // Movement bounds are therefore full usable canvas bounds, inside only a small safety margin.
+  return {
+    left: 35,
+    right: W - 35,
+    top: 72,
+    bottom: H - 82
+  };
+}
+
+function applyActiveField() {
+  Object.assign(FIELD, getPitchField());
+}
+
+function playerClampPadding() {
+  if (playerSize === "small") return { x: 18, y: 18 };
+  if (playerSize === "medium") return { x: 24, y: 34 };
+  return { x: 34, y: 48 };
+}
+
+function ballClampPadding() {
+  return { x: 24, y: 24 };
+}
+
+function clamp(v, min, max) {
+  return Math.max(min, Math.min(max, v));
+}
+
+function clampPointToField(point, isBall = false) {
+  const pad = isBall ? ballClampPadding() : playerClampPadding();
+
+  return {
+    x: clamp(point.x, FIELD.left + pad.x, FIELD.right - pad.x),
+    y: clamp(point.y, FIELD.top + pad.y, FIELD.bottom - pad.y)
+  };
+}
+
+function clampPlayer(player) {
+  const p = clampPointToField(player, false);
+  player.x = p.x;
+  player.y = p.y;
+}
+
+function clampBall(ball) {
+  const p = clampPointToField(ball, true);
+  ball.x = p.x;
+  ball.y = p.y;
+}
+
+/* ================================
+   LOCAL FALLBACK STATE
+   This makes Live still visible even before socket/server state arrives.
+================================ */
+
+function createDefaultPlayers() {
+  const players = {};
+
+  for (let i = 1; i <= 15; i++) {
+    players[i] = {
+      number: i,
+      x: 500,
+      y: 300,
+      color: COLORS.red,
+      connected: false
+    };
+  }
+
+  return players;
+}
+
+function placeDefaultLineout(players, ball) {
+  const xForwards = 920;
+  const startY = 165;
+  const spacing = 34;
+
+  [1, 3, 4, 5, 6, 7, 8].forEach((n, i) => {
+    players[n].x = xForwards;
+    players[n].y = startY + i * spacing;
+  });
+
+  players[2].x = xForwards - 78;
+  players[2].y = startY;
+
+  players[9].x = xForwards + 76;
+  players[9].y = startY + spacing * 4.2;
+
+  players[10].x = xForwards + 185;
+  players[10].y = startY + spacing * 3.5;
+
+  players[12].x = xForwards + 290;
+  players[12].y = startY + spacing * 4.3;
+
+  players[13].x = xForwards + 405;
+  players[13].y = startY + spacing * 5;
+
+  players[15].x = xForwards + 515;
+  players[15].y = startY + spacing * 5.9;
+
+  players[14].x = xForwards + 620;
+  players[14].y = startY + spacing * 6.8;
+
+  players[11].x = xForwards + 345;
+  players[11].y = startY + spacing * 1.6;
+
+  ball.x = xForwards + 34;
+  ball.y = startY + spacing * 1.4;
+
+  Object.values(players).forEach(clampPlayer);
+  clampBall(ball);
+}
+
+let state = {
+  players: createDefaultPlayers(),
+  ball: { x: 950, y: 230 },
+  frozen: false,
+  sportMode: "rugby",
+  pitchMode: "full"
+};
+
+placeDefaultLineout(state.players, state.ball);
+
+/* ================================
+   TEXT
+================================ */
 
 const TEXT = {
   en: {
-    slogan: "CLARITY CREATES INTENSITY",
     qrCodes: "QR Codes",
     qrTitle: "Scan to control players",
     close: "Close",
@@ -68,83 +224,11 @@ const TEXT = {
     promoPlaceholder: "Enter code",
     applyPromo: "Apply Promo Code",
     invalid: "Invalid promo code."
-  },
-
-  fr: {
-    slogan: "LA CLARTÉ CRÉE L’INTENSITÉ",
-    qrCodes: "QR Codes",
-    qrTitle: "Scanner pour contrôler les joueurs",
-    close: "Fermer",
-    rugby: "Rugby",
-    football: "Football",
-    lineoutTop: "Touche haut",
-    lineoutBottom: "Touche bas",
-    scrum: "Mêlée",
-    freeBall: "Ballon libre",
-    allPlayers: "Tous les joueurs",
-    forwardsOnly: "Avants seulement",
-    backsOnly: "Arrières seulement",
-    normalSize: "Taille normale",
-    mediumSize: "Taille 2/3",
-    smallCircle: "Petit cercle",
-    freeze: "Bloquer",
-    reset: "Réinitialiser",
-    speed: "Vitesse",
-    freeBallMode: "BALLON LIBRE",
-    lineoutTopMode: "TOUCHE HAUT",
-    lineoutBottomMode: "TOUCHE BAS",
-    scrumMode: "MÊLÉE",
-    footballMode: "MODE FOOTBALL",
-    attack: "ATTAQUE : DROITE → GAUCHE",
-    footer: "Cliquer joueur = glisser | Cliquer terrain = ballon | Double-clic joueur = attacher ballon",
-    session: "SESSION ACTIVE 🔴",
-    message1: "Votre session est connectée.",
-    message2: "Pour garder les joueurs connectés et continuer à gérer votre équipe :",
-    price: "9,99€ / an",
-    unlock: "Débloquer l’accès",
-    promo: "Code promo :",
-    promoPlaceholder: "Entrer le code",
-    applyPromo: "Appliquer le code promo",
-    invalid: "Code promo invalide."
   }
 };
 
-function getPitchField(mode = pitchMode) {
-  if (mode === "lineout") {
-    const lineoutWidth = Math.round((W - 140) * 0.62);
-    const left = Math.round((W - lineoutWidth) / 2);
-    return { left, right: left + lineoutWidth, top: 95, bottom: H - 145 };
-  }
-
-  return { left: 70, right: W - 70, top: 95, bottom: H - 145 };
-}
-
-function applyActiveField() {
-  Object.assign(FIELD, getPitchField());
-}
-
-function updatePitchModeSelect() {
-  const select = document.getElementById("pitchMode");
-  if (select) select.value = pitchMode;
-}
-
-function setPitchMode(mode, emit = true) {
-  pitchMode = ["full", "half", "lineout"].includes(mode) ? mode : "full";
-
-  if (pitchMode === "lineout") {
-    playerGroup = "forwards";
-    const playerGroupSelect = document.getElementById("playerGroup");
-    if (playerGroupSelect) playerGroupSelect.value = "forwards";
-  }
-
-  applyActiveField();
-  updatePitchModeSelect();
-  if (emit) socket.emit("coach-pitch-mode", pitchMode);
-  draw();
-}
-
 function t(key) {
-  return TEXT[currentLang][key] || TEXT.en[key] || key;
+  return TEXT.en[key] || key;
 }
 
 function safeText(id, value) {
@@ -203,8 +287,39 @@ function applyTranslations() {
 }
 
 /* ================================
-   ACTIVE BUTTONS
+   UI MODES
 ================================ */
+
+function syncControls() {
+  const pitchModeSelect = document.getElementById("pitchMode");
+  if (pitchModeSelect) pitchModeSelect.value = pitchMode;
+
+  const playerGroupSelect = document.getElementById("playerGroup");
+  if (playerGroupSelect) playerGroupSelect.value = playerGroup;
+
+  const playerSizeSelect = document.getElementById("playerSize");
+  if (playerSizeSelect) playerSizeSelect.value = playerSize;
+
+  const sportModeSelect = document.getElementById("sportMode");
+  if (sportModeSelect) sportModeSelect.value = sportMode;
+}
+
+function setPitchMode(mode, emit = true) {
+  pitchMode = ["full", "half", "lineout"].includes(mode) ? mode : "full";
+  state.pitchMode = pitchMode;
+
+  if (pitchMode === "lineout") {
+    playerGroup = "forwards";
+  }
+
+  applyActiveField();
+  Object.values(state.players || {}).forEach(clampPlayer);
+  if (state.ball) clampBall(state.ball);
+
+  syncControls();
+  if (emit) socket.emit("coach-pitch-mode", pitchMode);
+  draw();
+}
 
 function clearModeButtons() {
   ["lineoutTopBtn", "lineoutBottomBtn", "scrumBtn", "freeBtn"].forEach(id => {
@@ -242,13 +357,15 @@ function updateToolVisibility() {
 ================================ */
 
 socket.on("state", serverState => {
+  if (!serverState) return;
+
   state = serverState;
 
   if (state.sportMode) sportMode = state.sportMode;
   if (state.pitchMode) pitchMode = state.pitchMode;
 
   applyActiveField();
-  updatePitchModeSelect();
+  syncControls();
   updateToolVisibility();
   draw();
 });
@@ -259,8 +376,8 @@ socket.on("state", serverState => {
 
 const langToggle = document.getElementById("langToggle");
 if (langToggle) {
-  langToggle.onchange = e => {
-    currentLang = e.target.value;
+  langToggle.onchange = () => {
+    currentLang = "en";
     localStorage.setItem("teamClarityLang", currentLang);
     applyTranslations();
     draw();
@@ -274,8 +391,10 @@ const sportModeSelect = document.getElementById("sportMode");
 if (sportModeSelect) {
   sportModeSelect.onchange = e => {
     sportMode = e.target.value;
+    state.sportMode = sportMode;
     socket.emit("coach-sport-mode", sportMode);
     updateToolVisibility();
+    syncControls();
     draw();
   };
 }
@@ -288,7 +407,12 @@ document.getElementById("freeBtn")?.addEventListener("click", () => setMode("fre
 const teamColorSelect = document.getElementById("teamColor");
 if (teamColorSelect) {
   teamColorSelect.onchange = e => {
+    const color = COLORS[e.target.value] || COLORS.red;
+    Object.values(state.players || {}).forEach(p => {
+      p.color = color;
+    });
     socket.emit("coach-team-color", e.target.value);
+    draw();
   };
 }
 
@@ -296,6 +420,7 @@ const playerGroupSelect = document.getElementById("playerGroup");
 if (playerGroupSelect) {
   playerGroupSelect.onchange = e => {
     playerGroup = e.target.value;
+    syncControls();
     draw();
   };
 }
@@ -304,6 +429,9 @@ const playerSizeSelect = document.getElementById("playerSize");
 if (playerSizeSelect) {
   playerSizeSelect.onchange = e => {
     playerSize = e.target.value;
+    Object.values(state.players || {}).forEach(clampPlayer);
+    if (state.ball) clampBall(state.ball);
+    syncControls();
     draw();
   };
 }
@@ -319,8 +447,9 @@ if (resetBtn) {
 const freezeBtn = document.getElementById("freezeBtn");
 if (freezeBtn) {
   freezeBtn.onclick = () => {
-    if (!state) return;
-    socket.emit("coach-freeze", !state.frozen);
+    state.frozen = !state.frozen;
+    socket.emit("coach-freeze", state.frozen);
+    draw();
   };
 }
 
@@ -389,95 +518,213 @@ function isBallHit(point) {
 }
 
 /* ================================
+   SET PIECES LOCAL PREVIEW
+================================ */
+
+function localPlaceLineout(side, x) {
+  if (!state || !state.players || !state.ball) return;
+
+  const xForwards = clamp(x || 920, FIELD.left + 220, FIELD.right - 520);
+  const spacing = side === "top" ? 34 : -34;
+  const startY = side === "top" ? FIELD.top + 72 : FIELD.bottom - 72;
+  const players = state.players;
+
+  [1, 3, 4, 5, 6, 7, 8].forEach((n, i) => {
+    players[n].x = xForwards;
+    players[n].y = startY + i * spacing;
+  });
+
+  players[2].x = xForwards - 78;
+  players[2].y = startY - spacing * 0.2;
+
+  players[9].x = xForwards + 76;
+  players[9].y = startY + spacing * 4.2;
+
+  const backsStartX = clamp(xForwards + 185, FIELD.left + 120, FIELD.right - 100);
+
+  players[10].x = backsStartX;
+  players[10].y = clamp(startY + spacing * 3.5, FIELD.top + 50, FIELD.bottom - 50);
+
+  players[12].x = clamp(backsStartX + 105, FIELD.left + 100, FIELD.right - 70);
+  players[12].y = clamp(startY + spacing * 4.3, FIELD.top + 50, FIELD.bottom - 50);
+
+  players[13].x = clamp(backsStartX + 220, FIELD.left + 100, FIELD.right - 70);
+  players[13].y = clamp(startY + spacing * 5.0, FIELD.top + 50, FIELD.bottom - 50);
+
+  players[15].x = clamp(backsStartX + 330, FIELD.left + 100, FIELD.right - 70);
+  players[15].y = clamp(startY + spacing * 5.9, FIELD.top + 50, FIELD.bottom - 50);
+
+  players[14].x = clamp(backsStartX + 435, FIELD.left + 100, FIELD.right - 70);
+  players[14].y = clamp(startY + spacing * 6.8, FIELD.top + 50, FIELD.bottom - 50);
+
+  players[11].x = clamp(backsStartX + 160, FIELD.left + 100, FIELD.right - 70);
+  players[11].y = clamp(startY + spacing * 1.6, FIELD.top + 50, FIELD.bottom - 50);
+
+  state.ball.x = xForwards + 34;
+  state.ball.y = startY + spacing * 1.4;
+
+  Object.values(players).forEach(clampPlayer);
+  clampBall(state.ball);
+}
+
+function localPlaceScrum(x, y) {
+  if (!state || !state.players || !state.ball) return;
+
+  const players = state.players;
+  const cx = clamp(x || 720, FIELD.left + 180, FIELD.right - 580);
+  const cy = clamp(y || 445, FIELD.top + 155, FIELD.bottom - 220);
+
+  const gapX = 38;
+  const gapY = 38;
+
+  players[1].x = cx - gapX;
+  players[1].y = cy - gapY;
+  players[2].x = cx;
+  players[2].y = cy - gapY;
+  players[3].x = cx + gapX;
+  players[3].y = cy - gapY;
+
+  players[4].x = cx - 19;
+  players[4].y = cy;
+  players[5].x = cx + 19;
+  players[5].y = cy;
+
+  players[6].x = cx - 66;
+  players[6].y = cy + gapY;
+  players[7].x = cx + 66;
+  players[7].y = cy + gapY;
+  players[8].x = cx;
+  players[8].y = cy + gapY + 18;
+
+  players[9].x = cx + 150;
+  players[9].y = cy + 14;
+
+  players[10].x = clamp(cx + 265, FIELD.left + 100, FIELD.right - 70);
+  players[10].y = clamp(cy + 42, FIELD.top + 50, FIELD.bottom - 50);
+
+  players[12].x = clamp(cx + 375, FIELD.left + 100, FIELD.right - 70);
+  players[12].y = clamp(cy + 82, FIELD.top + 50, FIELD.bottom - 50);
+
+  players[13].x = clamp(cx + 500, FIELD.left + 100, FIELD.right - 70);
+  players[13].y = clamp(cy + 132, FIELD.top + 50, FIELD.bottom - 50);
+
+  players[15].x = clamp(cx + 605, FIELD.left + 100, FIELD.right - 70);
+  players[15].y = clamp(cy + 195, FIELD.top + 50, FIELD.bottom - 50);
+
+  players[14].x = clamp(cx + 710, FIELD.left + 100, FIELD.right - 70);
+  players[14].y = clamp(cy + 245, FIELD.top + 50, FIELD.bottom - 50);
+
+  players[11].x = clamp(cx + 440, FIELD.left + 100, FIELD.right - 70);
+  players[11].y = clamp(cy - 118, FIELD.top + 50, FIELD.bottom - 50);
+
+  state.ball.x = cx + 105;
+  state.ball.y = cy + 8;
+
+  Object.values(players).forEach(clampPlayer);
+  clampBall(state.ball);
+}
+
+/* ================================
    CANVAS INTERACTION
 ================================ */
 
 canvas.addEventListener("mousedown", e => {
-  const p = mousePoint(e);
+  const rawPoint = mousePoint(e);
+  const playerPoint = clampPointToField(rawPoint, false);
+  const ballPoint = clampPointToField(rawPoint, true);
 
   if (sportMode === "rugby" && setupMode === "lineout-top") {
-    socket.emit("coach-setpiece", {
-      type: "lineout",
-      side: "top",
-      x: p.x,
-      y: p.y
-    });
-
+    localPlaceLineout("top", playerPoint.x);
+    socket.emit("coach-setpiece", { type: "lineout", side: "top", x: playerPoint.x, y: playerPoint.y });
     setMode("free");
+    draw();
     return;
   }
 
   if (sportMode === "rugby" && setupMode === "lineout-bottom") {
-    socket.emit("coach-setpiece", {
-      type: "lineout",
-      side: "bottom",
-      x: p.x,
-      y: p.y
-    });
-
+    localPlaceLineout("bottom", playerPoint.x);
+    socket.emit("coach-setpiece", { type: "lineout", side: "bottom", x: playerPoint.x, y: playerPoint.y });
     setMode("free");
+    draw();
     return;
   }
 
   if (sportMode === "rugby" && setupMode === "scrum") {
-    socket.emit("coach-setpiece", {
-      type: "scrum",
-      x: p.x,
-      y: p.y
-    });
-
+    localPlaceScrum(playerPoint.x, playerPoint.y);
+    socket.emit("coach-setpiece", { type: "scrum", x: playerPoint.x, y: playerPoint.y });
     setMode("free");
+    draw();
     return;
   }
 
-  if (isBallHit(p)) {
+  if (isBallHit(rawPoint)) {
     draggingBall = true;
     draggingPlayerNumber = null;
-    socket.emit("coach-ball", p);
+    dragOffset.x = rawPoint.x - state.ball.x;
+    dragOffset.y = rawPoint.y - state.ball.y;
+
+    state.ball.x = ballPoint.x;
+    state.ball.y = ballPoint.y;
+    socket.emit("coach-ball", ballPoint);
     setCanvasDragging(true);
+    draw();
     return;
   }
 
-  const player = getClosestPlayer(p);
+  const player = getClosestPlayer(rawPoint);
 
   if (player) {
     draggingPlayerNumber = player.number;
     draggingBall = false;
+    dragOffset.x = rawPoint.x - player.x;
+    dragOffset.y = rawPoint.y - player.y;
 
-    socket.emit("coach-move-player", {
-      number: player.number,
-      x: p.x,
-      y: p.y
-    });
+    player.x = playerPoint.x;
+    player.y = playerPoint.y;
+    clampPlayer(player);
 
+    socket.emit("coach-move-player", { number: player.number, x: player.x, y: player.y });
     setCanvasDragging(true);
+    draw();
     return;
   }
 
   draggingBall = true;
   draggingPlayerNumber = null;
-  socket.emit("coach-ball", p);
+  state.ball.x = ballPoint.x;
+  state.ball.y = ballPoint.y;
+  socket.emit("coach-ball", ballPoint);
   setCanvasDragging(true);
+  draw();
 });
 
 canvas.addEventListener("mousemove", e => {
-  const p = mousePoint(e);
+  const rawPoint = mousePoint(e);
 
   if (draggingPlayerNumber) {
-    socket.emit("coach-move-player", {
-      number: draggingPlayerNumber,
-      x: p.x,
-      y: p.y
-    });
+    const player = state.players[draggingPlayerNumber];
+    if (!player) return;
+
+    player.x = rawPoint.x - dragOffset.x;
+    player.y = rawPoint.y - dragOffset.y;
+    clampPlayer(player);
+
+    socket.emit("coach-move-player", { number: draggingPlayerNumber, x: player.x, y: player.y });
+    draw();
     return;
   }
 
   if (draggingBall) {
-    socket.emit("coach-ball", p);
+    state.ball.x = rawPoint.x - dragOffset.x;
+    state.ball.y = rawPoint.y - dragOffset.y;
+    clampBall(state.ball);
+
+    socket.emit("coach-ball", { x: state.ball.x, y: state.ball.y });
+    draw();
   }
 });
 
-canvas.addEventListener("mouseup", () => {
+window.addEventListener("mouseup", () => {
   draggingBall = false;
   draggingPlayerNumber = null;
   setCanvasDragging(false);
@@ -490,8 +737,8 @@ canvas.addEventListener("mouseleave", () => {
 });
 
 canvas.addEventListener("dblclick", e => {
-  const p = mousePoint(e);
-  const player = getClosestPlayer(p);
+  const rawPoint = mousePoint(e);
+  const player = getClosestPlayer(rawPoint);
 
   if (player) socket.emit("coach-attach-ball", player.number);
 });
@@ -505,6 +752,8 @@ if (qrBtn) {
   qrBtn.onclick = async () => {
     const modal = document.getElementById("qrModal");
     const grid = document.getElementById("qrGrid");
+
+    if (!modal || !grid) return;
 
     modal.classList.remove("hidden");
     grid.innerHTML = "";
@@ -532,7 +781,7 @@ if (qrBtn) {
 const closeQr = document.getElementById("closeQr");
 if (closeQr) {
   closeQr.onclick = () => {
-    document.getElementById("qrModal").classList.add("hidden");
+    document.getElementById("qrModal")?.classList.add("hidden");
   };
 }
 
@@ -553,20 +802,12 @@ function pixelText(text, x, y, size = 22, align = "center", color = "white") {
 }
 
 /* ================================
-   FIELD
+   FIELD DRAWING
 ================================ */
-
-function drawPitchHeader(title) {
-  ctx.fillStyle = "#d71920";
-  ctx.fillRect(0, 0, W, 52);
-  ctx.fillStyle = "#111";
-  ctx.fillRect(0, 52, W, 8);
-  pixelText(title, W / 2, 37, 30, "center", "#fff");
-}
 
 function drawRugbyPitch() {
   applyActiveField();
-  updatePitchModeSelect();
+  syncControls();
 
   if (pitchMode === "half") {
     drawHalfPitch();
@@ -588,79 +829,24 @@ function drawFullRugbyPitch() {
     ctx.fillStyle = "#6ec65f";
     ctx.fillRect(0, 0, W, H);
   }
-
-  // The new premium pitch image already contains the full field markings.
-  // We stop here so the old pixel field lines and red banner are not drawn over it.
-  return;
 }
 
 function drawHalfPitch() {
-  ctx.fillStyle = "#6ec65f";
-  ctx.fillRect(0, 0, W, H);
-  const { left, right, top, bottom } = FIELD;
-  const pw = right - left;
-  const ph = bottom - top;
-  const X = p => left + pw * p;
-  const Y = p => top + ph * p;
-
-  ctx.strokeStyle = "#fff";
-  ctx.lineWidth = 7;
-  ctx.strokeRect(left, top, pw, ph);
-  ctx.lineWidth = 6;
-  [["TRY", 1.0], ["5m", 0.88], ["22m", 0.56], ["40m", 0.22], ["50m", 0.0]].forEach(([label, p]) => {
-    ctx.beginPath(); ctx.moveTo(left, Y(p)); ctx.lineTo(right, Y(p)); ctx.stroke();
-    pixelText(label, left + 18, Y(p) - 8, 18, "left", "#fff");
-  });
-  ctx.setLineDash([18, 16]);
-  ctx.lineWidth = 4;
-  [["5m",0.08],["15m",0.23],["15m",0.77],["5m",0.92]].forEach(([label,p]) => {
-    ctx.beginPath(); ctx.moveTo(X(p), top); ctx.lineTo(X(p), bottom); ctx.stroke();
-    pixelText(label, X(p), bottom + 30, 16, "center", "#fff");
-  });
-  ctx.setLineDash([]);
-  drawPitchHeader(t("slogan") + " | HALF PITCH");
+  if (halfPitchImg.complete && halfPitchImg.naturalWidth > 0) {
+    ctx.drawImage(halfPitchImg, 0, 0, W, H);
+  } else {
+    ctx.fillStyle = "#6ec65f";
+    ctx.fillRect(0, 0, W, H);
+  }
 }
 
 function drawLineoutPitch() {
-  ctx.fillStyle = "#6ec65f";
-  ctx.fillRect(0, 0, W, H);
-
-  const { left, right, top, bottom } = FIELD;
-  const pw = right - left;
-  const ph = bottom - top;
-
-  // Lineout pitch calibration: visible area = touchline to 15m line + 2m free space.
-  // 5m line = 5/17 across; 15m line = 15/17 across.
-  const X = metres => left + pw * (metres / 17);
-
-  ctx.strokeStyle = "#fff";
-  ctx.lineWidth = 7;
-  ctx.strokeRect(left, top, pw, ph);
-
-  // Touchline = solid left edge.
-  ctx.lineWidth = 8;
-  ctx.beginPath();
-  ctx.moveTo(X(0), top);
-  ctx.lineTo(X(0), bottom);
-  ctx.stroke();
-
-  ctx.setLineDash([18, 16]);
-  ctx.lineWidth = 5;
-
-  [["5m", 5], ["15m", 15]].forEach(([label, metres]) => {
-    ctx.beginPath();
-    ctx.moveTo(X(metres), top);
-    ctx.lineTo(X(metres), bottom);
-    ctx.stroke();
-    pixelText(label, X(metres), bottom + 34, 20, "center", "#fff");
-  });
-
-  ctx.setLineDash([]);
-
-  pixelText("5m", X(5), top + 34, 20, "center", "#fff");
-  pixelText("15m", X(15), top + 34, 20, "center", "#fff");
-
-  drawPitchHeader(t("slogan") + " | LINEOUT");
+  if (lineoutPitchImg.complete && lineoutPitchImg.naturalWidth > 0) {
+    ctx.drawImage(lineoutPitchImg, 0, 0, W, H);
+  } else {
+    ctx.fillStyle = "#6ec65f";
+    ctx.fillRect(0, 0, W, H);
+  }
 }
 
 function drawFootballPitch() {
@@ -678,6 +864,8 @@ function drawFootballPitch() {
 ================================ */
 
 function drawBall(ball) {
+  if (!ball) return;
+
   ctx.save();
   ctx.translate(ball.x, ball.y);
 
@@ -723,7 +911,7 @@ function drawCirclePlayer(p) {
   ctx.ellipse(p.x + 3, p.y + 4, radius + 2, radius * 0.6, 0, 0, Math.PI * 2);
   ctx.fill();
 
-  ctx.fillStyle = p.color || "#d71920";
+  ctx.fillStyle = p.color || COLORS.red;
   ctx.beginPath();
   ctx.arc(p.x, p.y, radius, 0, Math.PI * 2);
   ctx.fill();
@@ -756,7 +944,7 @@ function drawPixelPlayer(p) {
   ctx.fillStyle = "rgba(0,0,0,.25)";
   ctx.fillRect(-24, 30, 48, 8);
 
-  ctx.fillStyle = p.color || "#d71920";
+  ctx.fillStyle = p.color || COLORS.red;
   ctx.fillRect(-22, -24, 44, 50);
 
   ctx.fillStyle = "#fff";
@@ -810,7 +998,7 @@ function drawPixelPlayer(p) {
 }
 
 function drawPlayer(p) {
-  if (!shouldShowPlayer(p.number)) return;
+  if (!p || !shouldShowPlayer(p.number)) return;
 
   if (playerSize === "small") {
     drawCirclePlayer(p);
@@ -855,12 +1043,15 @@ function draw() {
     drawRugbyPitch();
   }
 
-  if (!state) return;
+  if (state && state.players) {
+    Object.values(state.players).forEach(drawPlayer);
+  }
 
-  Object.values(state.players).forEach(drawPlayer);
-  drawBall(state.ball);
+  if (state && state.ball) {
+    drawBall(state.ball);
+  }
 
-  if (state.frozen) {
+  if (state && state.frozen) {
     ctx.fillStyle = "rgba(0,0,0,.35)";
     ctx.fillRect(0, 0, W, H);
     pixelText(t("freeze"), W / 2, H / 2, 90, "center", "#fff");
@@ -905,19 +1096,17 @@ function unlockPromoForThisPageLoadOnly() {
 ================================ */
 
 window.addEventListener("load", () => {
-  const savedLang = localStorage.getItem("teamClarityLang");
+  currentLang = "en";
 
-  if (savedLang === "fr" || savedLang === "en") {
-    currentLang = "en";
-    const langToggle = document.getElementById("langToggle");
-    if (langToggle) langToggle.value = currentLang;
-  }
+  const langToggle = document.getElementById("langToggle");
+  if (langToggle) langToggle.value = currentLang;
 
   applyTranslations();
   applyActiveField();
-  updatePitchModeSelect();
+  syncControls();
   updateToolVisibility();
   updateModeButtons();
+  draw();
 
   if (!hasValidAccess()) {
     setTimeout(showPaywall, PAYWALL_WAIT_TIME);
