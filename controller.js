@@ -1,4 +1,4 @@
-const socket = io();
+const socket = io({ transports: ["websocket", "polling"] });
 
 const params = new URLSearchParams(window.location.search);
 const playerNumber = Number(params.get("p") || 1);
@@ -14,9 +14,16 @@ let active = false;
 let moveInterval = null;
 let currentMove = { dx: 0, dy: 0 };
 
-socket.emit("controller-connect", playerNumber);
+function setStatus(text, connected = false) {
+  statusEl.textContent = text;
+  statusEl.classList.toggle("connected", connected);
+}
 
-statusEl.textContent = "Connected ✅";
+function joinLive() {
+  socket.emit("controller-connect", playerNumber);
+  socket.emit("controller-join", playerNumber);
+  socket.emit("player-join", playerNumber);
+}
 
 function resetStick() {
   stick.style.left = "50%";
@@ -56,15 +63,19 @@ function updateStick(clientX, clientY) {
   };
 }
 
+function emitMove() {
+  socket.emit("controller-move", {
+    number: playerNumber,
+    dx: currentMove.dx,
+    dy: currentMove.dy
+  });
+}
+
 function startMoving() {
   if (moveInterval) return;
 
-  moveInterval = setInterval(() => {
-    socket.emit("controller-move", {
-      dx: currentMove.dx,
-      dy: currentMove.dy
-    });
-  }, 40);
+  emitMove();
+  moveInterval = setInterval(emitMove, 33);
 }
 
 function stopMoving() {
@@ -74,6 +85,7 @@ function stopMoving() {
   resetStick();
 
   socket.emit("controller-move", {
+    number: playerNumber,
     dx: 0,
     dy: 0
   });
@@ -107,6 +119,13 @@ joystick.addEventListener("touchend", e => {
   stopMoving();
 }, { passive: false });
 
+joystick.addEventListener("touchcancel", e => {
+  e.preventDefault();
+
+  active = false;
+  stopMoving();
+}, { passive: false });
+
 joystick.addEventListener("mousedown", e => {
   active = true;
 
@@ -128,12 +147,18 @@ window.addEventListener("mouseup", () => {
 });
 
 socket.on("connect", () => {
-  socket.emit("controller-connect", playerNumber);
-  statusEl.textContent = "Connected ✅";
+  joinLive();
+  setStatus("Connected ✅", true);
+});
+
+socket.on("live-controller-ack", data => {
+  if (Number(data.number) === playerNumber) {
+    setStatus("Connected ✅", true);
+  }
 });
 
 socket.on("disconnect", () => {
-  statusEl.textContent = "Disconnected";
+  setStatus("Disconnected", false);
 });
 
 window.addEventListener("beforeunload", () => {

@@ -1,21 +1,29 @@
-const socket = io();
+const socket = io({ transports: ["websocket", "polling"] });
 
 const params = new URLSearchParams(window.location.search);
 const playerNumber = Number(params.get("p") || 9);
 
 const playerNumberEl = document.getElementById("playerNumber");
+const statusEl = document.getElementById("status");
 const joystick = document.getElementById("joystick");
 const stick = document.getElementById("stick");
-const timingBtn = document.getElementById("timingBtn");
 
 playerNumberEl.textContent = playerNumber;
 
 let active = false;
-let center = { x: 0, y: 0 };
 let moveInterval = null;
 let currentMove = { dx: 0, dy: 0 };
 
-socket.emit("sim-player-join", playerNumber);
+function setStatus(text, connected = true) {
+  if (!statusEl) return;
+
+  statusEl.textContent = text;
+  statusEl.style.color = connected ? "#16a34a" : "#b91c1c";
+}
+
+function joinSimulator() {
+  socket.emit("sim-player-join", playerNumber);
+}
 
 function resetStick() {
   stick.style.left = "50%";
@@ -25,6 +33,7 @@ function resetStick() {
 
 function getCenter() {
   const rect = joystick.getBoundingClientRect();
+
   return {
     x: rect.left + rect.width / 2,
     y: rect.top + rect.height / 2
@@ -32,7 +41,7 @@ function getCenter() {
 }
 
 function updateStick(clientX, clientY) {
-  center = getCenter();
+  const center = getCenter();
 
   let dx = clientX - center.x;
   let dy = clientY - center.y;
@@ -54,21 +63,25 @@ function updateStick(clientX, clientY) {
   };
 }
 
+function emitMove() {
+  socket.emit("sim-player-move", {
+    number: playerNumber,
+    dx: currentMove.dx,
+    dy: currentMove.dy
+  });
+}
+
 function startMoving() {
   if (moveInterval) return;
 
-  moveInterval = setInterval(() => {
-    socket.emit("sim-player-move", {
-      number: playerNumber,
-      dx: currentMove.dx,
-      dy: currentMove.dy
-    });
-  }, 40);
+  emitMove();
+  moveInterval = setInterval(emitMove, 33);
 }
 
 function stopMoving() {
   clearInterval(moveInterval);
   moveInterval = null;
+
   resetStick();
 
   socket.emit("sim-player-move", {
@@ -80,53 +93,73 @@ function stopMoving() {
 
 joystick.addEventListener("touchstart", e => {
   e.preventDefault();
+
   active = true;
+
   const t = e.touches[0];
+
   updateStick(t.clientX, t.clientY);
   startMoving();
 }, { passive: false });
 
 joystick.addEventListener("touchmove", e => {
   e.preventDefault();
+
   if (!active) return;
+
   const t = e.touches[0];
+
   updateStick(t.clientX, t.clientY);
 }, { passive: false });
 
 joystick.addEventListener("touchend", e => {
   e.preventDefault();
+
+  active = false;
+  stopMoving();
+}, { passive: false });
+
+joystick.addEventListener("touchcancel", e => {
+  e.preventDefault();
+
   active = false;
   stopMoving();
 }, { passive: false });
 
 joystick.addEventListener("mousedown", e => {
   active = true;
+
   updateStick(e.clientX, e.clientY);
   startMoving();
 });
 
 window.addEventListener("mousemove", e => {
   if (!active) return;
+
   updateStick(e.clientX, e.clientY);
 });
 
 window.addEventListener("mouseup", () => {
   if (!active) return;
+
   active = false;
   stopMoving();
 });
 
-timingBtn.onclick = () => {
-  socket.emit("sim-player-timing", {
-    number: playerNumber
-  });
+socket.on("connect", () => {
+  joinSimulator();
+  setStatus("Connected ✅", true);
+});
 
-  timingBtn.textContent = "TIMING SENT ✅";
+socket.on("sim-controller-ack", data => {
+  if (Number(data.number) === playerNumber) {
+    setStatus("Connected ✅", true);
+  }
+});
 
-  setTimeout(() => {
-    timingBtn.textContent = "CONFIRM TIMING";
-  }, 900);
-};
+socket.on("disconnect", () => {
+  setStatus("Disconnected", false);
+});
 
 window.addEventListener("beforeunload", () => {
   stopMoving();
