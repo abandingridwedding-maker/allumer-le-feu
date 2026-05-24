@@ -253,6 +253,8 @@ function updateToolVisibility() {
 socket.on("state", serverState => {
   if (!serverState) return;
 
+  if (draggingBall || draggingPlayerNumber) return;
+
   state = serverState;
   sportMode = "rugby";
 
@@ -766,17 +768,20 @@ function drawBall(ball) {
   if (!ball) return;
 
   ctx.save();
-
   ctx.translate(ball.x, ball.y);
   ctx.rotate(-0.35);
 
-  ctx.drawImage(
-    tcBallImg,
-    -32,
-    -20,
-    64,
-    40
-  );
+  if (tcBallImg.complete && tcBallImg.naturalWidth > 0) {
+    ctx.drawImage(tcBallImg, -32, -18, 64, 36);
+  } else {
+    ctx.fillStyle = "#ff5a1f";
+    ctx.strokeStyle = "#ffffff";
+    ctx.lineWidth = 5;
+    ctx.beginPath();
+    ctx.ellipse(0, 0, 28, 15, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+  }
 
   ctx.restore();
 }
