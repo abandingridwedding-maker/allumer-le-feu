@@ -9,10 +9,10 @@
 
 <body>
   <div id="topbar">
-    <div class="brand">
-  <img src="assets/tc-logo.png" class="tcLogo" />
-  <span class="liveBadge">SIMULATOR</span>
-</div>
+    <a href="index.html" class="brand">
+      <img src="assets/tc-logo.png" class="tcLogo" />
+      <span class="liveBadge">SIMULATOR</span>
+    </a>
 
     <div class="tools">
       <div class="toolGroup">
@@ -26,6 +26,7 @@
       </div>
 
       <div class="toolGroup secondaryRow" id="playsimulatorControls">
+
         <label>
           Player
           <select id="playerNumber">
@@ -55,7 +56,14 @@
 
         <label class="speedLabel">
           Speed
-          <input id="simSpeed" type="range" min="0.25" max="2" step="0.25" value="0.5" />
+          <input
+            id="simSpeed"
+            type="range"
+            min="0.25"
+            max="2"
+            step="0.25"
+            value="0.5"
+          />
           <span id="simSpeedValue">0.5x</span>
         </label>
 
@@ -63,6 +71,7 @@
           Shadow
           <input id="shadowGuideToggle" type="checkbox" checked />
         </label>
+
       </div>
     </div>
   </div>
@@ -72,7 +81,11 @@
 
     <div id="lineoutNotesPanel" class="hidden">
       <div class="notesTitle">📋 Lineout Notes</div>
-      <textarea id="lineoutNotes" placeholder="Lineout notes loaded from play..."></textarea>
+
+      <textarea
+        id="lineoutNotes"
+        placeholder="Lineout notes loaded from play..."
+      ></textarea>
     </div>
   </div>
 
@@ -82,6 +95,7 @@
         <h2>📂 Choose Saved Play</h2>
         <button id="closePlayModal">Close</button>
       </div>
+
       <div id="savedPlaysList"></div>
     </div>
   </div>
@@ -92,6 +106,7 @@
         <h2>Scan To Control Players</h2>
         <button id="closeQr">Close</button>
       </div>
+
       <div id="qrGrid"></div>
     </div>
   </div>
@@ -102,6 +117,7 @@
         <h2>Rep Score</h2>
         <button id="closeScoreModal">Close</button>
       </div>
+
       <div id="scoreResult"></div>
     </div>
   </div>
@@ -112,11 +128,13 @@
         <h2>Training Log</h2>
         <button id="closeLogsModal">Close</button>
       </div>
+
       <div id="logsList"></div>
     </div>
   </div>
 
   <script src="/socket.io/socket.io.js"></script>
+
   <script type="module" src="playsimulator.js"></script>
 
   <script type="module">

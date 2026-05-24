@@ -1,10 +1,14 @@
 import { supabase } from './supabase.js'
 
+const tcBallImg = new Image();
+tcBallImg.src = "assets/tc-ball.png";
+
 const socket = io();
 
 const canvas = document.getElementById("field");
 const ctx = canvas.getContext("2d");
-ctx.imageSmoothingEnabled = false;
+ctx.imageSmoothingEnabled = true;
+ctx.imageSmoothingQuality = "high";
 
 const W = canvas.width;
 const H = canvas.height;
@@ -199,55 +203,21 @@ function drawPitch() {
   drawFullPitch();
 }
 
-function drawBall(ballObj = ball) {
-  if (!ballObj) return;
+function drawBall(ball) {
+  if (!ball) return;
 
   ctx.save();
-  ctx.translate(ballObj.x, ballObj.y);
 
-  ctx.fillStyle = "rgba(0,0,0,0.22)";
-  ctx.beginPath();
-  ctx.ellipse(5, 10, 24, 10, 0, 0, Math.PI * 2);
-  ctx.fill();
-
+  ctx.translate(ball.x, ball.y);
   ctx.rotate(-0.35);
 
-  ctx.fillStyle = "#7a3f1d";
-  ctx.strokeStyle = "#2b160c";
-  ctx.lineWidth = 3;
-
-  ctx.beginPath();
-  ctx.ellipse(0, 0, 28, 15, 0, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.stroke();
-
-  ctx.fillStyle = "rgba(255,255,255,0.15)";
-  ctx.beginPath();
-  ctx.ellipse(-8, -5, 11, 4, -0.2, 0, Math.PI * 2);
-  ctx.fill();
-
-  ctx.strokeStyle = "#ffffff";
-  ctx.lineWidth = 3;
-
-  ctx.beginPath();
-  ctx.moveTo(-18, -8);
-  ctx.lineTo(-18, 8);
-  ctx.moveTo(18, -8);
-  ctx.lineTo(18, 8);
-  ctx.stroke();
-
-  ctx.lineWidth = 2;
-  ctx.beginPath();
-  ctx.moveTo(-8, 0);
-  ctx.lineTo(8, 0);
-  ctx.stroke();
-
-  for (let i = -5; i <= 5; i += 5) {
-    ctx.beginPath();
-    ctx.moveTo(i, -4);
-    ctx.lineTo(i, 4);
-    ctx.stroke();
-  }
+  ctx.drawImage(
+    tcBallImg,
+    -32,
+    -20,
+    64,
+    40
+  );
 
   ctx.restore();
 }
