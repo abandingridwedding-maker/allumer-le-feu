@@ -42,7 +42,7 @@ let countdownValue = null;
 let timingClicks = {};
 let sessionStartTime = null;
 
-const BASE_PLAYER_SPEED = 3;
+const BASE_PLAYER_SPEED = 4;
 
 const FIELD = {
   left: 35,
