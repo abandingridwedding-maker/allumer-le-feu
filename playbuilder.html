@@ -10,7 +10,8 @@
 <body>
   <div id="topbar">
     <div class="brand">
-      🔥 TEAM-CLARITY <span style="color:var(--orange);font-size:14px;">BUILDER</span>
+      <img src="assets/tc-logo.png" class="tcLogo" />
+      <span class="liveBadge">BUILDER</span>
     </div>
 
     <div class="tools">
@@ -20,9 +21,6 @@
         <button id="builderMainBtn" class="primaryBtn">Start Builder</button>
         <button id="playAnimationBtn">Play</button>
         <button id="clearStepsBtn" class="resetBtn">Clear</button>
-        <button id="savePlayBtn">Save</button>
-        <button id="loadPlayBtn">Load</button>
-        <button id="foldersBtn">Folders</button>
       </div>
 
       <div class="toolGroup secondaryRow">
@@ -50,6 +48,10 @@
           <option value="medium">2/3 Size</option>
           <option value="small" selected>Small</option>
         </select>
+
+        <button id="savePlayBtn">Save</button>
+        <button id="loadPlayBtn">Load</button>
+        <button id="foldersBtn">Folders</button>
 
         <label class="speedLabel">
           Speed
@@ -82,15 +84,8 @@
       </div>
 
       <div class="folderCreateRow">
-        <input
-          type="text"
-          id="newFolderName"
-          placeholder="Folder name"
-        />
-
-        <button id="createFolderBtn">
-          Create Folder
-        </button>
+        <input type="text" id="newFolderName" placeholder="Folder name" />
+        <button id="createFolderBtn">Create Folder</button>
       </div>
 
       <div id="foldersList" class="foldersList"></div>

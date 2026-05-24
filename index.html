@@ -8,11 +8,14 @@
 </head>
 
 <body class="homeBody">
-  <div class="homeScreen">
-    <div class="homeLogo">🔥 TEAM-CLARITY</div>
-    <div class="homeSubtitle">Clarity creates intensity</div>
+  <main class="homeScreen">
 
-    <div class="homeCards">
+    <section class="homeHero">
+      <img src="assets/tc-logo.png" class="homeLogoImg" alt="TEAM-CLARITY" />
+    </section>
+
+    <section class="homeCards">
+
       <a class="homeCard" href="clarity.html">
         <div class="homeIcon">🎮</div>
         <h2>CLARITY LIVE</h2>
@@ -31,12 +34,9 @@
         <p>Players train their role and timing inside saved plays.</p>
       </a>
 
-      
-    </div>
-  </div>
+    </section>
 
-  <script src="/socket.io/socket.io.js"></script>
-  <script src="coach.js"></script>
+  </main>
 
   <script type="module">
     import { supabase } from './supabase.js'

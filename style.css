@@ -24,44 +24,63 @@ body {
 }
 
 /* TOP BAR */
-#topbar {
-  min-height: 76px;
-  background: rgba(255,255,255,0.94);
-  border-bottom: 1px solid var(--line);
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  padding: 12px 18px;
-  box-shadow: 0 6px 24px rgba(0,0,0,0.05);
+#topbar{
+  min-height:112px;
+  background:rgba(255,255,255,0.96);
+  border-bottom:1px solid var(--line);
+
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:18px;
+
+  padding:14px 28px;
+
+  box-shadow:0 6px 24px rgba(0,0,0,0.05);
+
+  position:relative;
+  z-index:20;
 }
 
-.brand {
-  font-size: 24px;
-  font-weight: 900;
-  color: var(--text);
-  white-space: nowrap;
-  min-width: 240px;
-  letter-spacing: -0.5px;
+.brand{
+  display:flex;
+  align-items:center;
+  gap:14px;
+  min-width:320px;
 }
 
-.brand::first-letter {
-  color: var(--orange);
+.tcLogo{
+  height:68px;
+  width:auto;
+  object-fit:contain;
+  display:block;
 }
 
-.tools {
-  flex: 1;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex-wrap: wrap;
-  justify-content: flex-end;
+.liveBadge{
+  color:var(--orange);
+  font-size:16px;
+  font-weight:900;
+  letter-spacing:1px;
 }
 
-.toolGroup {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex-wrap: wrap;
+.tools{
+  flex:1;
+  display:flex;
+  flex-direction:column;
+  align-items:flex-end;
+  gap:12px;
+}
+
+.toolGroup{
+  display:flex;
+  align-items:center;
+  justify-content:flex-end;
+  gap:8px;
+  flex-wrap:wrap;
+}
+
+.secondaryRow{
+  width:100%;
 }
 
 /* BUTTONS */
@@ -311,12 +330,10 @@ canvas.grabbing {
 }
 
 .homeLogo {
-  font-size: 54px;
-  font-weight: 950;
-  margin-bottom: 10px;
-  text-align: center;
-  color: var(--text);
-  letter-spacing: -2px;
+  height: 140px;
+  width: auto;
+  object-fit: contain;
+  margin-bottom: 12px;
 }
 
 .homeLogo span,
@@ -844,4 +861,44 @@ input[type="range"] {
   width: auto !important;
   min-width: auto !important;
   max-width: none !important;
+}.brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.tcLogo{
+  height:78px;
+  width:auto;
+  object-fit:contain;
+  display:block;
+}
+
+.liveBadge {
+  color: var(--orange);
+  font-size: 14px;
+  font-weight: 800;
+  letter-spacing: 1px;
+}.homeHero {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin-bottom: 34px;
+}
+
+.homeLogoImg {
+  width: 540px;
+  max-width: 90vw;
+  height: auto;
+  object-fit: contain;
+  display: block;
+}
+
+.homeSubtitle {
+  margin-top: 10px;
+  font-size: 18px;
+  font-weight: 900;
+  letter-spacing: 1.8px;
+  color: #777;
+  text-transform: uppercase;
 }
