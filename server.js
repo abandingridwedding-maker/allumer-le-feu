@@ -64,14 +64,21 @@ function emitState() {
   io.emit("state", state);
 }
 
-function clampAll() {
-  Object.values(state.players).forEach(player => {
-    player.x = clamp(player.x, playableLeft(), playableRight());
-    player.y = clamp(player.y, playableTop(), playableBottom());
-  });
+function clampPlayer(player) {
+  if (!player) return;
 
+  player.x = clamp(player.x, playableLeft(), playableRight());
+  player.y = clamp(player.y, playableTop(), playableBottom());
+}
+
+function clampBall() {
   state.ball.x = clamp(state.ball.x, playableLeft(), playableRight());
   state.ball.y = clamp(state.ball.y, playableTop(), playableBottom());
+}
+
+function clampAll() {
+  Object.values(state.players).forEach(clampPlayer);
+  clampBall();
 }
 
 function initPlayers() {
@@ -90,116 +97,105 @@ function initPlayers() {
   placeLineout("top", 920);
 }
 
-function placeLineout(side = "top", clickedX = 920) {
-  const isTop = side === "top";
+function placeLineout(side, x) {
+  if (!state || !state.players || !state.ball) return;
 
-  const x5m = 185;
-  const x15m = 395;
-
-  const lineoutX = clamp(
-    Number(clickedX) || 300,
-    x5m + 45,
-    x15m - 45
-  );
-
-  const startY = isTop ? 170 : 730;
-  const direction = isTop ? 1 : -1;
-
+  const xForwards = clamp(x || 920, FIELD.left + 220, FIELD.right - 520);
+  const spacing = side === "top" ? 34 : -34;
+  const startY = side === "top" ? FIELD.top + 72 : FIELD.bottom - 72;
   const players = state.players;
 
-  players[2].x = lineoutX - 28;
-  players[2].y = startY - 6 * direction;
+  [1, 3, 4, 5, 6, 7, 8].forEach((n, i) => {
+    players[n].x = xForwards;
+    players[n].y = startY + i * spacing;
+  });
 
-  players[1].x = lineoutX;
-  players[1].y = startY + 42 * direction;
+  players[2].x = xForwards - 78;
+  players[2].y = startY - spacing * 0.2;
 
-  players[3].x = lineoutX - 38;
-  players[3].y = startY + 34 * direction;
+  players[9].x = xForwards + 76;
+  players[9].y = startY + spacing * 4.2;
 
-  players[4].x = lineoutX + 38;
-  players[4].y = startY + 74 * direction;
+  const backsStartX = clamp(xForwards + 185, FIELD.left + 120, FIELD.right - 100);
 
-  players[5].x = lineoutX;
-  players[5].y = startY + 86 * direction;
+  players[10].x = backsStartX;
+  players[10].y = clamp(startY + spacing * 3.5, FIELD.top + 50, FIELD.bottom - 50);
 
-  players[6].x = lineoutX + 42;
-  players[6].y = startY + 128 * direction;
+  players[12].x = clamp(backsStartX + 105, FIELD.left + 100, FIELD.right - 70);
+  players[12].y = clamp(startY + spacing * 4.3, FIELD.top + 50, FIELD.bottom - 50);
 
-  players[7].x = lineoutX - 34;
-  players[7].y = startY + 122 * direction;
+  players[13].x = clamp(backsStartX + 220, FIELD.left + 100, FIELD.right - 70);
+  players[13].y = clamp(startY + spacing * 5.0, FIELD.top + 50, FIELD.bottom - 50);
 
-  players[8].x = lineoutX + 42;
-  players[8].y = startY + 168 * direction;
+  players[15].x = clamp(backsStartX + 330, FIELD.left + 100, FIELD.right - 70);
+  players[15].y = clamp(startY + spacing * 5.9, FIELD.top + 50, FIELD.bottom - 50);
 
-  players[9].x = lineoutX + 88;
-  players[9].y = startY + 118 * direction;
+  players[14].x = clamp(backsStartX + 435, FIELD.left + 100, FIELD.right - 70);
+  players[14].y = clamp(startY + spacing * 6.8, FIELD.top + 50, FIELD.bottom - 50);
 
-  players[10].x = lineoutX + 260;
-  players[10].y = startY + 185 * direction;
+  players[11].x = clamp(backsStartX + 160, FIELD.left + 100, FIELD.right - 70);
+  players[11].y = clamp(startY + spacing * 1.6, FIELD.top + 50, FIELD.bottom - 50);
 
-  players[12].x = lineoutX + 390;
-  players[12].y = startY + 255 * direction;
-
-  players[13].x = lineoutX + 510;
-  players[13].y = startY + 345 * direction;
-
-  players[15].x = lineoutX + 620;
-  players[15].y = startY + 440 * direction;
-
-  players[14].x = lineoutX + 720;
-  players[14].y = startY + 520 * direction;
-
-  players[11].x = lineoutX + 455;
-  players[11].y = startY + 58 * direction;
-
-  state.ball.x = lineoutX + 115;
-  state.ball.y = startY + 100 * direction;
+  state.ball.x = xForwards + 34;
+  state.ball.y = startY + spacing * 1.4;
 
   clampAll();
 }
 
-function placeScrum(clickedX = 720, clickedY = 445) {
-  const cx = clamp(
-    Number(clickedX) || 720,
-    playableLeft() + 160,
-    playableRight() - 580
-  );
+function placeScrum(x, y) {
+  if (!state || !state.players || !state.ball) return;
 
-  const cy = clamp(
-    Number(clickedY) || 445,
-    playableTop() + 140,
-    playableBottom() - 200
-  );
+  const players = state.players;
+  const cx = clamp(x || 720, FIELD.left + 180, FIELD.right - 580);
+  const cy = clamp(y || 445, FIELD.top + 155, FIELD.bottom - 220);
 
   const gapX = 38;
   const gapY = 38;
 
-  state.players[1].x = cx - gapX;
-  state.players[1].y = cy - gapY;
+  players[1].x = cx - gapX;
+  players[1].y = cy - gapY;
 
-  state.players[2].x = cx;
-  state.players[2].y = cy - gapY;
+  players[2].x = cx;
+  players[2].y = cy - gapY;
 
-  state.players[3].x = cx + gapX;
-  state.players[3].y = cy - gapY;
+  players[3].x = cx + gapX;
+  players[3].y = cy - gapY;
 
-  state.players[4].x = cx - 19;
-  state.players[4].y = cy;
+  players[4].x = cx - 19;
+  players[4].y = cy;
 
-  state.players[5].x = cx + 19;
-  state.players[5].y = cy;
+  players[5].x = cx + 19;
+  players[5].y = cy;
 
-  state.players[6].x = cx - 66;
-  state.players[6].y = cy + gapY;
+  players[6].x = cx - 66;
+  players[6].y = cy + gapY;
 
-  state.players[7].x = cx + 66;
-  state.players[7].y = cy + gapY;
+  players[7].x = cx + 66;
+  players[7].y = cy + gapY;
 
-  state.players[8].x = cx;
-  state.players[8].y = cy + gapY + 18;
+  players[8].x = cx;
+  players[8].y = cy + gapY + 18;
 
-  state.players[9].x = cx + 150;
-  state.players[9].y = cy + 14;
+  players[9].x = cx + 150;
+  players[9].y = cy + 14;
+
+  players[10].x = clamp(cx + 265, FIELD.left + 100, FIELD.right - 70);
+  players[10].y = clamp(cy + 42, FIELD.top + 50, FIELD.bottom - 50);
+
+  players[12].x = clamp(cx + 375, FIELD.left + 100, FIELD.right - 70);
+  players[12].y = clamp(cy + 82, FIELD.top + 50, FIELD.bottom - 50);
+
+  players[13].x = clamp(cx + 500, FIELD.left + 100, FIELD.right - 70);
+  players[13].y = clamp(cy + 132, FIELD.top + 50, FIELD.bottom - 50);
+
+  players[15].x = clamp(cx + 605, FIELD.left + 100, FIELD.right - 70);
+  players[15].y = clamp(cy + 195, FIELD.top + 50, FIELD.bottom - 50);
+
+  players[14].x = clamp(cx + 710, FIELD.left + 100, FIELD.right - 70);
+  players[14].y = clamp(cy + 245, FIELD.top + 50, FIELD.bottom - 50);
+
+  players[11].x = clamp(cx + 440, FIELD.left + 100, FIELD.right - 70);
+  players[11].y = clamp(cy - 118, FIELD.top + 50, FIELD.bottom - 50);
 
   state.ball.x = cx + 105;
   state.ball.y = cy + 8;
@@ -210,19 +206,15 @@ function placeScrum(clickedX = 720, clickedY = 445) {
 initPlayers();
 
 function getBaseUrl(req) {
-  return process.env.RENDER_EXTERNAL_URL ||
-    `https://${req.get("host")}`;
+  return process.env.RENDER_EXTERNAL_URL || `https://${req.get("host")}`;
 }
 
 app.get("/api/qrs", async (req, res) => {
   const baseUrl = getBaseUrl(req);
-
   const qrs = {};
 
   for (let i = 1; i <= 15; i++) {
-    qrs[i] = await QRCode.toDataURL(
-      `${baseUrl}/controller.html?p=${i}`
-    );
+    qrs[i] = await QRCode.toDataURL(`${baseUrl}/controller.html?p=${i}`);
   }
 
   res.json({ baseUrl, qrs });
@@ -230,35 +222,26 @@ app.get("/api/qrs", async (req, res) => {
 
 app.get("/api/sim-qrs", async (req, res) => {
   const baseUrl = getBaseUrl(req);
-
   const qrs = {};
 
   for (let i = 1; i <= 15; i++) {
-    qrs[i] = await QRCode.toDataURL(
-      `${baseUrl}/simcontroller.html?p=${i}`
-    );
+    qrs[i] = await QRCode.toDataURL(`${baseUrl}/simcontroller.html?p=${i}`);
   }
 
   res.json({ baseUrl, qrs });
 });
 
 io.on("connection", socket => {
-
   socket.emit("state", state);
 
   function connectPlayer(number) {
     number = Number(number);
-
     if (!state.players[number]) return;
 
     controllerSockets[socket.id] = number;
-
     state.players[number].connected = true;
 
-    socket.emit("live-controller-ack", {
-      number
-    });
-
+    socket.emit("live-controller-ack", { number });
     emitState();
   }
 
@@ -268,90 +251,46 @@ io.on("connection", socket => {
   socket.on("join-player", connectPlayer);
 
   socket.on("controller-move", data => {
-
     if (state.frozen || !data) return;
 
-    const number = Number(
-      data.number ||
-      controllerSockets[socket.id]
-    );
-
+    const number = Number(data.number || controllerSockets[socket.id]);
     const player = state.players[number];
 
     if (!player) return;
 
     const speed = Number(state.speed || 1);
-
     const step = 6.5 * speed;
 
     player.x += Number(data.dx || 0) * step;
     player.y += Number(data.dy || 0) * step;
 
-    player.x = clamp(
-      player.x,
-      playableLeft(),
-      playableRight()
-    );
-
-    player.y = clamp(
-      player.y,
-      playableTop(),
-      playableBottom()
-    );
-
+    clampPlayer(player);
     emitState();
   });
 
   socket.on("coach-move-player", data => {
-
     if (!data) return;
 
-    const player = state.players[
-      Number(data.number)
-    ];
-
+    const player = state.players[Number(data.number)];
     if (!player) return;
 
-    player.x = clamp(
-      Number(data.x),
-      playableLeft(),
-      playableRight()
-    );
-
-    player.y = clamp(
-      Number(data.y),
-      playableTop(),
-      playableBottom()
-    );
+    player.x = clamp(Number(data.x), playableLeft(), playableRight());
+    player.y = clamp(Number(data.y), playableTop(), playableBottom());
 
     emitState();
   });
 
   socket.on("coach-ball", data => {
-
     if (!data) return;
 
-    state.ball.x = clamp(
-      Number(data.x),
-      playableLeft(),
-      playableRight()
-    );
-
-    state.ball.y = clamp(
-      Number(data.y),
-      playableTop(),
-      playableBottom()
-    );
+    state.ball.x = clamp(Number(data.x), playableLeft(), playableRight());
+    state.ball.y = clamp(Number(data.y), playableTop(), playableBottom());
 
     emitState();
   });
 
   socket.on("coach-attach-ball", number => {
-
-    const player = state.players[
-      Number(number)
-    ];
-
+    const player = state.players[Number(number)];
     if (!player) return;
 
     state.ball.x = player.x + 28;
@@ -387,35 +326,24 @@ io.on("connection", socket => {
   });
 
   socket.on("coach-setpiece", data => {
-
     if (!data) return;
 
     if (data.type === "lineout") {
-      placeLineout(
-        data.side || "top",
-        data.x || 920
-      );
+      placeLineout(data.side || "top", data.x || 920);
     }
 
     if (data.type === "scrum") {
-      placeScrum(
-        data.x || 720,
-        data.y || 445
-      );
+      placeScrum(data.x || 720, data.y || 445);
     }
 
     emitState();
   });
 
   socket.on("sim-player-join", number => {
-
     number = Number(number);
-
     simulatorSockets[socket.id] = number;
 
-    socket.emit("sim-controller-ack", {
-      number
-    });
+    socket.emit("sim-controller-ack", { number });
 
     io.emit("sim-player-connected", {
       number,
@@ -424,28 +352,19 @@ io.on("connection", socket => {
   });
 
   socket.on("sim-player-move", data => {
-
     if (!data) return;
 
     io.emit("sim-player-move", {
-      number: Number(
-        data.number ||
-        simulatorSockets[socket.id]
-      ),
+      number: Number(data.number || simulatorSockets[socket.id]),
       dx: Number(data.dx || 0),
       dy: Number(data.dy || 0)
     });
   });
 
   socket.on("disconnect", () => {
+    const number = controllerSockets[socket.id];
 
-    const number =
-      controllerSockets[socket.id];
-
-    if (
-      number &&
-      state.players[number]
-    ) {
+    if (number && state.players[number]) {
       state.players[number].connected = false;
       emitState();
     }
@@ -458,8 +377,5 @@ io.on("connection", socket => {
 const PORT = process.env.PORT || 3000;
 
 server.listen(PORT, () => {
-  console.log(
-    "🔥 TEAM-CLARITY running on port",
-    PORT
-  );
+  console.log("🔥 TEAM-CLARITY running on port", PORT);
 });
