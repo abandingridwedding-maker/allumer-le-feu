@@ -9,22 +9,24 @@
 
 <body>
   <div id="topbar">
-    <div class="brand">🏃 PLAYER SIMULATOR</div>
+    <div class="brand">
+      🔥 TEAM-CLARITY <span style="color:var(--orange);font-size:14px;">SIMULATOR</span>
+    </div>
 
     <div class="tools">
       <div class="toolGroup">
         <button onclick="window.location.href='index.html'">Home</button>
-        <button id="loadPlayBtn">📂 Choose Play</button>
-        <button onclick="window.location.href='joinfolder.html'">📂 Join Team Folder</button>
+        <button id="loadPlayBtn" class="primaryBtn">Choose Play</button>
+        <button onclick="window.location.href='joinfolder.html'">Join Folder</button>
         <button id="qrBtn">QR Codes</button>
-        <button id="startSimBtn">Start Rep</button>
-        <button id="resetSimBtn">Reset</button>
+        <button id="startSimBtn" class="primaryBtn">Start Rep</button>
+        <button id="resetSimBtn" class="resetBtn">Reset</button>
         <button id="logsBtn">Training Log</button>
       </div>
 
-      <div class="toolGroup">
+      <div class="toolGroup secondaryRow" id="playsimulatorControls">
         <label>
-          Player:
+          Player
           <select id="playerNumber">
             <option value="1">1</option>
             <option value="2">2</option>
@@ -45,26 +47,26 @@
         </label>
 
         <select id="playerSize">
-          <option value="normal">Normal Size</option>
+          <option value="normal">Normal</option>
           <option value="medium">2/3 Size</option>
-          <option value="small" selected>Small Circle</option>
+          <option value="small" selected>Small</option>
         </select>
 
         <label class="speedLabel">
-          Sim Speed
+          Speed
           <input id="simSpeed" type="range" min="0.25" max="2" step="0.25" value="0.5" />
           <span id="simSpeedValue">0.5x</span>
         </label>
 
         <label class="speedLabel">
-          Shadow Guide
+          Shadow
           <input id="shadowGuideToggle" type="checkbox" checked />
         </label>
       </div>
     </div>
   </div>
 
-  <div id="pitchWrapper">
+  <div id="fieldShell">
     <canvas id="field" width="1600" height="900"></canvas>
 
     <div id="lineoutNotesPanel" class="hidden">
@@ -114,7 +116,6 @@
   </div>
 
   <script src="/socket.io/socket.io.js"></script>
-
   <script type="module" src="playsimulator.js"></script>
 
   <script type="module">

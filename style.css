@@ -531,4 +531,317 @@ canvas.grabbing {
     flex-direction: column;
     align-items: flex-start;
   }
+}/* =========================================================
+   TEAM-CLARITY — COMPACT PRO TOPBAR UPGRADE
+   Add-on only. Safe to paste at bottom of style.css.
+========================================================= */
+
+#topbar {
+  min-height: 68px;
+  padding: 10px 16px;
+  gap: 14px;
+  background: rgba(255, 255, 255, 0.96);
+  backdrop-filter: blur(12px);
+}
+
+.brand {
+  min-width: 220px;
+  font-size: 22px;
+  letter-spacing: -0.6px;
+}
+
+.tools {
+  gap: 10px;
+  justify-content: flex-end;
+  flex-wrap: nowrap;
+}
+
+.toolGroup {
+  gap: 8px;
+  flex-wrap: nowrap;
+}
+
+button,
+select {
+  height: 42px;
+  min-height: 42px;
+  padding: 0 14px;
+  border-radius: 14px;
+  font-size: 12px;
+  font-weight: 900;
+  white-space: nowrap;
+}
+
+button.primaryBtn,
+.modeActive {
+  background: var(--orange) !important;
+  color: #fff !important;
+  border-color: var(--orange) !important;
+}
+
+button.dangerBtn {
+  background: #151515 !important;
+  color: #fff !important;
+  border-color: #151515 !important;
+}
+
+button.resetBtn {
+  background: #fff !important;
+  color: var(--orange) !important;
+  border-color: rgba(255, 90, 0, 0.35) !important;
+}
+
+button.resetBtn:hover {
+  background: var(--orange-soft) !important;
+}
+
+/* fixed-width controls so the topbar does not jump */
+.speedLabel,
+.speedGroup {
+  width: 190px;
+  min-width: 190px;
+  max-width: 190px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.speedLabel input[type="range"],
+.speedGroup input[type="range"] {
+  width: 95px;
+  min-width: 95px;
+}
+
+#speedValue,
+#builderSpeedValue,
+#simSpeedValue {
+  display: inline-block;
+  width: 40px;
+  min-width: 40px;
+  text-align: right;
+  font-weight: 900;
+  color: var(--orange);
+}
+
+/* compact dropdowns */
+#pitchMode {
+  width: 112px;
+}
+
+#playerSize {
+  width: 118px;
+}
+
+#playerGroup {
+  width: 120px;
+}
+
+#playerNumber {
+  width: 96px;
+}
+
+/* future set-piece button */
+#setPieceCycleBtn,
+#setPieceBtn,
+#cycleSetPieceBtn {
+  min-width: 132px;
+}
+
+/* builder action group */
+.builderControls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: nowrap;
+}
+
+/* simulator keeps same visual language */
+.simTopbar {
+  background: rgba(255, 255, 255, 0.96);
+  border-bottom: 1px solid var(--line);
+  box-shadow: 0 6px 24px rgba(0,0,0,0.05);
+}
+
+@media (max-width: 1200px) {
+  .tools,
+  .toolGroup,
+  .builderControls {
+    flex-wrap: wrap;
+  }
+
+  .speedLabel,
+  .speedGroup {
+    width: 180px;
+    min-width: 180px;
+  }
+}/* =========================================================
+   TEAM-CLARITY — TWO-ROW TOPBAR FIX
+========================================================= */
+
+#topbar {
+  min-height: auto;
+  align-items: flex-start;
+}
+
+.tools {
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 10px;
+  width: 100%;
+}
+
+.toolGroup {
+  justify-content: flex-end;
+  width: 100%;
+  flex-wrap: wrap;
+}
+
+.toolGroup.secondaryRow {
+  justify-content: flex-end;
+}
+
+#freezeBtn,
+.dangerBtn {
+  background: #fff !important;
+  color: var(--text) !important;
+  border-color: var(--line) !important;
+}
+
+#setPieceCycleBtn {
+  min-width: 112px !important;
+}
+
+.speedLabel {
+  width: 230px;
+  min-width: 230px;
+  max-width: 230px;
+}
+
+@media (max-width: 1200px) {
+  .tools,
+  .toolGroup,
+  .toolGroup.secondaryRow {
+    align-items: flex-start;
+    justify-content: flex-start;
+  }
+}/* =========================================================
+   TEAM-CLARITY — FINAL BUTTON COLOUR CLEANUP
+========================================================= */
+
+button,
+button.primaryBtn,
+#setPieceCycleBtn,
+#builderMainBtn,
+#loadPlayBtn,
+#startSimBtn,
+.modeActive {
+  background: #fff !important;
+  color: var(--text) !important;
+  border: 1px solid var(--line) !important;
+}
+
+button:hover,
+button.primaryBtn:hover,
+#setPieceCycleBtn:hover,
+#builderMainBtn:hover,
+#loadPlayBtn:hover,
+#startSimBtn:hover {
+  background: var(--orange-soft) !important;
+  border-color: var(--orange) !important;
+  color: var(--text) !important;
+}
+
+#resetBtn,
+#resetSimBtn,
+.resetBtn {
+  background: #fff !important;
+  color: var(--orange) !important;
+  border-color: rgba(255,90,0,0.35) !important;
+}
+
+input[type="range"] {
+  accent-color: var(--orange);
+}
+
+#builderSpeed,
+#speed,
+#simSpeed {
+  accent-color: var(--orange) !important;
+}/* =========================================================
+   FINAL OVERRIDE — ALL TOPBAR BUTTONS SAME STYLE
+========================================================= */
+
+#topbar button,
+#topbar button.primaryBtn,
+#topbar button.resetBtn,
+#topbar button.dangerBtn,
+#topbar #freezeBtn,
+#topbar #resetBtn,
+#topbar #resetSimBtn,
+#topbar #clearStepsBtn,
+#topbar #startSimBtn,
+#topbar #builderMainBtn,
+#topbar #loadPlayBtn,
+#topbar #setPieceCycleBtn {
+  background: #fff !important;
+  color: var(--text) !important;
+  border: 1px solid var(--line) !important;
+  box-shadow: none !important;
+}
+
+#topbar button:hover,
+#topbar button.primaryBtn:hover,
+#topbar button.resetBtn:hover,
+#topbar button.dangerBtn:hover,
+#topbar #freezeBtn:hover,
+#topbar #resetBtn:hover,
+#topbar #resetSimBtn:hover,
+#topbar #clearStepsBtn:hover,
+#topbar #startSimBtn:hover,
+#topbar #builderMainBtn:hover,
+#topbar #loadPlayBtn:hover,
+#topbar #setPieceCycleBtn:hover {
+  background: var(--orange-soft) !important;
+  color: var(--text) !important;
+  border-color: var(--orange) !important;
+}/* Push simulator lower row fully right */
+#playsimulatorControls,
+.toolGroup.secondaryRow {
+  justify-content: flex-end !important;
+}/* Simulator lower controls hug content to right */
+#playsimulatorControls {
+  width: auto !important;
+  margin-left: auto !important;
+  justify-content: flex-end !important;
+}/* =========================================
+   ABSOLUTE FINAL SIMULATOR ALIGNMENT FIX
+========================================= */
+
+#playsimulatorControls {
+  display: flex !important;
+  flex-wrap: nowrap !important;
+
+  width: fit-content !important;
+  min-width: fit-content !important;
+  max-width: fit-content !important;
+
+  margin-left: auto !important;
+  margin-right: 0 !important;
+
+  justify-content: flex-end !important;
+  align-items: center !important;
+
+  gap: 12px !important;
+}
+
+#playsimulatorControls label,
+#playsimulatorControls select,
+#playsimulatorControls .speedLabel {
+  margin: 0 !important;
+}
+
+#playsimulatorControls .speedLabel {
+  width: auto !important;
+  min-width: auto !important;
+  max-width: none !important;
 }

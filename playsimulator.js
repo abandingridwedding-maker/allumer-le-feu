@@ -9,14 +9,6 @@ ctx.imageSmoothingEnabled = false;
 const W = canvas.width;
 const H = canvas.height;
 
-/* ================================
-   V7 PITCH ARTWORK
-   Files must exist exactly here:
-   assets/rugby-pitch.png
-   assets/half-pitch.png
-   assets/lineout-pitch.png
-================================ */
-
 const rugbyPitchImg = new Image();
 rugbyPitchImg.src = "assets/rugby-pitch.png";
 rugbyPitchImg.onload = () => draw();
@@ -28,10 +20,6 @@ halfPitchImg.onload = () => draw();
 const lineoutPitchImg = new Image();
 lineoutPitchImg.src = "assets/lineout-pitch.png";
 lineoutPitchImg.onload = () => draw();
-
-/* ================================
-   STATE
-================================ */
 
 let selectedPlay = null;
 let selectedPlayer = 7;
@@ -51,10 +39,6 @@ let timingClicks = {};
 let sessionStartTime = null;
 
 const BASE_PLAYER_SPEED = 3;
-
-/* ================================
-   FIELD / MOVEMENT BOUNDS
-================================ */
 
 const FIELD = {
   left: 35,
@@ -115,9 +99,9 @@ function clone(obj) {
   return JSON.parse(JSON.stringify(obj));
 }
 
-/* ================================
-   BASIC UI HELPERS
-================================ */
+function formatSpeed(value) {
+  return Number(value).toFixed(2).replace(".00", "") + "x";
+}
 
 function pixelText(text, x, y, size = 22, align = "center", color = "white") {
   ctx.save();
@@ -162,17 +146,13 @@ function updateControls() {
   if (playerSelect) playerSelect.value = selectedPlayer;
 
   const speedValue = document.getElementById("simSpeedValue");
-  if (speedValue) speedValue.textContent = simSpeedMultiplier + "x";
+  if (speedValue) speedValue.textContent = formatSpeed(simSpeedMultiplier);
 }
 
 function updatePitchModeSelect() {
   const select = document.getElementById("pitchMode");
   if (select) select.value = pitchMode;
 }
-
-/* ================================
-   PITCH DRAWING
-================================ */
 
 function drawFullPitch() {
   if (rugbyPitchImg.complete && rugbyPitchImg.naturalWidth > 0) {
@@ -219,31 +199,55 @@ function drawPitch() {
   drawFullPitch();
 }
 
-/* ================================
-   BALL / PLAYERS
-================================ */
-
 function drawBall(ballObj = ball) {
   if (!ballObj) return;
 
   ctx.save();
   ctx.translate(ballObj.x, ballObj.y);
+
+  ctx.fillStyle = "rgba(0,0,0,0.22)";
+  ctx.beginPath();
+  ctx.ellipse(5, 10, 24, 10, 0, 0, Math.PI * 2);
+  ctx.fill();
+
   ctx.rotate(-0.35);
 
-  ctx.fillStyle = "#4b2a1b";
-  ctx.fillRect(-22, -10, 44, 20);
-  ctx.fillRect(-16, -15, 32, 30);
-  ctx.fillRect(-8, -19, 16, 38);
+  ctx.fillStyle = "#7a3f1d";
+  ctx.strokeStyle = "#2b160c";
+  ctx.lineWidth = 3;
 
-  ctx.fillStyle = "#9b552f";
-  ctx.fillRect(-16, -8, 32, 16);
-  ctx.fillRect(-10, -12, 20, 24);
+  ctx.beginPath();
+  ctx.ellipse(0, 0, 28, 15, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.stroke();
 
-  ctx.fillStyle = "#fff";
-  ctx.fillRect(-18, -6, 5, 12);
-  ctx.fillRect(13, -6, 5, 12);
-  ctx.fillRect(-2, -10, 4, 20);
-  ctx.fillRect(-10, -2, 20, 4);
+  ctx.fillStyle = "rgba(255,255,255,0.15)";
+  ctx.beginPath();
+  ctx.ellipse(-8, -5, 11, 4, -0.2, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.strokeStyle = "#ffffff";
+  ctx.lineWidth = 3;
+
+  ctx.beginPath();
+  ctx.moveTo(-18, -8);
+  ctx.lineTo(-18, 8);
+  ctx.moveTo(18, -8);
+  ctx.lineTo(18, 8);
+  ctx.stroke();
+
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(-8, 0);
+  ctx.lineTo(8, 0);
+  ctx.stroke();
+
+  for (let i = -5; i <= 5; i += 5) {
+    ctx.beginPath();
+    ctx.moveTo(i, -4);
+    ctx.lineTo(i, 4);
+    ctx.stroke();
+  }
 
   ctx.restore();
 }
@@ -352,10 +356,6 @@ function drawPlayer(p, highlight = false, ghost = false) {
   drawPixelPlayer(p, highlight, ghost);
 }
 
-/* ================================
-   FOOTER / COUNTDOWN / MAIN DRAW
-================================ */
-
 function drawFooter() {
   const footerTop = H - 92;
 
@@ -364,14 +364,14 @@ function drawFooter() {
 
   if (!selectedPlay) {
     pixelText("LOAD A PLAY TO BEGIN", W / 2, footerTop + 34, 24, "center", "#ffd700");
-    pixelText("Choose a saved play from Play Builder, then scan QR codes for controllers", W / 2, footerTop + 70, 14, "center", "#fff");
+    pixelText("Choose a saved play, then connect controllers", W / 2, footerTop + 70, 14, "center", "#fff");
     return;
   }
 
   const status = simRunning ? "REP LIVE" : "READY";
 
   pixelText(
-    `${status} | PLAYER ${selectedPlayer} | SPEED ${simSpeedMultiplier}x | SHADOW ${shadowGuideOn ? "ON" : "OFF"}`,
+    `${status} | PLAYER ${selectedPlayer} | SPEED ${formatSpeed(simSpeedMultiplier)} | SHADOW ${shadowGuideOn ? "ON" : "OFF"}`,
     W / 2,
     footerTop + 34,
     22,
@@ -379,7 +379,7 @@ function drawFooter() {
     "#ffd700"
   );
 
-  pixelText("Follow the shadow guide, then confirm timing on your controller", W / 2, footerTop + 70, 14, "center", "#fff");
+  pixelText("Follow shadow movement and confirm timing on controller", W / 2, footerTop + 70, 14, "center", "#fff");
 }
 
 function drawCountdown() {
@@ -408,10 +408,6 @@ function draw() {
   drawFooter();
   drawCountdown();
 }
-
-/* ================================
-   PLAY LOADING
-================================ */
 
 function normalizeStep(step, defaults = {}) {
   const normalizedPitchMode = step?.pitchMode || defaults.pitchMode || "full";
@@ -617,10 +613,6 @@ async function openPlayFolder() {
   modal.classList.remove("hidden");
 }
 
-/* ================================
-   TRAINING LOGS
-================================ */
-
 async function saveTrainingLogToDatabase(log) {
   const user = await getCurrentUser();
   if (!user) return;
@@ -713,10 +705,6 @@ async function openLogs() {
   modal.classList.remove("hidden");
 }
 
-/* ================================
-   QR CODES
-================================ */
-
 async function openQrCodes() {
   const modal = document.getElementById("qrModal");
   const grid = document.getElementById("qrGrid");
@@ -738,10 +726,6 @@ async function openQrCodes() {
     grid.appendChild(item);
   }
 }
-
-/* ================================
-   SIMULATION
-================================ */
 
 async function countdown() {
   for (const value of [3, 2, 1, 0]) {
@@ -881,10 +865,6 @@ async function calculateScore() {
   document.getElementById("scoreModal").classList.remove("hidden");
 }
 
-/* ================================
-   SOCKET CONTROLLER EVENTS
-================================ */
-
 socket.on("sim-player-move", data => {
   if (!simRunning) return;
 
@@ -905,10 +885,6 @@ socket.on("sim-player-move", data => {
 socket.on("sim-player-timing", data => {
   timingClicks[Number(data.number)] = Date.now();
 });
-
-/* ================================
-   DOM EVENTS
-================================ */
 
 const loadPlayBtn = document.getElementById("loadPlayBtn");
 if (loadPlayBtn) loadPlayBtn.onclick = openPlayFolder;
@@ -980,10 +956,6 @@ if (shadowGuideToggle) {
     draw();
   };
 }
-
-/* ================================
-   STARTUP
-================================ */
 
 applyActiveField();
 updateControls();

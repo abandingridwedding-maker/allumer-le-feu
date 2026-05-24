@@ -7,14 +7,6 @@ ctx.imageSmoothingEnabled = false;
 const W = canvas.width;
 const H = canvas.height;
 
-/* ================================
-   V7 PITCH ARTWORK
-   Files must exist exactly here:
-   assets/rugby-pitch.png
-   assets/half-pitch.png
-   assets/lineout-pitch.png
-================================ */
-
 const rugbyPitchImg = new Image();
 rugbyPitchImg.src = "assets/rugby-pitch.png";
 rugbyPitchImg.onload = () => draw();
@@ -27,16 +19,13 @@ const lineoutPitchImg = new Image();
 lineoutPitchImg.src = "assets/lineout-pitch.png";
 lineoutPitchImg.onload = () => draw();
 
-/* ================================
-   STATE
-================================ */
-
 let setupMode = "free";
 let playerGroup = "all";
 let playerSize = "small";
 let sportMode = "rugby";
 let pitchMode = "full";
 let currentLang = "en";
+let setPieceCycle = 0;
 
 let draggingBall = false;
 let draggingPlayerNumber = null;
@@ -49,12 +38,6 @@ const COLORS = {
   blue: "#1f6feb"
 };
 
-/* ================================
-   FIELD / MOVEMENT BOUNDS
-   Movement bounds sit OUTSIDE the visible pitch outline.
-   This fixes the old invisible wall around the 5m line.
-================================ */
-
 const FIELD = {
   left: 35,
   right: W - 35,
@@ -62,9 +45,7 @@ const FIELD = {
   bottom: H - 82
 };
 
-function getPitchField(mode = pitchMode) {
-  // All three artwork files are full-canvas images.
-  // Movement bounds are therefore full usable canvas bounds, inside only a small safety margin.
+function getPitchField() {
   return {
     left: 35,
     right: W - 35,
@@ -111,11 +92,6 @@ function clampBall(ball) {
   ball.x = p.x;
   ball.y = p.y;
 }
-
-/* ================================
-   LOCAL FALLBACK STATE
-   This makes Live still visible even before socket/server state arrives.
-================================ */
 
 function createDefaultPlayers() {
   const players = {};
@@ -184,37 +160,17 @@ let state = {
 
 placeDefaultLineout(state.players, state.ball);
 
-/* ================================
-   TEXT
-================================ */
-
 const TEXT = {
   en: {
     qrCodes: "QR Codes",
     qrTitle: "Scan to control players",
     close: "Close",
-    rugby: "Rugby",
-    football: "Football",
-    lineoutTop: "Lineout Top",
-    lineoutBottom: "Lineout Bottom",
-    scrum: "Scrum",
-    freeBall: "Free Ball",
-    allPlayers: "All Players",
-    forwardsOnly: "Forwards Only",
-    backsOnly: "Backs Only",
-    normalSize: "Normal Size",
-    mediumSize: "2/3 Size",
-    smallCircle: "Small Circle",
     freeze: "Freeze",
     reset: "Reset",
     speed: "Speed",
-    freeBallMode: "FREE BALL MODE",
-    lineoutTopMode: "LINEOUT TOP",
-    lineoutBottomMode: "LINEOUT BOTTOM",
-    scrumMode: "SCRUM",
-    footballMode: "FOOTBALL MODE",
+    freeBallMode: "LIVE MODE",
     attack: "ATTACK: RIGHT → LEFT",
-    footer: "Click player = drag | Click grass = move ball | Double-click player = attach ball",
+    footer: "Drag players or ball | Double-click player = attach ball",
     session: "SESSION LIVE 🔴",
     message1: "Your session is connected.",
     message2: "To keep players connected and continue managing your team:",
@@ -236,11 +192,6 @@ function safeText(id, value) {
   if (el) el.textContent = value;
 }
 
-function safeOption(selector, value) {
-  const el = document.querySelector(selector);
-  if (el) el.textContent = value;
-}
-
 function setCanvasDragging(isDragging) {
   canvas.classList.toggle("grabbing", isDragging);
 }
@@ -249,31 +200,8 @@ function applyTranslations() {
   safeText("qrBtn", t("qrCodes"));
   safeText("qrTitle", t("qrTitle"));
   safeText("closeQr", t("close"));
-
-  safeOption('#sportMode option[value="rugby"]', t("rugby"));
-  safeOption('#sportMode option[value="football"]', t("football"));
-
-  safeText("lineoutTopBtn", t("lineoutTop"));
-  safeText("lineoutBottomBtn", t("lineoutBottom"));
-  safeText("scrumBtn", t("scrum"));
-  safeText("freeBtn", t("freeBall"));
-
-  safeOption('#playerGroup option[value="all"]', t("allPlayers"));
-  safeOption('#playerGroup option[value="forwards"]', t("forwardsOnly"));
-  safeOption('#playerGroup option[value="backs"]', t("backsOnly"));
-
-  safeOption('#playerSize option[value="normal"]', t("normalSize"));
-  safeOption('#playerSize option[value="medium"]', t("mediumSize"));
-  safeOption('#playerSize option[value="small"]', t("smallCircle"));
-
   safeText("freezeBtn", t("freeze"));
   safeText("resetBtn", t("reset"));
-
-  const speedLabel = document.querySelector(".speedLabel");
-  if (speedLabel && speedLabel.childNodes[0]) {
-    speedLabel.childNodes[0].nodeValue = t("speed") + " ";
-  }
-
   safeText("paywallTitle", t("session"));
   safeText("paywallLine1", t("message1"));
   safeText("paywallLine2", t("message2"));
@@ -286,10 +214,6 @@ function applyTranslations() {
   if (promoInput) promoInput.placeholder = t("promoPlaceholder");
 }
 
-/* ================================
-   UI MODES
-================================ */
-
 function syncControls() {
   const pitchModeSelect = document.getElementById("pitchMode");
   if (pitchModeSelect) pitchModeSelect.value = pitchMode;
@@ -299,9 +223,6 @@ function syncControls() {
 
   const playerSizeSelect = document.getElementById("playerSize");
   if (playerSizeSelect) playerSizeSelect.value = playerSize;
-
-  const sportModeSelect = document.getElementById("sportMode");
-  if (sportModeSelect) sportModeSelect.value = sportMode;
 }
 
 function setPitchMode(mode, emit = true) {
@@ -321,47 +242,16 @@ function setPitchMode(mode, emit = true) {
   draw();
 }
 
-function clearModeButtons() {
-  ["lineoutTopBtn", "lineoutBottomBtn", "scrumBtn", "freeBtn"].forEach(id => {
-    document.getElementById(id)?.classList.remove("modeActive");
-  });
-}
-
-function updateModeButtons() {
-  clearModeButtons();
-
-  if (setupMode === "lineout-top") document.getElementById("lineoutTopBtn")?.classList.add("modeActive");
-  if (setupMode === "lineout-bottom") document.getElementById("lineoutBottomBtn")?.classList.add("modeActive");
-  if (setupMode === "scrum") document.getElementById("scrumBtn")?.classList.add("modeActive");
-  if (setupMode === "free") document.getElementById("freeBtn")?.classList.add("modeActive");
-}
-
-function setMode(mode) {
-  setupMode = mode;
-  updateModeButtons();
-  draw();
-}
-
 function updateToolVisibility() {
-  document.querySelectorAll(".rugbyOnly").forEach(item => {
-    item.classList.toggle("hidden", sportMode !== "rugby");
-  });
-
-  if (sportMode === "football") setupMode = "free";
-
-  updateModeButtons();
+  sportMode = "rugby";
 }
-
-/* ================================
-   SOCKET STATE
-================================ */
 
 socket.on("state", serverState => {
   if (!serverState) return;
 
   state = serverState;
+  sportMode = "rugby";
 
-  if (state.sportMode) sportMode = state.sportMode;
   if (state.pitchMode) pitchMode = state.pitchMode;
 
   applyActiveField();
@@ -370,39 +260,69 @@ socket.on("state", serverState => {
   draw();
 });
 
-/* ================================
-   DOM CONTROLS
-================================ */
-
-const langToggle = document.getElementById("langToggle");
-if (langToggle) {
-  langToggle.onchange = () => {
-    currentLang = "en";
-    localStorage.setItem("teamClarityLang", currentLang);
-    applyTranslations();
-    draw();
-  };
-}
-
 const pitchModeSelect = document.getElementById("pitchMode");
 if (pitchModeSelect) pitchModeSelect.onchange = e => setPitchMode(e.target.value);
 
-const sportModeSelect = document.getElementById("sportMode");
-if (sportModeSelect) {
-  sportModeSelect.onchange = e => {
-    sportMode = e.target.value;
-    state.sportMode = sportMode;
-    socket.emit("coach-sport-mode", sportMode);
-    updateToolVisibility();
-    syncControls();
+const setPieceBtn = document.getElementById("setPieceCycleBtn");
+
+if (setPieceBtn) {
+  setPieceBtn.onclick = () => {
+    const options = [
+      { type: "lineout", side: "top" },
+      { type: "scrum", side: "top" },
+      { type: "lineout", side: "bottom" },
+      { type: "scrum", side: "bottom" }
+    ];
+
+    const option = options[setPieceCycle % options.length];
+    setPieceCycle++;
+
+    if (option.type === "lineout" && option.side === "top") {
+      localPlaceLineout("top", W * 0.58);
+      socket.emit("coach-setpiece", {
+        type: "lineout",
+        side: "top",
+        x: W * 0.58,
+        y: H * 0.25
+      });
+      setPieceBtn.textContent = "Set Piece";
+    }
+
+    else if (option.type === "scrum" && option.side === "top") {
+      localPlaceScrum(W * 0.55, H * 0.32);
+      socket.emit("coach-setpiece", {
+        type: "scrum",
+        x: W * 0.55,
+        y: H * 0.32
+      });
+      setPieceBtn.textContent = "Set Piece";
+    }
+
+    else if (option.type === "lineout" && option.side === "bottom") {
+      localPlaceLineout("bottom", W * 0.58);
+      socket.emit("coach-setpiece", {
+        type: "lineout",
+        side: "bottom",
+        x: W * 0.58,
+        y: H * 0.72
+      });
+      setPieceBtn.textContent = "Set Piece";
+    }
+
+    else {
+      localPlaceScrum(W * 0.55, H * 0.68);
+      socket.emit("coach-setpiece", {
+        type: "scrum",
+        x: W * 0.55,
+        y: H * 0.68
+      });
+      setPieceBtn.textContent = "Set Piece";
+    }
+
+    setupMode = "free";
     draw();
   };
 }
-
-document.getElementById("lineoutTopBtn")?.addEventListener("click", () => setMode("lineout-top"));
-document.getElementById("lineoutBottomBtn")?.addEventListener("click", () => setMode("lineout-bottom"));
-document.getElementById("scrumBtn")?.addEventListener("click", () => setMode("scrum"));
-document.getElementById("freeBtn")?.addEventListener("click", () => setMode("free"));
 
 const teamColorSelect = document.getElementById("teamColor");
 if (teamColorSelect) {
@@ -440,7 +360,7 @@ const resetBtn = document.getElementById("resetBtn");
 if (resetBtn) {
   resetBtn.onclick = () => {
     socket.emit("coach-reset");
-    setMode("free");
+    setupMode = "free";
   };
 }
 
@@ -454,15 +374,22 @@ if (freezeBtn) {
 }
 
 const speedInput = document.getElementById("speed");
+const speedValue = document.getElementById("speedValue");
+
 if (speedInput) {
+  if (speedValue) {
+    speedValue.textContent = `${(speedInput.value / 5).toFixed(1)}x`;
+  }
+
   speedInput.oninput = e => {
-    socket.emit("coach-speed", Number(e.target.value));
+    const value = Number(e.target.value);
+    socket.emit("coach-speed", value);
+
+    if (speedValue) {
+      speedValue.textContent = `${(value / 5).toFixed(1)}x`;
+    }
   };
 }
-
-/* ================================
-   MOUSE / TOUCH GEOMETRY
-================================ */
 
 function mousePoint(e) {
   const rect = canvas.getBoundingClientRect();
@@ -474,14 +401,9 @@ function mousePoint(e) {
 }
 
 function shouldShowPlayer(number) {
-  if (sportMode === "football" && number > 11) return false;
-
-  if (sportMode === "rugby") {
-    if (playerGroup === "all") return true;
-    if (playerGroup === "forwards") return number >= 1 && number <= 8;
-    if (playerGroup === "backs") return number >= 9 && number <= 15;
-  }
-
+  if (playerGroup === "all") return true;
+  if (playerGroup === "forwards") return number >= 1 && number <= 8;
+  if (playerGroup === "backs") return number >= 9 && number <= 15;
   return true;
 }
 
@@ -516,10 +438,6 @@ function isBallHit(point) {
   if (!state || !state.ball) return false;
   return Math.hypot(state.ball.x - point.x, state.ball.y - point.y) <= 28;
 }
-
-/* ================================
-   SET PIECES LOCAL PREVIEW
-================================ */
 
 function localPlaceLineout(side, x) {
   if (!state || !state.players || !state.ball) return;
@@ -624,38 +542,10 @@ function localPlaceScrum(x, y) {
   clampBall(state.ball);
 }
 
-/* ================================
-   CANVAS INTERACTION
-================================ */
-
 canvas.addEventListener("mousedown", e => {
   const rawPoint = mousePoint(e);
   const playerPoint = clampPointToField(rawPoint, false);
   const ballPoint = clampPointToField(rawPoint, true);
-
-  if (sportMode === "rugby" && setupMode === "lineout-top") {
-    localPlaceLineout("top", playerPoint.x);
-    socket.emit("coach-setpiece", { type: "lineout", side: "top", x: playerPoint.x, y: playerPoint.y });
-    setMode("free");
-    draw();
-    return;
-  }
-
-  if (sportMode === "rugby" && setupMode === "lineout-bottom") {
-    localPlaceLineout("bottom", playerPoint.x);
-    socket.emit("coach-setpiece", { type: "lineout", side: "bottom", x: playerPoint.x, y: playerPoint.y });
-    setMode("free");
-    draw();
-    return;
-  }
-
-  if (sportMode === "rugby" && setupMode === "scrum") {
-    localPlaceScrum(playerPoint.x, playerPoint.y);
-    socket.emit("coach-setpiece", { type: "scrum", x: playerPoint.x, y: playerPoint.y });
-    setMode("free");
-    draw();
-    return;
-  }
 
   if (isBallHit(rawPoint)) {
     draggingBall = true;
@@ -683,7 +573,12 @@ canvas.addEventListener("mousedown", e => {
     player.y = playerPoint.y;
     clampPlayer(player);
 
-    socket.emit("coach-move-player", { number: player.number, x: player.x, y: player.y });
+    socket.emit("coach-move-player", {
+      number: player.number,
+      x: player.x,
+      y: player.y
+    });
+
     setCanvasDragging(true);
     draw();
     return;
@@ -709,7 +604,12 @@ canvas.addEventListener("mousemove", e => {
     player.y = rawPoint.y - dragOffset.y;
     clampPlayer(player);
 
-    socket.emit("coach-move-player", { number: draggingPlayerNumber, x: player.x, y: player.y });
+    socket.emit("coach-move-player", {
+      number: draggingPlayerNumber,
+      x: player.x,
+      y: player.y
+    });
+
     draw();
     return;
   }
@@ -719,7 +619,11 @@ canvas.addEventListener("mousemove", e => {
     state.ball.y = rawPoint.y - dragOffset.y;
     clampBall(state.ball);
 
-    socket.emit("coach-ball", { x: state.ball.x, y: state.ball.y });
+    socket.emit("coach-ball", {
+      x: state.ball.x,
+      y: state.ball.y
+    });
+
     draw();
   }
 });
@@ -743,10 +647,6 @@ canvas.addEventListener("dblclick", e => {
   if (player) socket.emit("coach-attach-ball", player.number);
 });
 
-/* ================================
-   QR MODAL
-================================ */
-
 const qrBtn = document.getElementById("qrBtn");
 if (qrBtn) {
   qrBtn.onclick = async () => {
@@ -761,9 +661,7 @@ if (qrBtn) {
     const res = await fetch("/api/qrs");
     const data = await res.json();
 
-    const maxPlayers = sportMode === "football" ? 11 : 15;
-
-    for (let i = 1; i <= maxPlayers; i++) {
+    for (let i = 1; i <= 15; i++) {
       const item = document.createElement("div");
       item.className = "qrItem";
 
@@ -785,10 +683,6 @@ if (closeQr) {
   };
 }
 
-/* ================================
-   DRAW HELPERS
-================================ */
-
 function pixelText(text, x, y, size = 22, align = "center", color = "white") {
   ctx.save();
   ctx.font = `900 ${size}px Courier New`;
@@ -800,10 +694,6 @@ function pixelText(text, x, y, size = 22, align = "center", color = "white") {
   ctx.fillText(text, x, y);
   ctx.restore();
 }
-
-/* ================================
-   FIELD DRAWING
-================================ */
 
 function drawRugbyPitch() {
   applyActiveField();
@@ -849,54 +739,55 @@ function drawLineoutPitch() {
   }
 }
 
-function drawFootballPitch() {
-  ctx.fillStyle = "#2f9e44";
-  ctx.fillRect(0, 0, W, H);
-
-  ctx.fillStyle = "#111";
-  ctx.fillRect(0, 0, W, 60);
-
-  pixelText("TEAM-CLARITY | FOOTBALL MODE", W / 2, 39, 30, "center", "#fff");
-}
-
-/* ================================
-   BALL / PLAYERS
-================================ */
-
 function drawBall(ball) {
   if (!ball) return;
 
   ctx.save();
   ctx.translate(ball.x, ball.y);
 
-  if (sportMode === "football") {
-    ctx.fillStyle = "#fff";
-    ctx.beginPath();
-    ctx.arc(0, 0, 16, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.strokeStyle = "#111";
-    ctx.lineWidth = 3;
-    ctx.stroke();
-    ctx.restore();
-    return;
-  }
+  ctx.fillStyle = "rgba(0,0,0,0.22)";
+  ctx.beginPath();
+  ctx.ellipse(5, 10, 24, 10, 0, 0, Math.PI * 2);
+  ctx.fill();
 
   ctx.rotate(-0.35);
 
-  ctx.fillStyle = "#4b2a1b";
-  ctx.fillRect(-22, -10, 44, 20);
-  ctx.fillRect(-16, -15, 32, 30);
-  ctx.fillRect(-8, -19, 16, 38);
+  ctx.fillStyle = "#7a3f1d";
+  ctx.strokeStyle = "#2b160c";
+  ctx.lineWidth = 3;
 
-  ctx.fillStyle = "#9b552f";
-  ctx.fillRect(-16, -8, 32, 16);
-  ctx.fillRect(-10, -12, 20, 24);
+  ctx.beginPath();
+  ctx.ellipse(0, 0, 28, 15, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.stroke();
 
-  ctx.fillStyle = "#fff";
-  ctx.fillRect(-18, -6, 5, 12);
-  ctx.fillRect(13, -6, 5, 12);
-  ctx.fillRect(-2, -10, 4, 20);
-  ctx.fillRect(-10, -2, 20, 4);
+  ctx.fillStyle = "rgba(255,255,255,0.15)";
+  ctx.beginPath();
+  ctx.ellipse(-8, -5, 11, 4, -0.2, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.strokeStyle = "#ffffff";
+  ctx.lineWidth = 3;
+
+  ctx.beginPath();
+  ctx.moveTo(-18, -8);
+  ctx.lineTo(-18, 8);
+  ctx.moveTo(18, -8);
+  ctx.lineTo(18, 8);
+  ctx.stroke();
+
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(-8, 0);
+  ctx.lineTo(8, 0);
+  ctx.stroke();
+
+  for (let i = -5; i <= 5; i += 5) {
+    ctx.beginPath();
+    ctx.moveTo(i, -4);
+    ctx.lineTo(i, 4);
+    ctx.stroke();
+  }
 
   ctx.restore();
 }
@@ -1008,40 +899,20 @@ function drawPlayer(p) {
   drawPixelPlayer(p);
 }
 
-/* ================================
-   MAIN DRAW
-================================ */
-
 function drawFooter() {
   const footerTop = H - 72;
 
   ctx.fillStyle = "rgba(0,0,0,0.42)";
   ctx.fillRect(0, footerTop, W, 72);
 
-  let modeText = "";
-
-  if (sportMode === "football") {
-    modeText = t("footballMode");
-  } else if (setupMode === "lineout-top") {
-    modeText = `${t("lineoutTopMode")} | CLICK FIELD TO PLACE`;
-  } else if (setupMode === "lineout-bottom") {
-    modeText = `${t("lineoutBottomMode")} | CLICK FIELD TO PLACE`;
-  } else if (setupMode === "scrum") {
-    modeText = `${t("scrumMode")} | CLICK FIELD TO PLACE`;
-  } else {
-    modeText = `${t("freeBallMode")} | ${t("attack")} | ${pitchMode.toUpperCase()} PITCH`;
-  }
+  const modeText = `${t("freeBallMode")} | ${t("attack")} | ${pitchMode.toUpperCase()} PITCH`;
 
   pixelText(modeText, W / 2, footerTop + 28, 18, "center", "#ffd700");
   pixelText(t("footer"), W / 2, footerTop + 54, 13, "center", "#ffffff");
 }
 
 function draw() {
-  if (sportMode === "football") {
-    drawFootballPitch();
-  } else {
-    drawRugbyPitch();
-  }
+  drawRugbyPitch();
 
   if (state && state.players) {
     Object.values(state.players).forEach(drawPlayer);
@@ -1059,10 +930,6 @@ function draw() {
 
   drawFooter();
 }
-
-/* ================================
-   PAYWALL
-================================ */
 
 const STRIPE_PAYMENT_LINK = "https://buy.stripe.com/28EeVdesG4TgcBz7D06Vq00";
 const PAYWALL_WAIT_TIME = 5 * 60 * 1000;
@@ -1091,21 +958,13 @@ function unlockPromoForThisPageLoadOnly() {
   hidePaywall();
 }
 
-/* ================================
-   STARTUP
-================================ */
-
 window.addEventListener("load", () => {
   currentLang = "en";
-
-  const langToggle = document.getElementById("langToggle");
-  if (langToggle) langToggle.value = currentLang;
 
   applyTranslations();
   applyActiveField();
   syncControls();
   updateToolVisibility();
-  updateModeButtons();
   draw();
 
   if (!hasValidAccess()) {

@@ -91,52 +91,69 @@ function initPlayers() {
 }
 
 function placeLineout(side = "top", clickedX = 920) {
-  const xForwards = clamp(
-    Number(clickedX) || 920,
-    playableLeft() + 200,
-    playableRight() - 520
+  const isTop = side === "top";
+
+  const x5m = 185;
+  const x15m = 395;
+
+  const lineoutX = clamp(
+    Number(clickedX) || 300,
+    x5m + 45,
+    x15m - 45
   );
 
-  const spacing = side === "top" ? 34 : -34;
+  const startY = isTop ? 170 : 730;
+  const direction = isTop ? 1 : -1;
 
-  const startY =
-    side === "top"
-      ? FIELD.top + 72
-      : FIELD.bottom - 72;
+  const players = state.players;
 
-  [1, 3, 4, 5, 6, 7, 8].forEach((n, i) => {
-    state.players[n].x = xForwards;
-    state.players[n].y = startY + i * spacing;
-  });
+  players[2].x = lineoutX - 28;
+  players[2].y = startY - 6 * direction;
 
-  state.players[2].x = xForwards - 78;
-  state.players[2].y = startY;
+  players[1].x = lineoutX;
+  players[1].y = startY + 42 * direction;
 
-  state.players[9].x = xForwards + 76;
-  state.players[9].y = startY + spacing * 4.2;
+  players[3].x = lineoutX - 38;
+  players[3].y = startY + 34 * direction;
 
-  const backsStartX = xForwards + 185;
+  players[4].x = lineoutX + 38;
+  players[4].y = startY + 74 * direction;
 
-  state.players[10].x = backsStartX;
-  state.players[10].y = startY + spacing * 3.5;
+  players[5].x = lineoutX;
+  players[5].y = startY + 86 * direction;
 
-  state.players[12].x = backsStartX + 105;
-  state.players[12].y = startY + spacing * 4.3;
+  players[6].x = lineoutX + 42;
+  players[6].y = startY + 128 * direction;
 
-  state.players[13].x = backsStartX + 220;
-  state.players[13].y = startY + spacing * 5.0;
+  players[7].x = lineoutX - 34;
+  players[7].y = startY + 122 * direction;
 
-  state.players[15].x = backsStartX + 330;
-  state.players[15].y = startY + spacing * 5.9;
+  players[8].x = lineoutX + 42;
+  players[8].y = startY + 168 * direction;
 
-  state.players[14].x = backsStartX + 435;
-  state.players[14].y = startY + spacing * 6.8;
+  players[9].x = lineoutX + 88;
+  players[9].y = startY + 118 * direction;
 
-  state.players[11].x = backsStartX + 160;
-  state.players[11].y = startY + spacing * 1.6;
+  players[10].x = lineoutX + 260;
+  players[10].y = startY + 185 * direction;
 
-  state.ball.x = xForwards + 34;
-  state.ball.y = startY + spacing * 1.4;
+  players[12].x = lineoutX + 390;
+  players[12].y = startY + 255 * direction;
+
+  players[13].x = lineoutX + 510;
+  players[13].y = startY + 345 * direction;
+
+  players[15].x = lineoutX + 620;
+  players[15].y = startY + 440 * direction;
+
+  players[14].x = lineoutX + 720;
+  players[14].y = startY + 520 * direction;
+
+  players[11].x = lineoutX + 455;
+  players[11].y = startY + 58 * direction;
+
+  state.ball.x = lineoutX + 115;
+  state.ball.y = startY + 100 * direction;
 
   clampAll();
 }
@@ -446,3 +463,4 @@ server.listen(PORT, () => {
     PORT
   );
 });
+```

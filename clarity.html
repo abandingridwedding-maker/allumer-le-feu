@@ -9,40 +9,26 @@
 
 <body>
   <div id="topbar">
-    <div class="brand">🔥 TEAM-CLARITY</div>
+    <div class="brand">
+      🔥 TEAM-CLARITY <span style="color:var(--orange);font-size:14px;">LIVE</span>
+    </div>
 
     <div class="tools">
       <div class="toolGroup">
         <button onclick="window.location.href='index.html'">Home</button>
+        <button id="qrBtn">QR Codes</button>
+        <button id="setPieceCycleBtn" class="primaryBtn">Set Piece</button>
+        <button id="freezeBtn">Freeze</button>
+        <button id="resetBtn" class="resetBtn">Reset</button>
+      </div>
 
+      <div class="toolGroup secondaryRow">
         <select id="pitchMode" title="Pitch Mode">
           <option value="full">Full Pitch</option>
           <option value="half">Half Pitch</option>
           <option value="lineout">Lineout</option>
         </select>
 
-        <button id="qrBtn">QR Codes</button>
-
-        <select id="sportMode">
-          <option value="rugby">Rugby</option>
-          <option value="football">Football</option>
-        </select>
-
-        <button id="lineoutTopBtn" class="rugbyOnly">Lineout Top</button>
-        <button id="lineoutBottomBtn" class="rugbyOnly">Lineout Bottom</button>
-        <button id="scrumBtn" class="rugbyOnly">Scrum</button>
-        <button id="freeBtn">Free Ball</button>
-
-        <button id="freezeBtn">Freeze</button>
-        <button id="resetBtn">Reset</button>
-
-        <label class="speedLabel">
-          Speed
-          <input id="speed" type="range" min="1" max="10" value="5" />
-        </label>
-      </div>
-
-      <div class="toolGroup">
         <select id="teamColor">
           <option value="red">Red</option>
           <option value="white">White</option>
@@ -52,15 +38,21 @@
 
         <select id="playerGroup">
           <option value="all">All Players</option>
-          <option value="forwards">Forwards Only</option>
-          <option value="backs">Backs Only</option>
+          <option value="forwards">Forwards</option>
+          <option value="backs">Backs</option>
         </select>
 
         <select id="playerSize">
-          <option value="normal">Normal Size</option>
+          <option value="normal">Normal</option>
           <option value="medium">2/3 Size</option>
-          <option value="small" selected>Small Circle</option>
+          <option value="small" selected>Small</option>
         </select>
+
+        <label class="speedLabel">
+          Speed
+          <input id="speed" type="range" min="1" max="10" value="5" />
+          <span id="speedValue">1.0x</span>
+        </label>
       </div>
     </div>
   </div>
