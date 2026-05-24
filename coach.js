@@ -546,6 +546,18 @@ function localPlaceScrum(x, y) {
   clampBall(state.ball);
 }
 
+let lastSocketEmit = 0;
+const SOCKET_EMIT_INTERVAL = 33; // 30fps socket sync, smooth local drag
+
+function shouldEmitNow() {
+  const now = performance.now();
+  if (now - lastSocketEmit >= SOCKET_EMIT_INTERVAL) {
+    lastSocketEmit = now;
+    return true;
+  }
+  return false;
+}
+
 canvas.addEventListener("mousedown", e => {
   const rawPoint = mousePoint(e);
   const playerPoint = clampPointToField(rawPoint, false);
@@ -556,10 +568,6 @@ canvas.addEventListener("mousedown", e => {
     draggingPlayerNumber = null;
     dragOffset.x = rawPoint.x - state.ball.x;
     dragOffset.y = rawPoint.y - state.ball.y;
-
-    state.ball.x = ballPoint.x;
-    state.ball.y = ballPoint.y;
-    socket.emit("coach-ball", ballPoint);
     setCanvasDragging(true);
     draw();
     return;
@@ -572,17 +580,6 @@ canvas.addEventListener("mousedown", e => {
     draggingBall = false;
     dragOffset.x = rawPoint.x - player.x;
     dragOffset.y = rawPoint.y - player.y;
-
-    player.x = playerPoint.x;
-    player.y = playerPoint.y;
-    clampPlayer(player);
-
-    socket.emit("coach-move-player", {
-      number: player.number,
-      x: player.x,
-      y: player.y
-    });
-
     setCanvasDragging(true);
     draw();
     return;
@@ -599,6 +596,7 @@ canvas.addEventListener("mousedown", e => {
 
 canvas.addEventListener("mousemove", e => {
   const rawPoint = mousePoint(e);
+  const emitNow = shouldEmitNow();
 
   if (draggingPlayerNumber) {
     const player = state.players[draggingPlayerNumber];
@@ -608,13 +606,16 @@ canvas.addEventListener("mousemove", e => {
     player.y = rawPoint.y - dragOffset.y;
     clampPlayer(player);
 
-    socket.emit("coach-move-player", {
-      number: draggingPlayerNumber,
-      x: player.x,
-      y: player.y
-    });
-
     draw();
+
+    if (emitNow) {
+      socket.emit("coach-move-player", {
+        number: draggingPlayerNumber,
+        x: player.x,
+        y: player.y
+      });
+    }
+
     return;
   }
 
@@ -623,26 +624,44 @@ canvas.addEventListener("mousemove", e => {
     state.ball.y = rawPoint.y - dragOffset.y;
     clampBall(state.ball);
 
+    draw();
+
+    if (emitNow) {
+      socket.emit("coach-ball", {
+        x: state.ball.x,
+        y: state.ball.y
+      });
+    }
+  }
+});
+
+function finishDrag() {
+  if (draggingPlayerNumber) {
+    const player = state.players[draggingPlayerNumber];
+
+    if (player) {
+      socket.emit("coach-move-player", {
+        number: draggingPlayerNumber,
+        x: player.x,
+        y: player.y
+      });
+    }
+  }
+
+  if (draggingBall) {
     socket.emit("coach-ball", {
       x: state.ball.x,
       y: state.ball.y
     });
-
-    draw();
   }
-});
 
-window.addEventListener("mouseup", () => {
   draggingBall = false;
   draggingPlayerNumber = null;
   setCanvasDragging(false);
-});
+}
 
-canvas.addEventListener("mouseleave", () => {
-  draggingBall = false;
-  draggingPlayerNumber = null;
-  setCanvasDragging(false);
-});
+window.addEventListener("mouseup", finishDrag);
+canvas.addEventListener("mouseleave", finishDrag);
 
 canvas.addEventListener("dblclick", e => {
   const rawPoint = mousePoint(e);
