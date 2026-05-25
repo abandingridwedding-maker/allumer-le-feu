@@ -270,17 +270,9 @@ const pitchModeSelect = document.getElementById("pitchMode");
 if (pitchModeSelect) pitchModeSelect.onchange = e => setPitchMode(e.target.value);
 
 function syncCurrentShapeToServer() {
-  Object.values(state.players || {}).forEach(player => {
-    socket.emit("coach-move-player", {
-      number: player.number,
-      x: player.x,
-      y: player.y
-    });
-  });
-
-  socket.emit("coach-ball", {
-    x: state.ball.x,
-    y: state.ball.y
+  socket.emit("coach-full-state", {
+    players: state.players,
+    ball: state.ball
   });
 }
 
@@ -318,10 +310,7 @@ if (setPieceBtn) {
 
 setPieceBtn.textContent = "Set Piece";
 setupMode = "free";
-
-setTimeout(() => {
-  draw();
-}, 80);
+draw();
   };
 }
 
