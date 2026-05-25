@@ -322,6 +322,7 @@ setupMode = "free";
 setTimeout(() => {
   draw();
 }, 80);
+  };
 }
 
 const teamColorSelect = document.getElementById("teamColor");
