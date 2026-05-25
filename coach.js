@@ -269,6 +269,21 @@ socket.on("state", serverState => {
 const pitchModeSelect = document.getElementById("pitchMode");
 if (pitchModeSelect) pitchModeSelect.onchange = e => setPitchMode(e.target.value);
 
+function syncCurrentShapeToServer() {
+  Object.values(state.players || {}).forEach(player => {
+    socket.emit("coach-move-player", {
+      number: player.number,
+      x: player.x,
+      y: player.y
+    });
+  });
+
+  socket.emit("coach-ball", {
+    x: state.ball.x,
+    y: state.ball.y
+  });
+}
+
 const setPieceBtn = document.getElementById("setPieceCycleBtn");
 
 if (setPieceBtn) {
@@ -285,45 +300,23 @@ if (setPieceBtn) {
 
     if (option.type === "lineout" && option.side === "top") {
       localPlaceLineout("top", W * 0.58);
-      socket.emit("coach-setpiece", {
-        type: "lineout",
-        side: "top",
-        x: W * 0.58,
-        y: H * 0.25
-      });
-      setPieceBtn.textContent = "Set Piece";
     }
 
     else if (option.type === "scrum" && option.side === "top") {
       localPlaceScrum(W * 0.55, H * 0.32);
-      socket.emit("coach-setpiece", {
-        type: "scrum",
-        x: W * 0.55,
-        y: H * 0.32
-      });
-      setPieceBtn.textContent = "Set Piece";
     }
 
     else if (option.type === "lineout" && option.side === "bottom") {
       localPlaceLineout("bottom", W * 0.58);
-      socket.emit("coach-setpiece", {
-        type: "lineout",
-        side: "bottom",
-        x: W * 0.58,
-        y: H * 0.72
-      });
-      setPieceBtn.textContent = "Set Piece";
     }
 
     else {
       localPlaceScrum(W * 0.55, H * 0.68);
-      socket.emit("coach-setpiece", {
-        type: "scrum",
-        x: W * 0.55,
-        y: H * 0.68
-      });
-      setPieceBtn.textContent = "Set Piece";
     }
+
+    syncCurrentShapeToServer();
+
+    setPieceBtn.textContent = "Set Piece";
 
     setupMode = "free";
     draw();
@@ -444,16 +437,31 @@ function isBallHit(point) {
   if (!state || !state.ball) return false;
   return Math.hypot(state.ball.x - point.x, state.ball.y - point.y) <= 28;
 }
+function ensureWingsCorrect(players) {
+  if (!players[11] || !players[14]) return;
+
+  // Smaller Y = top of pitch.
+  // 14 must always be above 11.
+  if (players[14].y > players[11].y) {
+    const old14 = { x: players[14].x, y: players[14].y };
+
+    players[14].x = players[11].x;
+    players[14].y = players[11].y;
+
+    players[11].x = old14.x;
+    players[11].y = old14.y;
+  }
+}
+
 function localPlaceLineout(side, x) {
   if (!state || !state.players || !state.ball) return;
 
   const players = state.players;
   const xForwards = clamp(x || 920, FIELD.left + 240, FIELD.right - 520);
   const isTop = side === "top";
-  const baseY = isTop ? FIELD.top + 92 : FIELD.bottom - 92;
+  const baseY = isTop ? FIELD.top + 92 : FIELD.bottom - 55;
   const dir = isTop ? 1 : -1;
 
-  // Overlapping lineout stack
   [1, 3, 4, 5, 6, 7, 8].forEach((n, i) => {
     players[n].x = xForwards;
     players[n].y = baseY + (i * 23 * dir);
@@ -468,8 +476,8 @@ function localPlaceLineout(side, x) {
   players[10].x = xForwards + 210;
   players[10].y = baseY + (155 * dir);
 
-  players[11].x = xForwards + 280;
-  players[11].y = baseY + (105 * dir);
+  players[14].x = xForwards + 280;
+  players[14].y = baseY + (105 * dir);
 
   players[12].x = xForwards + 225;
   players[12].y = baseY + (250 * dir);
@@ -480,12 +488,13 @@ function localPlaceLineout(side, x) {
   players[15].x = xForwards + 315;
   players[15].y = baseY + (480 * dir);
 
-  players[14].x = xForwards + 355;
-  players[14].y = baseY + (610 * dir);
+  players[11].x = xForwards + 355;
+  players[11].y = baseY + (610 * dir);
 
   state.ball.x = xForwards - 55;
   state.ball.y = baseY + (315 * dir);
 
+  ensureWingsCorrect(players);
   Object.values(players).forEach(clampPlayer);
   clampBall(state.ball);
 }
@@ -494,13 +503,11 @@ function localPlaceScrum(x, y) {
   if (!state || !state.players || !state.ball) return;
 
   const players = state.players;
-
   const cx = clamp(x || W * 0.55, FIELD.left + 260, FIELD.right - 560);
   const isTop = !y || y < H / 2;
   const cy = isTop ? FIELD.top + 215 : FIELD.bottom - 215;
   const dir = isTop ? 1 : -1;
 
-  // Compact scrum pack
   players[1].x = cx - 45; players[1].y = cy + (45 * dir);
   players[2].x = cx - 45; players[2].y = cy;
   players[3].x = cx - 45; players[3].y = cy - (45 * dir);
@@ -508,7 +515,6 @@ function localPlaceScrum(x, y) {
   players[4].x = cx; players[4].y = cy + (25 * dir);
   players[5].x = cx; players[5].y = cy - (20 * dir);
 
-  // 6 always open side
   if (isTop) {
     players[6].x = cx + 42; players[6].y = cy - (62 * dir);
     players[7].x = cx + 42; players[7].y = cy + (62 * dir);
@@ -523,30 +529,36 @@ function localPlaceScrum(x, y) {
   players[9].x = cx + 110;
   players[9].y = cy;
 
-  players[10].x = cx + 250;
-  players[10].y = cy - (95 * dir);
+  const baseY = isTop ? FIELD.top + 92 : FIELD.bottom - 55;
+  const xForwards = cx;
 
-  players[11].x = cx + 420;
-  players[11].y = cy + (35 * dir);
+  players[10].x = xForwards + 210;
+  players[10].y = baseY + (155 * dir);
 
-  players[12].x = cx + 345;
-  players[12].y = cy - (190 * dir);
+  players[14].x = xForwards + 280;
+  players[14].y = baseY + (105 * dir);
 
-  players[13].x = cx + 410;
-  players[13].y = cy - (285 * dir);
+  players[12].x = xForwards + 225;
+  players[12].y = baseY + (250 * dir);
 
-  players[15].x = cx + 460;
-  players[15].y = cy - (405 * dir);
+  players[13].x = xForwards + 270;
+  players[13].y = baseY + (360 * dir);
 
-  players[14].x = cx + 500;
-  players[14].y = cy - (525 * dir);
+  players[15].x = xForwards + 315;
+  players[15].y = baseY + (480 * dir);
+
+  players[11].x = xForwards + 355;
+  players[11].y = baseY + (610 * dir);
 
   state.ball.x = cx + 70;
   state.ball.y = cy - (10 * dir);
 
+  ensureWingsCorrect(players);
   Object.values(players).forEach(clampPlayer);
   clampBall(state.ball);
 }
+
+ 
 
 let lastSocketEmit = 0;
 const SOCKET_EMIT_INTERVAL = 33; // 30fps socket sync, smooth local drag

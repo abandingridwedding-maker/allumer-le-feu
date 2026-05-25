@@ -94,12 +94,28 @@ function initPlayers() {
   placeLineout("top", 920, true);
 }
 
+function ensureWingsCorrect(players) {
+  if (!players[11] || !players[14]) return;
+
+  // Smaller Y = top of pitch.
+  // 14 must always be above 11.
+  if (players[14].y > players[11].y) {
+    const old14 = { x: players[14].x, y: players[14].y };
+
+    players[14].x = players[11].x;
+    players[14].y = players[11].y;
+
+    players[11].x = old14.x;
+    players[11].y = old14.y;
+  }
+}
+
 function placeLineout(side, clickedX, silent = false) {
   applyActiveField();
 
   const xForwards = clamp(clickedX || 920, FIELD.left + 240, FIELD.right - 520);
   const isTop = side === "top";
-  const baseY = isTop ? FIELD.top + 92 : FIELD.bottom - 92;
+  const baseY = isTop ? FIELD.top + 92 : FIELD.bottom - 55;
   const dir = isTop ? 1 : -1;
 
   [1, 3, 4, 5, 6, 7, 8].forEach((n, i) => {
@@ -116,8 +132,8 @@ function placeLineout(side, clickedX, silent = false) {
   players[10].x = xForwards + 210;
   players[10].y = baseY + (155 * dir);
 
-  players[11].x = xForwards + 280;
-  players[11].y = baseY + (105 * dir);
+  players[14].x = xForwards + 280;
+  players[14].y = baseY + (105 * dir);
 
   players[12].x = xForwards + 225;
   players[12].y = baseY + (250 * dir);
@@ -128,13 +144,15 @@ function placeLineout(side, clickedX, silent = false) {
   players[15].x = xForwards + 315;
   players[15].y = baseY + (480 * dir);
 
-  players[14].x = xForwards + 355;
-  players[14].y = baseY + (610 * dir);
+  players[11].x = xForwards + 355;
+  players[11].y = baseY + (610 * dir);
 
   ball.x = xForwards - 55;
   ball.y = baseY + (315 * dir);
 
+  ensureWingsCorrect(players);
   clampAllToField();
+
   if (!silent) draw();
 }
 
@@ -167,27 +185,31 @@ function placeScrum(clickedX, clickedY) {
   players[9].x = cx + 110;
   players[9].y = cy;
 
-  players[10].x = cx + 250;
-  players[10].y = cy - (95 * dir);
+  const baseY = isTop ? FIELD.top + 92 : FIELD.bottom - 55;
+  const xForwards = cx;
 
-  players[11].x = cx + 420;
-  players[11].y = cy + (35 * dir);
+  players[10].x = xForwards + 210;
+  players[10].y = baseY + (155 * dir);
 
-  players[12].x = cx + 345;
-  players[12].y = cy - (190 * dir);
+  players[14].x = xForwards + 280;
+  players[14].y = baseY + (105 * dir);
 
-  players[13].x = cx + 410;
-  players[13].y = cy - (285 * dir);
+  players[12].x = xForwards + 225;
+  players[12].y = baseY + (250 * dir);
 
-  players[15].x = cx + 460;
-  players[15].y = cy - (405 * dir);
+  players[13].x = xForwards + 270;
+  players[13].y = baseY + (360 * dir);
 
-  players[14].x = cx + 500;
-  players[14].y = cy - (525 * dir);
+  players[15].x = xForwards + 315;
+  players[15].y = baseY + (480 * dir);
+
+  players[11].x = xForwards + 355;
+  players[11].y = baseY + (610 * dir);
 
   ball.x = cx + 70;
   ball.y = cy - (10 * dir);
 
+  ensureWingsCorrect(players);
   clampAllToField();
   draw();
 }
