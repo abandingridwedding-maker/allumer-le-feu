@@ -98,124 +98,97 @@ function placeLineout(side, clickedX, silent = false) {
   applyActiveField();
 
   const xForwards = clamp(clickedX || 920, FIELD.left + 240, FIELD.right - 520);
-
   const isTop = side === "top";
-
-  const baseY = isTop
-    ? FIELD.top + 95
-    : FIELD.bottom - 95;
-
+  const baseY = isTop ? FIELD.top + 92 : FIELD.bottom - 92;
   const dir = isTop ? 1 : -1;
 
-  // Tight lineout stack
-  [1,3,4,5,6,7,8].forEach((n, i) => {
+  [1, 3, 4, 5, 6, 7, 8].forEach((n, i) => {
     players[n].x = xForwards;
-    players[n].y = baseY + (i * 33 * dir);
+    players[n].y = baseY + (i * 23 * dir);
   });
 
-  // Hooker
-  players[2].x = xForwards - 78;
-  players[2].y = baseY - (18 * dir);
+  players[2].x = xForwards - 70;
+  players[2].y = baseY - (36 * dir);
 
-  // Scrumhalf
-  players[9].x = xForwards + 82;
-  players[9].y = baseY + (112 * dir);
+  players[9].x = xForwards + 115;
+  players[9].y = baseY + (35 * dir);
 
-  // Deep backs shape
-  players[10].x = xForwards + 195;
-  players[10].y = baseY + (165 * dir);
+  players[10].x = xForwards + 210;
+  players[10].y = baseY + (155 * dir);
 
-  players[11].x = xForwards + 245;
-  players[11].y = baseY + (108 * dir);
+  players[11].x = xForwards + 280;
+  players[11].y = baseY + (105 * dir);
 
   players[12].x = xForwards + 225;
-  players[12].y = baseY + (255 * dir);
+  players[12].y = baseY + (250 * dir);
 
-  players[13].x = xForwards + 285;
-  players[13].y = baseY + (355 * dir);
+  players[13].x = xForwards + 270;
+  players[13].y = baseY + (360 * dir);
 
-  players[15].x = xForwards + 325;
-  players[15].y = baseY + (470 * dir);
+  players[15].x = xForwards + 315;
+  players[15].y = baseY + (480 * dir);
 
-  players[14].x = xForwards + 360;
-  players[14].y = baseY + (585 * dir);
+  players[14].x = xForwards + 355;
+  players[14].y = baseY + (610 * dir);
 
-  // Ball
-  ball.x = xForwards + 40;
-  ball.y = baseY + (45 * dir);
+  ball.x = xForwards - 55;
+  ball.y = baseY + (315 * dir);
 
   clampAllToField();
-
   if (!silent) draw();
 }
 
 function placeScrum(clickedX, clickedY) {
   applyActiveField();
 
-  const cx = clamp(clickedX || 720, FIELD.left + 220, FIELD.right - 620);
-
+  const cx = clamp(clickedX || W * 0.55, FIELD.left + 260, FIELD.right - 560);
   const isTop = !clickedY || clickedY < H / 2;
-
-  const cy = isTop
-    ? FIELD.top + 190
-    : FIELD.bottom - 190;
-
+  const cy = isTop ? FIELD.top + 215 : FIELD.bottom - 215;
   const dir = isTop ? 1 : -1;
 
-  // Scrum pack
-  players[1].x = cx - 42;
-  players[1].y = cy - (30 * dir);
+  players[1].x = cx - 45; players[1].y = cy + (45 * dir);
+  players[2].x = cx - 45; players[2].y = cy;
+  players[3].x = cx - 45; players[3].y = cy - (45 * dir);
 
-  players[2].x = cx;
-  players[2].y = cy - (30 * dir);
+  players[4].x = cx; players[4].y = cy + (25 * dir);
+  players[5].x = cx; players[5].y = cy - (20 * dir);
 
-  players[3].x = cx + 42;
-  players[3].y = cy - (30 * dir);
+  if (isTop) {
+    players[6].x = cx + 42; players[6].y = cy - (62 * dir);
+    players[7].x = cx + 42; players[7].y = cy + (62 * dir);
+  } else {
+    players[6].x = cx + 42; players[6].y = cy + (62 * dir);
+    players[7].x = cx + 42; players[7].y = cy - (62 * dir);
+  }
 
-  players[4].x = cx - 22;
-  players[4].y = cy + (6 * dir);
+  players[8].x = cx + 40;
+  players[8].y = cy;
 
-  players[5].x = cx + 22;
-  players[5].y = cy + (6 * dir);
+  players[9].x = cx + 110;
+  players[9].y = cy;
 
-  players[6].x = cx - 70;
-  players[6].y = cy + (42 * dir);
+  players[10].x = cx + 250;
+  players[10].y = cy - (95 * dir);
 
-  players[7].x = cx + 70;
-  players[7].y = cy + (42 * dir);
+  players[11].x = cx + 420;
+  players[11].y = cy + (35 * dir);
 
-  players[8].x = cx;
-  players[8].y = cy + (62 * dir);
+  players[12].x = cx + 345;
+  players[12].y = cy - (190 * dir);
 
-  // 9
-  players[9].x = cx + 95;
-  players[9].y = cy + (10 * dir);
+  players[13].x = cx + 410;
+  players[13].y = cy - (285 * dir);
 
-  // Deep backs structure
-  players[10].x = cx + 170;
-  players[10].y = cy + (95 * dir);
+  players[15].x = cx + 460;
+  players[15].y = cy - (405 * dir);
 
-  players[11].x = cx + 230;
-  players[11].y = cy + (45 * dir);
+  players[14].x = cx + 500;
+  players[14].y = cy - (525 * dir);
 
-  players[12].x = cx + 205;
-  players[12].y = cy + (185 * dir);
-
-  players[13].x = cx + 255;
-  players[13].y = cy + (300 * dir);
-
-  players[15].x = cx + 285;
-  players[15].y = cy + (425 * dir);
-
-  players[14].x = cx + 315;
-  players[14].y = cy + (555 * dir);
-
-  // Ball
-  ball.x = cx + 75;
-  ball.y = cy + (5 * dir);
+  ball.x = cx + 70;
+  ball.y = cy - (10 * dir);
 
   clampAllToField();
-
   draw();
 }
 
