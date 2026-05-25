@@ -316,11 +316,12 @@ if (setPieceBtn) {
 
     syncCurrentShapeToServer();
 
-    setPieceBtn.textContent = "Set Piece";
+setPieceBtn.textContent = "Set Piece";
+setupMode = "free";
 
-    setupMode = "free";
-    draw();
-  };
+setTimeout(() => {
+  draw();
+}, 80);
 }
 
 const teamColorSelect = document.getElementById("teamColor");
