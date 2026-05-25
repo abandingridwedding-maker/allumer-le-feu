@@ -209,7 +209,7 @@ function drawPitch() {
 }
 
 function fallbackPitch() {
-  ctx.fillStyle = "#6ec65f";
+  ctx.fillStyle = "#ffffff";
   ctx.fillRect(0, 0, W, H);
 }
 

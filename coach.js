@@ -741,7 +741,7 @@ function drawFullRugbyPitch() {
   if (rugbyPitchImg.complete && rugbyPitchImg.naturalWidth > 0) {
     ctx.drawImage(rugbyPitchImg, 0, 0, W, H);
   } else {
-    ctx.fillStyle = "#0d0d0d";
+    ctx.fillStyle = "#ffffff";
     ctx.fillRect(0, 0, W, H);
   }
 }
@@ -750,7 +750,7 @@ function drawHalfPitch() {
   if (halfPitchImg.complete && halfPitchImg.naturalWidth > 0) {
     ctx.drawImage(halfPitchImg, 0, 0, W, H);
   } else {
-    ctx.fillStyle = "#0d0d0d";
+    ctx.fillStyle = "#ffffff";
     ctx.fillRect(0, 0, W, H);
   }
 }
@@ -759,7 +759,7 @@ function drawLineoutPitch() {
   if (lineoutPitchImg.complete && lineoutPitchImg.naturalWidth > 0) {
     ctx.drawImage(lineoutPitchImg, 0, 0, W, H);
   } else {
-    ctx.fillStyle = "#0d0d0d";
+    ctx.fillStyle = "#ffffff";
     ctx.fillRect(0, 0, W, H);
   }
 }
