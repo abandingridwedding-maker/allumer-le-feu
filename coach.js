@@ -30,6 +30,7 @@ let sportMode = "rugby";
 let pitchMode = "full";
 let currentLang = "en";
 let setPieceCycle = 0;
+let ignoreServerStateUntil = 0;
 
 let draggingBall = false;
 let draggingPlayerNumber = null;
@@ -253,6 +254,8 @@ function updateToolVisibility() {
 socket.on("state", serverState => {
   if (!serverState) return;
 
+  if (Date.now() < ignoreServerStateUntil) return;
+
   if (draggingBall || draggingPlayerNumber) return;
 
   state = serverState;
@@ -306,7 +309,9 @@ if (setPieceBtn) {
       localPlaceScrum(W * 0.55, H * 0.68);
     }
 
-    syncCurrentShapeToServer();
+    ignoreServerStateUntil = Date.now() + 300;
+
+syncCurrentShapeToServer();
 
 setPieceBtn.textContent = "Set Piece";
 setupMode = "free";
