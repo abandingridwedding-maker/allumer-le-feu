@@ -234,17 +234,52 @@ function setPitchMode(mode, emit = true) {
   pitchMode = ["full", "half", "lineout"].includes(mode) ? mode : "full";
   state.pitchMode = pitchMode;
 
-  if (pitchMode === "lineout") {
-    playerGroup = "forwards";
-  }
-
   applyActiveField();
-  Object.values(state.players || {}).forEach(clampPlayer);
-  if (state.ball) clampBall(state.ball);
 
+if (pitchMode === "half") {
+  playerGroup = "all";
+  placeHalfPitchDefault();
+}
+
+else if (pitchMode === "lineout") {
+  playerGroup = "forwards";
+  localPlaceLineout("top", W * 0.58);
+}
+
+else {
+  playerGroup = "all";
+  localPlaceLineout("top", W * 0.58);
+}
+
+Object.values(state.players || {}).forEach(clampPlayer);
+if (state.ball) clampBall(state.ball);
   syncControls();
   if (emit) socket.emit("coach-pitch-mode", pitchMode);
   draw();
+}
+function placeHalfPitchDefault() {
+  if (!state || !state.players || !state.ball) return;
+
+  const players = state.players;
+
+  const topY = FIELD.bottom - 230;
+  const bottomY = FIELD.bottom - 110;
+
+  for (let i = 1; i <= 8; i++) {
+    players[i].x = FIELD.left + 300 + (i - 1) * 120;
+    players[i].y = topY;
+  }
+
+  for (let i = 9; i <= 15; i++) {
+    players[i].x = FIELD.left + 300 + (i - 9) * 120;
+    players[i].y = bottomY;
+  }
+
+  state.ball.x = FIELD.left + 640;
+  state.ball.y = topY - 60;
+
+  Object.values(players).forEach(clampPlayer);
+  clampBall(state.ball);
 }
 
 function updateToolVisibility() {
@@ -283,39 +318,77 @@ const setPieceBtn = document.getElementById("setPieceCycleBtn");
 
 if (setPieceBtn) {
   setPieceBtn.onclick = () => {
-    const options = [
-      { type: "lineout", side: "top" },
-      { type: "scrum", side: "top" },
-      { type: "lineout", side: "bottom" },
-      { type: "scrum", side: "bottom" }
-    ];
+    if (pitchMode === "half" || pitchMode === "lineout") {
+  setPieceBtn.textContent = "Set Piece";
+  return;
+}
+    const isHalfPitch = pitchMode === "half";
+
+    const options = isHalfPitch
+      ? [
+          { type: "lineout", side: "left" },
+          { type: "scrum", side: "left" },
+          { type: "lineout", side: "right" },
+          { type: "scrum", side: "right" }
+        ]
+      : [
+          { type: "lineout", side: "top" },
+          { type: "scrum", side: "top" },
+          { type: "lineout", side: "bottom" },
+          { type: "scrum", side: "bottom" }
+        ];
 
     const option = options[setPieceCycle % options.length];
     setPieceCycle++;
 
-    if (option.type === "lineout" && option.side === "top") {
-      localPlaceLineout("top", W * 0.58);
+    // FULL PITCH + LINEOUT PITCH
+    if (!isHalfPitch) {
+
+      if (option.type === "lineout" && option.side === "top") {
+        localPlaceLineout("top", W * 0.58);
+      }
+
+      else if (option.type === "scrum" && option.side === "top") {
+        localPlaceScrum(W * 0.55, H * 0.32);
+      }
+
+      else if (option.type === "lineout" && option.side === "bottom") {
+        localPlaceLineout("bottom", W * 0.58);
+      }
+
+      else {
+        localPlaceScrum(W * 0.55, H * 0.68);
+      }
     }
 
-    else if (option.type === "scrum" && option.side === "top") {
-      localPlaceScrum(W * 0.55, H * 0.32);
-    }
-
-    else if (option.type === "lineout" && option.side === "bottom") {
-      localPlaceLineout("bottom", W * 0.58);
-    }
-
+    // HALF PITCH
     else {
-      localPlaceScrum(W * 0.55, H * 0.68);
+
+      if (option.type === "lineout" && option.side === "left") {
+        localPlaceHalfLineout("left");
+      }
+
+      else if (option.type === "scrum" && option.side === "left") {
+        localPlaceHalfScrum("left");
+      }
+
+      else if (option.type === "lineout" && option.side === "right") {
+        localPlaceHalfLineout("right");
+      }
+
+      else {
+        localPlaceHalfScrum("right");
+      }
     }
 
     ignoreServerStateUntil = Date.now() + 300;
 
-syncCurrentShapeToServer();
+    syncCurrentShapeToServer();
 
-setPieceBtn.textContent = "Set Piece";
-setupMode = "free";
-draw();
+    setPieceBtn.textContent = "Set Piece";
+    setupMode = "free";
+
+    draw();
   };
 }
 
@@ -436,8 +509,7 @@ function isBallHit(point) {
 function ensureWingsCorrect(players) {
   if (!players[11] || !players[14]) return;
 
-  // Smaller Y = top of pitch.
-  // 14 must always be above 11.
+  // Smaller Y = top of pitch. 14 must always be above 11.
   if (players[14].y > players[11].y) {
     const old14 = { x: players[14].x, y: players[14].y };
 
@@ -548,6 +620,108 @@ function localPlaceScrum(x, y) {
 
   state.ball.x = cx + 70;
   state.ball.y = cy - (10 * dir);
+
+  ensureWingsCorrect(players);
+  Object.values(players).forEach(clampPlayer);
+  clampBall(state.ball);
+}
+
+function localPlaceHalfLineout(side) {
+  if (!state || !state.players || !state.ball) return;
+
+  const players = state.players;
+  const isLeft = side === "left";
+  const dir = isLeft ? 1 : -1;
+
+  const lineY = H * 0.47;
+  const startX = isLeft ? FIELD.left + 130 : FIELD.right - 130;
+
+  // Forwards across the field, because half pitch plays bottom → top
+  [1, 3, 4, 5, 6, 7, 8].forEach((n, i) => {
+    players[n].x = startX + (i * 28 * dir);
+    players[n].y = lineY;
+  });
+
+  players[2].x = startX - (85 * dir);
+  players[2].y = lineY;
+
+  players[9].x = startX + (95 * dir);
+  players[9].y = lineY + 55;
+
+  // Backs shape: 14 always top, 11 always bottom
+  players[10].x = FIELD.left + 430;
+  players[10].y = FIELD.bottom - 155;
+
+  players[11].x = FIELD.left + 360;
+  players[11].y = FIELD.bottom - 120;
+
+  players[12].x = FIELD.left + 560;
+  players[12].y = FIELD.bottom - 155;
+
+  players[13].x = FIELD.left + 720;
+  players[13].y = FIELD.bottom - 190;
+
+  players[15].x = FIELD.left + 960;
+  players[15].y = FIELD.bottom - 175;
+
+  players[14].x = FIELD.right - 35;
+  players[14].y = FIELD.bottom - 175;
+
+  state.ball.x = players[2].x + (30 * dir);
+  state.ball.y = lineY;
+
+  ensureWingsCorrect(players);
+  Object.values(players).forEach(clampPlayer);
+  clampBall(state.ball);
+}
+
+function localPlaceHalfScrum(side) {
+  if (!state || !state.players || !state.ball) return;
+
+  const players = state.players;
+  const isLeft = side === "left";
+  const dir = isLeft ? 1 : -1;
+
+  const cx = isLeft ? FIELD.left + 230 : FIELD.right - 230;
+  const cy = H * 0.47;
+
+  players[1].x = cx - (45 * dir); players[1].y = cy - 45;
+  players[2].x = cx - (45 * dir); players[2].y = cy;
+  players[3].x = cx - (45 * dir); players[3].y = cy + 45;
+
+  players[4].x = cx; players[4].y = cy - 25;
+  players[5].x = cx; players[5].y = cy + 20;
+
+  players[6].x = cx + (42 * dir); players[6].y = cy - 62;
+  players[7].x = cx + (42 * dir); players[7].y = cy + 62;
+
+  players[8].x = cx + (40 * dir);
+  players[8].y = cy;
+
+  players[9].x = cx + (105 * dir);
+  players[9].y = cy + 55;
+
+  // Same backs shape as half-pitch lineout
+  players[10].x = FIELD.left + 430;
+  players[10].y = FIELD.bottom - 155;
+
+  players[11].x = FIELD.left + 360;
+  players[11].y = FIELD.bottom - 120;
+
+  players[12].x = FIELD.left + 560;
+  players[12].y = FIELD.bottom - 155;
+
+  players[13].x = FIELD.left + 720;
+  players[13].y = FIELD.bottom - 190;
+
+  players[15].x = FIELD.left + 960;
+  players[15].y = FIELD.bottom - 175;
+
+  players[14].x = FIELD.right - 35;
+  players[14].y = FIELD.bottom - 175;
+
+  state.ball.x = cx + (75 * dir);
+  state.ball.y = cy + 10;
 
   ensureWingsCorrect(players);
   Object.values(players).forEach(clampPlayer);

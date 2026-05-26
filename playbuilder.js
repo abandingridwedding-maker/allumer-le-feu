@@ -76,7 +76,24 @@ function syncControls() {
 
 function setPitchMode(mode) {
   pitchMode = ["full", "half", "lineout"].includes(mode) ? mode : "full";
-  if (pitchMode === "lineout") playerGroup = "forwards";
+
+  applyActiveField();
+
+  if (pitchMode === "half") {
+    playerGroup = "all";
+    placeHalfPitchDefault();
+  }
+
+  else if (pitchMode === "lineout") {
+    playerGroup = "forwards";
+    placeLineoutPitchDefault();
+  }
+
+  else {
+    playerGroup = "all";
+    placeLineout("top", W * 0.58, true);
+  }
+
   clampAllToField();
   syncControls();
   draw();
@@ -90,8 +107,17 @@ function applyTeamColor(value) {
 
 function initPlayers() {
   players = {};
-  for (let i = 1; i <= 15; i++) players[i] = { number: i, x: 500, y: 300, color: teamColor };
-  placeLineout("top", 920, true);
+
+  for (let i = 1; i <= 15; i++) {
+    players[i] = {
+      number: i,
+      x: 500,
+      y: 300,
+      color: teamColor
+    };
+  }
+
+  setPitchMode(pitchMode);
 }
 
 function ensureWingsCorrect(players) {
@@ -129,7 +155,7 @@ function placeLineout(side, clickedX, silent = false) {
   players[9].x = xForwards + 115;
   players[9].y = baseY + (35 * dir);
 
-  players[10].x = xForwards + 210;
+players[10].x = xForwards + 210;
   players[10].y = baseY + (155 * dir);
 
   players[14].x = xForwards + 280;
@@ -146,7 +172,6 @@ function placeLineout(side, clickedX, silent = false) {
 
   players[11].x = xForwards + 355;
   players[11].y = baseY + (610 * dir);
-
   ball.x = xForwards - 55;
   ball.y = baseY + (315 * dir);
 
@@ -188,7 +213,7 @@ function placeScrum(clickedX, clickedY) {
   const baseY = isTop ? FIELD.top + 92 : FIELD.bottom - 55;
   const xForwards = cx;
 
-  players[10].x = xForwards + 210;
+players[10].x = xForwards + 210;
   players[10].y = baseY + (155 * dir);
 
   players[14].x = xForwards + 280;
@@ -214,7 +239,55 @@ function placeScrum(clickedX, clickedY) {
   draw();
 }
 
+function placeHalfPitchDefault() {
+  applyActiveField();
+
+  const topY = FIELD.bottom - 230;
+  const bottomY = FIELD.bottom - 110;
+
+  for (let i = 1; i <= 8; i++) {
+    players[i].x = FIELD.left + 300 + (i - 1) * 120;
+    players[i].y = topY;
+  }
+
+  for (let i = 9; i <= 15; i++) {
+    players[i].x = FIELD.left + 300 + (i - 9) * 120;
+    players[i].y = bottomY;
+  }
+
+  ball.x = FIELD.left + 640;
+  ball.y = topY - 60;
+
+  clampAllToField();
+}
+
+function placeLineoutPitchDefault() {
+  applyActiveField();
+
+  playerGroup = "forwards";
+
+  const y = H * 0.50;
+  const startX = FIELD.left + 390;
+  const spacing = 82;
+
+  [1, 2, 3, 4, 5, 6, 7, 8].forEach((n, i) => {
+    players[n].x = startX + i * spacing;
+    players[n].y = y;
+  });
+
+  ball.x = FIELD.left + 675;
+  ball.y = FIELD.top + 280;
+
+  clampAllToField();
+}
+
 function cycleSetPiece() {
+  if (pitchMode === "half" || pitchMode === "lineout") {
+    const btn = document.getElementById("setPieceCycleBtn");
+    if (btn) btn.textContent = "Set Piece";
+    return;
+  }
+
   const options = [
     { type: "lineout", side: "top" },
     { type: "scrum", side: "top" },
@@ -225,22 +298,18 @@ function cycleSetPiece() {
   const option = options[setPieceCycle % options.length];
   setPieceCycle++;
 
-  const btn = document.getElementById("setPieceCycleBtn");
-
   if (option.type === "lineout" && option.side === "top") {
     placeLineout("top", W * 0.58);
-    if (btn) btn.textContent = "Set Piece";
   } else if (option.type === "scrum" && option.side === "top") {
     placeScrum(W * 0.55, H * 0.32);
-    if (btn) btn.textContent = "Set Piece";
   } else if (option.type === "lineout" && option.side === "bottom") {
     placeLineout("bottom", W * 0.58);
-    if (btn) btn.textContent = "Set Piece";
   } else {
     placeScrum(W * 0.55, H * 0.68);
-    if (btn) btn.textContent = "Set Piece";
   }
 
+  const btn = document.getElementById("setPieceCycleBtn");
+  if (btn) btn.textContent = "Set Piece";
   draw();
 }
 
