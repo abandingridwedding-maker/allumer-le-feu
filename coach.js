@@ -163,7 +163,7 @@ let state = {
   pitchMode: "full"
 };
 
-placeDefaultLineout(state.players, state.ball);
+localPlaceLineout("top", W * 0.58);
 
 const TEXT = {
   en: {
