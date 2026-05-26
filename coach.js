@@ -287,6 +287,29 @@ function placeHalfPitchDefault() {
   clampBall(state.ball);
 }
 
+function placeLineoutPitchDefault() {
+  if (!state || !state.players || !state.ball) return;
+
+  const players = state.players;
+
+  playerGroup = "forwards";
+
+  const y = H * 0.50;
+  const startX = FIELD.left + 390;
+  const spacing = 82;
+
+  [1, 2, 3, 4, 5, 6, 7, 8].forEach((n, i) => {
+    players[n].x = startX + i * spacing;
+    players[n].y = y;
+  });
+
+  state.ball.x = FIELD.left + 675;
+  state.ball.y = FIELD.top + 280;
+
+  Object.values(players).forEach(clampPlayer);
+  clampBall(state.ball);
+}
+
 function updateToolVisibility() {
   sportMode = "rugby";
 }
