@@ -343,9 +343,8 @@ socket.on("coach-full-state", data => {
   });
 
   socket.on("coach-pitch-mode", mode => {
-    state.pitchMode = mode || "full";
-    emitState();
-  });
+  state.pitchMode = mode || "full";
+});
 
   socket.on("coach-sport-mode", mode => {
     state.sportMode = mode || "rugby";

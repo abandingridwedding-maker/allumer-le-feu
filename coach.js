@@ -233,25 +233,32 @@ function setPitchMode(mode, emit = true) {
 
   applyActiveField();
 
-if (pitchMode === "half") {
-  playerGroup = "all";
-  placeHalfPitchDefault();
-}
+  if (pitchMode === "half") {
+    playerGroup = "all";
+    placeHalfPitchDefault();
+  }
 
-else if (pitchMode === "lineout") {
-  playerGroup = "forwards";
-  localPlaceLineout("top", W * 0.58);
-}
+  else if (pitchMode === "lineout") {
+    playerGroup = "forwards";
+    placeLineoutPitchDefault();
+  }
 
-else {
-  playerGroup = "all";
-  localPlaceLineout("top", W * 0.58);
-}
+  else {
+    playerGroup = "all";
+    localPlaceLineout("top", W * 0.58);
+  }
 
-Object.values(state.players || {}).forEach(clampPlayer);
-if (state.ball) clampBall(state.ball);
+  Object.values(state.players || {}).forEach(clampPlayer);
+  if (state.ball) clampBall(state.ball);
+
   syncControls();
-  if (emit) socket.emit("coach-pitch-mode", pitchMode);
+
+  if (emit) {
+    ignoreServerStateUntil = Date.now() + 400;
+    socket.emit("coach-pitch-mode", pitchMode);
+    syncCurrentShapeToServer();
+  }
+
   draw();
 }
 function placeHalfPitchDefault() {
