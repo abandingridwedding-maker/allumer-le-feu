@@ -116,43 +116,40 @@ function createDefaultPlayers() {
 
 function placeDefaultLineout(players, ball) {
   const xForwards = 920;
-  const startY = 165;
-  const spacing = 34;
+  const baseY = 164;
+  const dir = 1;
 
   [1, 3, 4, 5, 6, 7, 8].forEach((n, i) => {
     players[n].x = xForwards;
-    players[n].y = startY + i * spacing;
+    players[n].y = baseY + (i * 23 * dir);
   });
 
-  players[2].x = xForwards - 78;
-  players[2].y = startY;
+  players[2].x = xForwards - 70;
+  players[2].y = baseY - (36 * dir);
 
-  players[9].x = xForwards + 76;
-  players[9].y = startY + spacing * 4.2;
+  players[9].x = xForwards + 115;
+  players[9].y = baseY + (35 * dir);
 
-  players[10].x = xForwards + 185;
-  players[10].y = startY + spacing * 3.5;
+  players[10].x = xForwards + 210;
+  players[10].y = baseY + (155 * dir);
 
-  players[12].x = xForwards + 290;
-  players[12].y = startY + spacing * 4.3;
+  players[14].x = xForwards + 280;
+  players[14].y = baseY + (105 * dir);
 
-  players[13].x = xForwards + 405;
-  players[13].y = startY + spacing * 5;
+  players[12].x = xForwards + 225;
+  players[12].y = baseY + (250 * dir);
 
-  players[15].x = xForwards + 515;
-  players[15].y = startY + spacing * 5.9;
+  players[13].x = xForwards + 270;
+  players[13].y = baseY + (360 * dir);
 
-  players[14].x = xForwards + 620;
-  players[14].y = startY + spacing * 6.8;
+  players[15].x = xForwards + 315;
+  players[15].y = baseY + (480 * dir);
 
-  players[11].x = xForwards + 345;
-  players[11].y = startY + spacing * 1.6;
+  players[11].x = xForwards + 355;
+  players[11].y = baseY + (610 * dir);
 
-  ball.x = xForwards + 34;
-  ball.y = startY + spacing * 1.4;
-
-  Object.values(players).forEach(clampPlayer);
-  clampBall(ball);
+  ball.x = xForwards - 55;
+  ball.y = baseY + (315 * dir);
 }
 
 let state = {
