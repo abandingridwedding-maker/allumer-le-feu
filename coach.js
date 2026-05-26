@@ -239,9 +239,10 @@ function setPitchMode(mode, emit = true) {
   }
 
   else if (pitchMode === "lineout") {
-    playerGroup = "forwards";
-    placeLineoutPitchDefault();
-  }
+  playerGroup = "forwards";
+  document.getElementById("playerGroup").value = "forwards";
+  placeLineoutPitchDefault();
+}
 
   else {
     playerGroup = "all";
