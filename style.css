@@ -1347,10 +1347,15 @@ body.simulatorActive #mobilePitch {
   width: 100vw;
   height: 100dvh;
 
+  margin: 0 !important;
   border-radius: 0;
+
   display: block;
 
-  background: transparent;
+  background: transparent !important;
+  background-image: none !important;
+
+  box-shadow: none !important;
 
   touch-action: none;
 }

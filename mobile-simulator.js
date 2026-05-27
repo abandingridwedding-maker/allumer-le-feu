@@ -461,15 +461,26 @@ function getSmartZoom() {
 }
 
 function getOverviewRect() {
-  const padX = 24;
-  const padTop = 12;
-  const padBottom = 55;
+  const pad = 8;
+
+  const screenW = mobilePitch.width;
+  const screenH = mobilePitch.height;
+
+  const fieldRatio = 1200 / 700;
+
+  let w = screenW - pad * 2;
+  let h = w / fieldRatio;
+
+  if (h > screenH - pad * 2) {
+    h = screenH - pad * 2;
+    w = h * fieldRatio;
+  }
 
   return {
-    x: padX,
-    y: padTop,
-    w: mobilePitch.width - padX * 2,
-    h: mobilePitch.height - padTop - padBottom
+    x: (screenW - w) / 2,
+    y: (screenH - h) / 2,
+    w,
+    h
   };
 }
 
