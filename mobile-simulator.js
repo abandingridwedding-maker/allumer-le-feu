@@ -215,10 +215,23 @@ function ensureMobileToggles() {
     speedToggle.textContent = `Speed: ${repSpeed}x`;
   };
 
+const choosePlayBtn = document.createElement("button");
+choosePlayBtn.id = "mobileChoosePlayBtn";
+choosePlayBtn.type = "button";
+choosePlayBtn.textContent = "Choose Play";
+choosePlayBtn.onclick = () => {
+  mobileSimulatorScreen.classList.add("hidden");
+  mobileHome.classList.remove("hidden");
+  mobileControlOverlay.classList.add("hidden");
+  document.body.classList.remove("simulatorActive");
+  showPlaySelection();
+};
+
   const resetBtn = document.getElementById("mobileResetBtn");
-  panel.insertBefore(shadowToggle, resetBtn.nextSibling);
-  panel.insertBefore(viewToggle, shadowToggle.nextSibling);
-  panel.insertBefore(speedToggle, viewToggle.nextSibling);
+  panel.insertBefore(choosePlayBtn, resetBtn.nextSibling);
+panel.insertBefore(shadowToggle, choosePlayBtn.nextSibling);
+panel.insertBefore(viewToggle, shadowToggle.nextSibling);
+panel.insertBefore(speedToggle, viewToggle.nextSibling);
 }
 
 async function joinTeamFolder() {
@@ -307,8 +320,8 @@ function showPlaySelection() {
       <h1>${folder.name}</h1>
       <p>Select a play to train.</p>
     </section>
-    <section class="mobileCodeCard">
-      <div id="mobilePlayList"></div>
+    <section class="mobileCodeCard" style="max-height:58vh;overflow-y:auto;padding-bottom:24px;">
+      <div id="mobilePlayList" style="display:flex;flex-direction:column;gap:18px;"></div>
     </section>
   `;
 
@@ -318,6 +331,7 @@ function showPlaySelection() {
     const btn = document.createElement("button");
     btn.className = "mobilePlayChoiceBtn";
     btn.textContent = play.name;
+    btn.style.marginBottom = "4px";
     btn.onclick = () => openPlay(play);
     list.appendChild(btn);
   });
