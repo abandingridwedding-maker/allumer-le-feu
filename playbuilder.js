@@ -885,25 +885,93 @@ async function openFoldersModal() {
 
   const folders = await loadCoachFolders();
 
-  list.innerHTML = folders.length ? "" : `<div class="emptyFolder">No folders created yet.</div>`;
+  list.innerHTML = folders.length
+    ? ""
+    : `<div class="emptyFolder">No folders created yet.</div>`;
 
   folders.forEach(folder => {
+
     const item = document.createElement("div");
     item.className = "folderCard";
 
-    const joinLink = `${window.location.origin}/joinfolder.html`;
-
     item.innerHTML = `
-      <div class="folderTitle">🗂 ${folder.name}</div>
-      <div class="folderCode">Share Code:</div>
-      <div class="shareCodeBadge">${folder.share_code}</div>
+      <div class="folderTitle">
+        🗂 ${folder.name}
+      </div>
+
+      <div class="folderCode">
+        Share Code:
+      </div>
+
+      <div class="shareCodeBadge">
+        ${folder.share_code}
+      </div>
+
       <div class="folderActions" style="margin-top:14px;">
-        <button data-copy="${folder.share_code}">Copy Code</button>
-        <button data-link="${joinLink}">Copy Join Link</button>
+
+        <button data-copy="${folder.share_code}">
+          Copy Code
+        </button>
+
+        <button
+          class="dangerBtn"
+          data-delete-folder="${folder.id}"
+        >
+          Delete
+        </button>
+
       </div>
     `;
 
     list.appendChild(item);
+
+    // COPY CODE BUTTON
+    const copyBtn = item.querySelector("[data-copy]");
+
+    if (copyBtn) {
+      copyBtn.onclick = async () => {
+
+        await navigator.clipboard.writeText(
+          folder.share_code
+        );
+
+        copyBtn.textContent = "Copied ✓";
+
+        setTimeout(() => {
+          copyBtn.textContent = "Copy Code";
+        }, 1200);
+      };
+    }
+
+    // DELETE FOLDER BUTTON
+    const deleteBtn = item.querySelector(
+      "[data-delete-folder]"
+    );
+
+    if (deleteBtn) {
+
+      deleteBtn.onclick = async () => {
+
+        const confirmDelete = confirm(
+          `Delete folder "${folder.name}"?`
+        );
+
+        if (!confirmDelete) return;
+
+        const { error } = await supabase
+          .from("folders")
+          .delete()
+          .eq("id", folder.id);
+
+        if (error) {
+          alert(error.message);
+          return;
+        }
+
+        openFoldersModal();
+      };
+    }
+
   });
 
   modal.classList.remove("hidden");

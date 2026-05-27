@@ -1607,3 +1607,15 @@ body.simulatorActive #mobilePlayName {
   overflow: hidden;
   text-overflow: ellipsis;
 }
+
+.dangerBtn {
+  border: 2px solid #d71920;
+  color: #d71920;
+  background: #fff;
+  font-weight: 900;
+}
+
+.dangerBtn:hover {
+  background: #d71920;
+  color: #fff;
+}
