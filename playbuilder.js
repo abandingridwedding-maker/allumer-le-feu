@@ -1040,6 +1040,29 @@ async function openPlayFolder() {
     };
   });
 
+  list.querySelectorAll("[data-delete]").forEach(btn => {
+
+  btn.onclick = async () => {
+
+    const confirmDelete = confirm("Delete this play?");
+
+    if (!confirmDelete) return;
+
+    const { error } = await supabase
+      .from("plays")
+      .delete()
+      .eq("id", btn.dataset.delete);
+
+    if (error) {
+      alert(error.message);
+      return;
+    }
+
+    openPlayFolder();
+  };
+
+});
+
   modal.classList.remove("hidden");
 }
 
