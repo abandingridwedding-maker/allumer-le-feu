@@ -3,7 +3,15 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>TEAM-CLARITY</title>
+  <script>
+  const isPhone =
+    window.innerWidth <= 768 &&
+    /Android|iPhone|iPod/i.test(navigator.userAgent);
+
+  if (isPhone && !window.location.pathname.includes("mobile-simulator.html")) {
+    window.location.href = "mobile-simulator.html";
+  }
+</script><title>TEAM-CLARITY</title>
   <link rel="stylesheet" href="style.css" />
 </head>
 

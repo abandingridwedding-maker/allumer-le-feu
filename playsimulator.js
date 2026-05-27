@@ -243,11 +243,14 @@ function drawCirclePlayer(p, highlight = false, ghost = false) {
   ctx.lineWidth = 4;
   ctx.stroke();
 
-  ctx.fillStyle = "#111";
-  ctx.font = "900 18px Courier New";
-  ctx.textAlign = "center";
-  ctx.textBaseline = "middle";
-  ctx.fillText(p.number, p.x, p.y + 1);
+  ctx.fillStyle = "#fff";
+ctx.font = "900 18px Courier New";
+ctx.textAlign = "center";
+ctx.textBaseline = "middle";
+ctx.strokeStyle = "rgba(0,0,0,0.35)";
+ctx.lineWidth = 2;
+ctx.strokeText(p.number, p.x, p.y + 1);
+ctx.fillText(p.number, p.x, p.y + 1);
 
   ctx.restore();
 }

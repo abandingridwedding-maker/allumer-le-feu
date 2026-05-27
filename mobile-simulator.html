@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+  <title>TEAM-CLARITY — Mobile Simulator</title>
+
+  <link rel="stylesheet" href="style.css" />
+</head>
+
+<body class="mobileSimBody">
+
+  <main class="mobileSimHome">
+
+    <img src="assets/tc-logo.png" class="mobileSimLogo" alt="TEAM-CLARITY" />
+
+    <section class="mobileSimCard">
+      <div class="mobileSimIcon">🏃</div>
+      <h1>PLAYER SIMULATOR</h1>
+      <p>Players train their role and timing inside saved plays.</p>
+    </section>
+
+    <section class="mobileCodeCard">
+      <label for="mobilePlayCode">Join Team Folder</label>
+      <input id="mobilePlayCode" type="text" placeholder="ENTER FOLDER CODE" />
+
+      <button id="loadMobilePlayBtn">Join Folder</button>
+    </section>
+
+  </main>
+
+  <main id="mobileSimulatorScreen" class="mobileSimulatorScreen hidden">
+
+    <div class="mobileSimTopbar">
+      <button id="backToMobileHome">←</button>
+      <div>
+        <strong id="mobilePlayName">Player Simulator</strong>
+        <span id="mobileScoreText">Score: 0/10</span>
+      </div>
+    </div>
+
+    <div id="mobilePitchWrap">
+  <canvas id="mobilePitch"></canvas>
+</div>
+
+<button id="mobileMenuToggle" class="mobileMenuToggle">☰</button>
+
+<div id="mobileControlOverlay" class="mobileControlOverlay hidden">
+  <div class="mobileControlPanel">
+    <button id="closeMobileControlOverlay" class="closeMobilePanel">×</button>
+
+    <h2>TRAINING MENU</h2>
+
+    <div class="mobilePanelScore">
+      <strong id="mobilePanelPlayName">Play</strong>
+      <span id="mobilePanelScoreText">Score: 0/10</span>
+    </div>
+
+    <p class="mobilePanelLabel">Choose your position</p>
+    <div id="mobilePlayerButtons"></div>
+
+    <button id="mobilePlayBtn">▶ Start Rep</button>
+    <button id="mobileResetBtn">↺ Reset Rep</button>
+  </div>
+</div>
+
+  </main>
+<div class="rotatePhoneOverlay">
+  <div class="rotatePhoneOverlayContent">
+    <div class="rotatePhoneIcon">📱↔️</div>
+    <h2>Rotate your phone</h2>
+    <p>Turn sideways to train this play.</p>
+  </div>
+</div>
+  <script type="module" src="mobile-simulator.js"></script>
+
+</body>
+</html>
