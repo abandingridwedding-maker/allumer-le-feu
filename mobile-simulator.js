@@ -470,7 +470,7 @@ function getOverviewRect() {
 }
 
 function toScreen(point) {
-  if (viewMode === "behind") {
+  if (viewMode === "behind" && pitchMode === "full") {
     const s = getBehindBaseScale() * cameraZoom;
 
     return {
@@ -488,7 +488,7 @@ function toScreen(point) {
 }
 
 function toField(screenX, screenY) {
-  if (viewMode === "behind") {
+  if (viewMode === "behind" && pitchMode === "full") {
     const s = getBehindBaseScale() * cameraZoom;
 
     return {
@@ -584,7 +584,7 @@ function drawPitch() {
     return;
   }
 
-  if (viewMode === "behind") {
+  if (viewMode === "behind" && pitchMode === "full") {
     const s = getBehindBaseScale() * cameraZoom;
 
     ctx.save();
