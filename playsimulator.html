@@ -5,11 +5,13 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>TEAM-CLARITY — Player Simulator</title>
   <link rel="stylesheet" href="style.css" />
-  <script>
-  const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+<script>
+  const isPhone =
+    window.innerWidth <= 768 &&
+    /Android|iPhone|iPod/i.test(navigator.userAgent);
 
-  if (isMobile) {
-    window.location.href = "/mobile-simulator.html";
+  if (isPhone && !window.location.pathname.includes("mobile-simulator.html")) {
+    window.location.href = "mobile-simulator.html";
   }
 </script>
 </head>
