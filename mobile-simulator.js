@@ -461,9 +461,9 @@ function getSmartZoom() {
 }
 
 function getOverviewRect() {
-  const padX = 42;
-  const padTop = 22;
-  const padBottom = 135;
+  const padX = 24;
+  const padTop = 12;
+  const padBottom = 55;
 
   return {
     x: padX,
