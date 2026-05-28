@@ -1220,7 +1220,7 @@ window.addEventListener("load", () => {
 
 if (unlockBtn) {
   unlockBtn.onclick = () => {
-    window.location.href = "https://buy.stripe.com/fZu14n84iadA8Lj4q06Vq01";
+  window.location.href = STRIPE_PAYMENT_LINK;
   };
 }
 

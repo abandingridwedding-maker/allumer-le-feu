@@ -1977,3 +1977,14 @@ body.simulatorActive #mobileScoreText {
 #joinMessage.error {
   color: #d71920;
 }
+
+#unlockBtn {
+  background: #ff5a1f !important;
+  color: #ffffff !important;
+  border: 2px solid #ff5a1f !important;
+}
+
+#unlockBtn:hover {
+  background: #ffe9df !important;
+  color: #111111 !important;
+}
