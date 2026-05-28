@@ -355,24 +355,66 @@ function drawBall() {
 }
 
 function drawCirclePlayer(p) {
-  const r = 16;
+
+  const radius =
+    playerSize === "small"
+      ? 11
+      : 16;
+
+  const fontSize =
+    playerSize === "small"
+      ? 13
+      : 18;
+
+  const stroke =
+    playerSize === "small"
+      ? 3
+      : 4;
+
   ctx.save();
+
   ctx.fillStyle = "rgba(0,0,0,.25)";
   ctx.beginPath();
-  ctx.ellipse(p.x + 3, p.y + 4, r + 2, r * 0.6, 0, 0, Math.PI * 2);
+
+  ctx.ellipse(
+    p.x + 3,
+    p.y + 4,
+    radius + 2,
+    radius * 0.6,
+    0,
+    0,
+    Math.PI * 2
+  );
+
   ctx.fill();
+
   ctx.fillStyle = p.color || COLORS.red;
+
   ctx.beginPath();
-  ctx.arc(p.x, p.y, r, 0, Math.PI * 2);
+  ctx.arc(p.x, p.y, radius, 0, Math.PI * 2);
+
   ctx.fill();
+
   ctx.strokeStyle = "#fff";
-  ctx.lineWidth = 4;
+  ctx.lineWidth = stroke;
   ctx.stroke();
-  ctx.fillStyle = p.color === "#ffffff" ? "#111" : "#fff";
-  ctx.font = "900 18px Courier New";
+
+  ctx.fillStyle =
+    p.color === "#ffffff"
+      ? "#111"
+      : "#fff";
+
+  ctx.font = `900 ${fontSize}px Courier New`;
+
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
-  ctx.fillText(p.number, p.x, p.y + 1);
+
+  ctx.fillText(
+    p.number,
+    p.x,
+    p.y + 1
+  );
+
   ctx.restore();
 }
 
@@ -490,7 +532,7 @@ function playerHitTest(p) {
     }
   });
 
-  const r = playerSize === "small" ? 18 : playerSize === "medium" ? 20 : 24;
+  const r = playerSize === "small" ? 13 : 18;
   return b <= r ? c : null;
 }canvas.addEventListener("mousedown", e => {
   if (isAnimating) return;
