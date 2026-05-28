@@ -1177,7 +1177,7 @@ function draw() {
 }
 
 const STRIPE_PAYMENT_LINK = "https://buy.stripe.com/28EeVdesG4TgcBz7D06Vq00";
-const PAYWALL_WAIT_TIME = 5 * 60 * 1000;
+const PAYWALL_WAIT_TIME = 1 * 60 * 1000;
 
 let promoUnlockedThisPageLoad = false;
 
