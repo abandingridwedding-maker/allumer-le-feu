@@ -1319,7 +1319,9 @@ input[type="range"] {
 
 body.simulatorActive {
   background: #f7f4f1;
-  overflow: hidden;
+  overflow-x: hidden;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
 body.simulatorActive #mobilePitchWrap {
