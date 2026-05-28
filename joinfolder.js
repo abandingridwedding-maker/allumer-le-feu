@@ -4,6 +4,12 @@ const codeInput = document.getElementById("shareCode");
 const joinBtn = document.getElementById("joinFolderBtn");
 const messageBox = document.getElementById("joinMessage");
 
+const backHomeBtn = document.getElementById("backHomeBtn");
+
+backHomeBtn.onclick = () => {
+  window.location.href = "index.html";
+};
+
 joinBtn.addEventListener("click", joinFolder);
 
 codeInput.addEventListener("keydown", (e) => {
