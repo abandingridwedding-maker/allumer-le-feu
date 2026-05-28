@@ -830,6 +830,36 @@ function animateToStep(targetStep, duration = 900) {
   });
 }
 
+async function logCompletedRep(finalScore) {
+  try {
+    const {
+      data: { user },
+      error: userError
+    } = await supabase.auth.getUser();
+
+    if (userError || !user || !folder || !currentPlay || !selectedPlayer) {
+      return;
+    }
+
+    const { error } = await supabase
+      .from("simulator_logs")
+      .insert({
+        user_id: user.id,
+        folder_id: folder.id,
+        play_id: currentPlay.id,
+        play_name: currentPlay.name,
+        selected_player: selectedPlayer,
+        score: finalScore
+      });
+
+    if (error) {
+      console.error("Simulator log error:", error);
+    }
+  } catch (err) {
+    console.error("Simulator log failed:", err);
+  }
+}
+
 function calculateScore(showPopup) {
   if (!selectedPlayer || !steps[currentStepIndex]) return;
 
@@ -848,7 +878,9 @@ function calculateScore(showPopup) {
 
   updateScore();
 
-  if (showPopup) showScorePopup(score);
+ if (showPopup) {
+  logCompletedRep(score);
+  showScorePopup(score);
 }
 
 function updateScore() {
