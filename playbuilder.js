@@ -26,7 +26,7 @@ lineoutPitchImg.onload = () => draw();
 const FIELD = { left: 35, right: W - 35, top: 72, bottom: H - 82 };
 const COLORS = { red: "#d71920", white: "#ffffff", black: "#111111", blue: "#1f6feb" };
 
-let playerSize = "small";
+let playerSize = "standard";
 let playerGroup = "all";
 let teamColor = COLORS.red;
 let pitchMode = "full";
@@ -45,7 +45,10 @@ let setPieceCycle = 0;
 function clone(obj) { return JSON.parse(JSON.stringify(obj)); }
 function clamp(v, min, max) { return Math.max(min, Math.min(max, v)); }
 function applyActiveField() { Object.assign(FIELD, { left: 35, right: W - 35, top: 72, bottom: H - 82 }); }
-function playerClampPadding() { if (playerSize === "small") return { x: 18, y: 18 }; if (playerSize === "medium") return { x: 24, y: 34 }; return { x: 34, y: 48 }; }
+function playerClampPadding() {
+  if (playerSize === "small") return { x: 12, y: 12 };
+  return { x: 18, y: 18 };
+}
 function ballClampPadding() { return { x: 24, y: 24 }; }
 function clampPlayerToField(p) { if (!p) return; const pad = playerClampPadding(); p.x = clamp(p.x, FIELD.left + pad.x, FIELD.right - pad.x); p.y = clamp(p.y, FIELD.top + pad.y, FIELD.bottom - pad.y); }
 function clampBallToField() { const pad = ballClampPadding(); ball.x = clamp(ball.x, FIELD.left + pad.x, FIELD.right - pad.x); ball.y = clamp(ball.y, FIELD.top + pad.y, FIELD.bottom - pad.y); }
@@ -421,9 +424,8 @@ function drawPixelPlayer(p) {
 }
 
 function drawPlayer(p) {
-  if (!shouldShowPlayer(p.number)) return;
-  if (playerSize === "small") drawCirclePlayer(p);
-  else drawPixelPlayer(p);
+  if (!p || !shouldShowPlayer(p.number)) return;
+  drawCirclePlayer(p);
 }
 
 function drawFooter() {

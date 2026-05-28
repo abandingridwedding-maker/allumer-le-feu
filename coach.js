@@ -25,7 +25,7 @@ lineoutPitchImg.onload = () => draw();
 
 let setupMode = "free";
 let playerGroup = "all";
-let playerSize = "small";
+let playerSize = "standard";
 let sportMode = "rugby";
 let pitchMode = "full";
 let currentLang = "en";
@@ -64,9 +64,8 @@ function applyActiveField() {
 }
 
 function playerClampPadding() {
-  if (playerSize === "small") return { x: 18, y: 18 };
-  if (playerSize === "medium") return { x: 24, y: 34 };
-  return { x: 34, y: 48 };
+  if (playerSize === "small") return { x: 12, y: 12 };
+  return { x: 18, y: 18 };
 }
 
 function ballClampPadding() {
@@ -997,35 +996,83 @@ function drawBall(ball) {
 }
 
 function drawCirclePlayer(p) {
-  const radius = 16;
+
+  const radius =
+    playerSize === "small"
+      ? 11
+      : 16;
+
+  const fontSize =
+    playerSize === "small"
+      ? 13
+      : 18;
+
+  const stroke =
+    playerSize === "small"
+      ? 3
+      : 4;
 
   ctx.save();
 
   ctx.fillStyle = "rgba(0,0,0,.25)";
   ctx.beginPath();
-  ctx.ellipse(p.x + 3, p.y + 4, radius + 2, radius * 0.6, 0, 0, Math.PI * 2);
+
+  ctx.ellipse(
+    p.x + 3,
+    p.y + 4,
+    radius + 2,
+    radius * 0.6,
+    0,
+    0,
+    Math.PI * 2
+  );
+
   ctx.fill();
 
   ctx.fillStyle = p.color || COLORS.red;
+
   ctx.beginPath();
   ctx.arc(p.x, p.y, radius, 0, Math.PI * 2);
+
   ctx.fill();
 
   ctx.strokeStyle = "#fff";
-  ctx.lineWidth = 4;
+  ctx.lineWidth = stroke;
   ctx.stroke();
 
-  ctx.fillStyle = p.color === "#ffffff" ? "#111" : "#fff";
-  ctx.font = "900 18px Courier New";
+  ctx.fillStyle =
+    p.color === "#ffffff"
+      ? "#111"
+      : "#fff";
+
+  ctx.font = `900 ${fontSize}px Courier New`;
+
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
-  ctx.fillText(p.number, p.x, p.y + 1);
+
+  ctx.fillText(
+    p.number,
+    p.x,
+    p.y + 1
+  );
 
   ctx.restore();
 
-  ctx.fillStyle = p.connected ? "#00ff7f" : "#ffdf4d";
+  ctx.fillStyle =
+    p.connected
+      ? "#00ff7f"
+      : "#ffdf4d";
+
   ctx.beginPath();
-  ctx.arc(p.x + 15, p.y - 15, 5, 0, Math.PI * 2);
+
+  ctx.arc(
+    p.x + radius - 1,
+    p.y - radius + 1,
+    playerSize === "small" ? 4 : 5,
+    0,
+    Math.PI * 2
+  );
+
   ctx.fill();
 }
 
@@ -1094,13 +1141,7 @@ function drawPixelPlayer(p) {
 
 function drawPlayer(p) {
   if (!p || !shouldShowPlayer(p.number)) return;
-
-  if (playerSize === "small") {
-    drawCirclePlayer(p);
-    return;
-  }
-
-  drawPixelPlayer(p);
+  drawCirclePlayer(p);
 }
 
 function drawFooter() {
