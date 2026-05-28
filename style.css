@@ -1708,3 +1708,43 @@ body.simulatorActive #mobilePlayName {
     0 5px 0 #ff5a1f,
     0 10px 22px rgba(0,0,0,.18);
 }
+
+/* FIX — SHOW SELECTED PLAY NAME ON MOBILE SIMULATOR */
+body.simulatorActive .mobileSimTopbar div {
+  display: block !important;
+}
+
+body.simulatorActive #mobileScoreText {
+  display: none !important;
+}
+
+body.simulatorActive #mobilePlayName {
+  display: block !important;
+  position: fixed !important;
+
+  right: 18px !important;
+  bottom: 18px !important;
+  left: auto !important;
+  top: auto !important;
+
+  z-index: 1600;
+
+  background: rgba(255,255,255,0.94);
+  border: 2px solid #ececec;
+  border-radius: 18px;
+
+  padding: 12px 16px;
+
+  font-size: 16px;
+  font-weight: 900;
+  color: #111;
+
+  max-width: 48vw;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+
+  box-shadow:
+    0 5px 0 #ff5a1f,
+    0 10px 22px rgba(0,0,0,.18);
+}
