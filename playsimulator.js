@@ -27,7 +27,7 @@ lineoutPitchImg.onload = () => draw();
 
 let selectedPlay = null;
 let selectedPlayer = 7;
-let playerSize = "small";
+let playerSize = "standard";
 let shadowGuideOn = true;
 let simSpeedMultiplier = 0.5;
 let pitchMode = "full";
@@ -65,9 +65,8 @@ function applyActiveField() {
 }
 
 function playerClampPadding() {
-  if (playerSize === "small") return { x: 18, y: 18 };
-  if (playerSize === "medium") return { x: 24, y: 34 };
-  return { x: 34, y: 48 };
+  if (playerSize === "small") return { x: 12, y: 12 };
+  return { x: 18, y: 18 };
 }
 
 function ballClampPadding() {
@@ -320,13 +319,7 @@ function drawPixelPlayer(p, highlight = false, ghost = false) {
 function drawPlayer(p, highlight = false, ghost = false) {
   if (!p) return;
   if (!shouldShowPlayer(Number(p.number))) return;
-
-  if (playerSize === "small") {
-    drawCirclePlayer(p, highlight, ghost);
-    return;
-  }
-
-  drawPixelPlayer(p, highlight, ghost);
+  drawCirclePlayer(p, highlight, ghost);
 }
 
 function drawFooter() {
@@ -888,15 +881,6 @@ if (playerNumber) {
   };
 }
 
-const playerSizeSelect = document.getElementById("playerSize");
-if (playerSizeSelect) {
-  playerSizeSelect.onchange = e => {
-    playerSize = e.target.value;
-    clampAll();
-    updateControls();
-    draw();
-  };
-}
 
 const startSimBtn = document.getElementById("startSimBtn");
 if (startSimBtn) startSimBtn.onclick = startSimulation;
