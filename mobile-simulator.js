@@ -882,6 +882,7 @@ function calculateScore(showPopup) {
   logCompletedRep(score);
   showScorePopup(score);
 }
+}
 
 function updateScore() {
   if (mobileScoreText) mobileScoreText.innerText = `Score: ${score}/10`;
