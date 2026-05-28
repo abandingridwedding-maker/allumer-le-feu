@@ -1171,3 +1171,67 @@ syncControls();
 initPlayers();
 updateBuilderButton();
 draw();
+
+const APP_STRIPE_PAYMENT_LINK = "https://buy.stripe.com/fZu14n84iadA8Lj4q06Vq01";
+const APP_PAYWALL_WAIT_TIME = 1 * 60 * 1000;
+
+let appPromoUnlockedThisPageLoad = false;
+
+function appHasValidAccess() {
+  if (localStorage.getItem("subscriptionActive") === "true") return true;
+  return appPromoUnlockedThisPageLoad === true;
+}
+
+function appShowPaywall() {
+  if (appHasValidAccess()) return;
+
+  const overlay = document.getElementById("paywallOverlay");
+  if (overlay) overlay.classList.remove("hidden");
+}
+
+function appHidePaywall() {
+  const overlay = document.getElementById("paywallOverlay");
+  if (overlay) overlay.classList.add("hidden");
+}
+
+function appUnlockPromoForThisPageLoadOnly() {
+  appPromoUnlockedThisPageLoad = true;
+  appHidePaywall();
+}
+
+function startAppPaywall() {
+  if (!appHasValidAccess()) {
+    setTimeout(appShowPaywall, APP_PAYWALL_WAIT_TIME);
+  }
+
+  const unlockBtn = document.getElementById("unlockBtn");
+
+  if (unlockBtn) {
+    unlockBtn.onclick = () => {
+      window.location.href = APP_STRIPE_PAYMENT_LINK;
+    };
+  }
+
+  const promoBtn = document.getElementById("promoBtn");
+
+  if (promoBtn) {
+    promoBtn.onclick = () => {
+      const input = document.getElementById("promoInput");
+      const message = document.getElementById("promoMessage");
+      const code = (input?.value || "").trim().toUpperCase();
+
+      if (code === "AZRUGBY") {
+        appUnlockPromoForThisPageLoadOnly();
+      } else if (message) {
+        message.textContent = "Invalid promo code.";
+        message.style.color = "#ff5555";
+      }
+    };
+  }
+}
+
+if (document.readyState === "loading") {
+  document.addEventListener("DOMContentLoaded", startAppPaywall);
+} else {
+  startAppPaywall();
+}

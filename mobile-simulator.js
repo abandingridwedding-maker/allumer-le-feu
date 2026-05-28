@@ -936,3 +936,67 @@ function showScorePopup(value) {
     if (document.body.contains(popup)) popup.remove();
   }, 2500);
 }
+
+const MOBILE_STRIPE_PAYMENT_LINK = "https://buy.stripe.com/fZu14n84iadA8Lj4q06Vq01";
+const MOBILE_PAYWALL_WAIT_TIME = 1 * 60 * 1000;
+
+let mobilePromoUnlockedThisPageLoad = false;
+
+function mobileHasValidAccess() {
+  if (localStorage.getItem("subscriptionActive") === "true") return true;
+  return mobilePromoUnlockedThisPageLoad === true;
+}
+
+function mobileShowPaywall() {
+  if (mobileHasValidAccess()) return;
+
+  const overlay = document.getElementById("paywallOverlay");
+  if (overlay) overlay.classList.remove("hidden");
+}
+
+function mobileHidePaywall() {
+  const overlay = document.getElementById("paywallOverlay");
+  if (overlay) overlay.classList.add("hidden");
+}
+
+function mobileUnlockPromoForThisPageLoadOnly() {
+  mobilePromoUnlockedThisPageLoad = true;
+  mobileHidePaywall();
+}
+
+function startMobilePaywall() {
+  if (!mobileHasValidAccess()) {
+    setTimeout(mobileShowPaywall, MOBILE_PAYWALL_WAIT_TIME);
+  }
+
+  const unlockBtn = document.getElementById("unlockBtn");
+
+  if (unlockBtn) {
+    unlockBtn.onclick = () => {
+      window.location.href = MOBILE_STRIPE_PAYMENT_LINK;
+    };
+  }
+
+  const promoBtn = document.getElementById("promoBtn");
+
+  if (promoBtn) {
+    promoBtn.onclick = () => {
+      const input = document.getElementById("promoInput");
+      const message = document.getElementById("promoMessage");
+      const code = (input?.value || "").trim().toUpperCase();
+
+      if (code === "AZRUGBY") {
+        mobileUnlockPromoForThisPageLoadOnly();
+      } else if (message) {
+        message.textContent = "Invalid promo code.";
+        message.style.color = "#ff5555";
+      }
+    };
+  }
+}
+
+if (document.readyState === "loading") {
+  document.addEventListener("DOMContentLoaded", startMobilePaywall);
+} else {
+  startMobilePaywall();
+}
