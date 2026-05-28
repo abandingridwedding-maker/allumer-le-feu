@@ -839,7 +839,8 @@ socket.on("sim-player-move", data => {
 
   if (!player) return;
 
-  const movementSpeed = BASE_PLAYER_SPEED * simSpeedMultiplier;
+  const CONTROLLER_SPEED_BOOST = 1.35;
+const movementSpeed = BASE_PLAYER_SPEED * simSpeedMultiplier * CONTROLLER_SPEED_BOOST;
 
   player.x += Number(data.dx || 0) * movementSpeed;
   player.y += Number(data.dy || 0) * movementSpeed;
