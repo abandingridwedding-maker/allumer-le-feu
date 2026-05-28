@@ -954,15 +954,22 @@ async function openFoldersModal() {
       <div class="folderActions" style="margin-top:14px;">
 
         <button data-copy="${folder.share_code}">
-          Copy Code
-        </button>
+  Copy Code
+</button>
 
-        <button
-          class="dangerBtn"
-          data-delete-folder="${folder.id}"
-        >
-          Delete
-        </button>
+<button
+  class="folderLogsBtn"
+  data-folder-logs="${folder.id}"
+>
+  Logs
+</button>
+
+<button
+  class="dangerBtn"
+  data-delete-folder="${folder.id}"
+>
+  Delete
+</button>
 
       </div>
     `;
@@ -986,6 +993,20 @@ async function openFoldersModal() {
         }, 1200);
       };
     }
+// LOGS BUTTON
+const logsBtn = item.querySelector(
+  "[data-folder-logs]"
+);
+
+if (logsBtn) {
+
+  logsBtn.onclick = async () => {
+
+    window.location.href =
+      `folder-logs.html?folder=${folder.id}`;
+
+  };
+}
 
     // DELETE FOLDER BUTTON
     const deleteBtn = item.querySelector(

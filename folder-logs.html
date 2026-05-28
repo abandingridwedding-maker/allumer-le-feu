@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+  <title>TEAM-CLARITY — Folder Logs</title>
+
+  <link rel="stylesheet" href="style.css" />
+</head>
+
+<body class="homeBody">
+
+  <main class="homeScreen">
+    <img src="assets/tc-logo.png" class="homeLogoImg" alt="TEAM-CLARITY" />
+
+    <section class="modalCard" style="width:min(1180px,94vw);max-height:none;">
+      <div class="modalHeader">
+        <h2 id="logsTitle">📊 Simulator Logs</h2>
+        <button onclick="window.location.href='playbuilder.html'">Back</button>
+      </div>
+
+      <div id="logsSummary" class="savedPlayMeta" style="margin-bottom:18px;">
+        Loading logs...
+      </div>
+
+      <div id="logsList" style="display:flex;flex-direction:column;gap:12px;"></div>
+    </section>
+  </main>
+
+  <script type="module" src="folder-logs.js"></script>
+
+</body>
+</html>
