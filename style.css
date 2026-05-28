@@ -1491,9 +1491,10 @@ body.simulatorActive .mobileControlPanel #mobileShadowToggle:active {
 
 body.simulatorActive .mobileControlPanel #mobilePlayerButtons {
   display: grid;
-  grid-template-columns: repeat(15, 1fr);
-  gap: 8px;
+  grid-template-columns: repeat(8, 52px);
+  gap: 10px;
   margin-top: 8px;
+  justify-content: start;
 }
 
 body.simulatorActive .mobileControlPanel #mobilePlayerButtons button {
@@ -1649,4 +1650,28 @@ body.simulatorActive #mobilePlayName {
 #savedPlaysList {
   max-height: none !important;
   overflow: visible !important;
+}
+
+body.simulatorActive .mobileControlPanel #mobileChoosePlayBtn,
+body.simulatorActive .mobileControlPanel #choosePlayBtn,
+body.simulatorActive .mobileControlPanel #mobileLoadPlayBtn {
+  width: 190px;
+  height: 54px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 10px 16px 0;
+
+  border-radius: 18px;
+  border: 3px solid #ff5a1f;
+
+  background: #fff;
+  color: #111;
+
+  font-size: 17px;
+  font-weight: 900;
+
+  box-shadow:
+    0 5px 0 #ff5a1f,
+    0 8px 18px rgba(0,0,0,.14);
 }

@@ -388,19 +388,18 @@ function buildPlayerButtons() {
     btn.className = "mobilePlayerBtn";
 
     btn.onclick = () => {
-      selectedPlayer = i;
+  selectedPlayer = i;
 
-      document.querySelectorAll(".mobilePlayerBtn").forEach(b => {
-        b.classList.remove("activeMobilePlayer");
-        b.classList.remove("active");
-      });
+  document.querySelectorAll(".mobilePlayerBtn").forEach(b => {
+    b.classList.remove("activeMobilePlayer");
+    b.classList.remove("active");
+  });
 
-      btn.classList.add("activeMobilePlayer");
-      btn.classList.add("active");
+  btn.classList.add("activeMobilePlayer");
+  btn.classList.add("active");
 
-      updateCameraTarget(true);
-      mobileControlOverlay.classList.add("hidden");
-    };
+  updateCameraTarget(true);
+};
 
     mobilePlayerButtons.appendChild(btn);
   }
