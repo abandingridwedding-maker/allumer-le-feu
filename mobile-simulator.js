@@ -937,7 +937,7 @@ function showScorePopup(value) {
   }, 2500);
 }
 
-const MOBILE_STRIPE_PAYMENT_LINK = "https://buy.stripe.com/fZu14n84iadA8Lj4q06Vq01";
+const MOBILE_STRIPE_PAYMENT_LINK = "https://buy.stripe.com/fZu14n84iadA8lj4qO6Vq01";
 const MOBILE_PAYWALL_WAIT_TIME = 1 * 60 * 1000;
 
 let mobilePromoUnlockedThisPageLoad = false;

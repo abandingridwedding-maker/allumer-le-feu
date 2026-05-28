@@ -1172,7 +1172,7 @@ initPlayers();
 updateBuilderButton();
 draw();
 
-const APP_STRIPE_PAYMENT_LINK = "https://buy.stripe.com/fZu14n84iadA8Lj4q06Vq01";
+const APP_STRIPE_PAYMENT_LINK = "https://buy.stripe.com/fZu14n84iadA8lj4qO6Vq01";
 const APP_PAYWALL_WAIT_TIME = 1 * 60 * 1000;
 
 let appPromoUnlockedThisPageLoad = false;
