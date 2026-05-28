@@ -1626,3 +1626,27 @@ body.simulatorActive #mobilePlayName {
   background: #d71920;
   color: #fff;
 }
+
+/* MOBILE LANDING / FOLDER / PLAY SELECTION SCROLL FIX */
+.mobileSimBody {
+  overflow-x: hidden !important;
+  overflow-y: auto !important;
+  min-height: 100dvh;
+  height: auto !important;
+  -webkit-overflow-scrolling: touch;
+}
+
+.mobileSimHome {
+  min-height: 100dvh;
+  height: auto !important;
+  overflow-y: visible !important;
+  padding-bottom: 140px !important;
+}
+
+#mobilePlaysList,
+.mobilePlaysList,
+.foldersList,
+#savedPlaysList {
+  max-height: none !important;
+  overflow: visible !important;
+}
