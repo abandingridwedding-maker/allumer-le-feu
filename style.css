@@ -1675,3 +1675,36 @@ body.simulatorActive .mobileControlPanel #mobileLoadPlayBtn {
     0 5px 0 #ff5a1f,
     0 8px 18px rgba(0,0,0,.14);
 }
+
+/* MOBILE PLAY NAME — BOTTOM RIGHT */
+body.simulatorActive #mobilePlayName {
+  position: fixed;
+
+  right: 18px;
+  bottom: 18px;
+
+  left: auto !important;
+  top: auto !important;
+
+  z-index: 1200;
+
+  background: rgba(255,255,255,0.94);
+  border: 2px solid #ececec;
+  border-radius: 18px;
+
+  padding: 12px 16px;
+
+  font-size: 16px;
+  font-weight: 900;
+  color: #111;
+
+  max-width: 48vw;
+
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+
+  box-shadow:
+    0 5px 0 #ff5a1f,
+    0 10px 22px rgba(0,0,0,.18);
+}
