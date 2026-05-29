@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>TEAM-CLARITY Team Admin</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div id="topbar">
+    <div class="brand">TEAM-CLARITY TEAM ADMIN</div>
+    <button onclick="window.location.href='admin.html'">Back to Admin</button>
+  </div>
+
+  <main style="padding:24px; max-width:900px; margin:auto;">
+    <h1 id="teamTitle">Loading...</h1>
+
+    <section style="margin-bottom:24px;">
+      <p><strong>Code:</strong> <span id="teamCode"></span></p>
+      <p><strong>Users:</strong> <span id="userCount"></span></p>
+      <p><strong>Status:</strong> <span id="teamStatus"></span></p>
+
+      <input id="maxUsersInput" type="number" />
+      <button id="updateMaxUsersBtn">Update Max Users</button>
+      <button id="toggleActiveBtn">Disable / Enable Team</button>
+
+      <p id="teamMessage"></p>
+    </section>
+
+    <section>
+      <h2>Team Players</h2>
+      <div id="playersList">Loading players...</div>
+    </section>
+  </main>
+
+  <script type="module" src="./admin-team.js"></script>
+</body>
+</html>
