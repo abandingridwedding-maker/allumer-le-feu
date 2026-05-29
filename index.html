@@ -3,25 +3,34 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
   <script>
-  const isPhone =
-    window.innerWidth <= 768 &&
-    /Android|iPhone|iPod/i.test(navigator.userAgent);
+    const isPhone =
+      window.innerWidth <= 768 &&
+      /Android|iPhone|iPod/i.test(navigator.userAgent);
 
-  if (isPhone && !window.location.pathname.includes("mobile-simulator.html")) {
-    window.location.href = "mobile-simulator.html";
-  }
-</script>
+    if (
+      isPhone &&
+      !window.location.pathname.includes("mobile-simulator.html")
+    ) {
+      window.location.href = "mobile-simulator.html";
+    }
+  </script>
 
-<title>TEAM-CLARITY</title>
+  <title>TEAM-CLARITY</title>
   <link rel="stylesheet" href="style.css" />
 </head>
 
 <body class="homeBody">
+
   <main class="homeScreen">
 
     <section class="homeHero">
-      <img src="assets/tc-logo.png" class="homeLogoImg" alt="TEAM-CLARITY" />
+      <img
+        src="assets/tc-logo.png"
+        class="homeLogoImg"
+        alt="TEAM-CLARITY"
+      />
     </section>
 
     <section class="homeCards">
@@ -29,19 +38,33 @@
       <a class="homeCard" href="clarity.html">
         <div class="homeIcon">🎮</div>
         <h2>CLARITY LIVE</h2>
-        <p>Run the live team clarity session with connected players.</p>
+        <p>
+          Run live team sessions with connected players and real-time movement.
+        </p>
       </a>
 
       <a class="homeCard" href="playbuilder.html">
         <div class="homeIcon">📋</div>
         <h2>PLAY BUILDER</h2>
-        <p>Create, save and animate team plays.</p>
+        <p>
+          Create, save and animate team plays for training and match preparation.
+        </p>
       </a>
 
       <a class="homeCard" href="playsimulator.html">
         <div class="homeIcon">🏃</div>
         <h2>PLAYER SIMULATOR</h2>
-        <p>Players train their role and timing inside saved plays.</p>
+        <p>
+          Players learn their role, timing and decision making inside saved plays.
+        </p>
+      </a>
+
+      <a class="homeCard" href="team-login.html">
+        <div class="homeIcon">🏉</div>
+        <h2>TEAM LOGIN</h2>
+        <p>
+          Join your club access using your team code and unlock team content.
+        </p>
       </a>
 
     </section>
@@ -59,5 +82,6 @@
       window.location.href = 'auth.html'
     }
   </script>
+
 </body>
 </html>
