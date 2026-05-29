@@ -217,6 +217,8 @@ input:focus{
 
   <input type="password" id="password" placeholder="Password" />
 
+  <input type="text" id="accessCode" placeholder="Access Code / Promo Code" />
+
   <button class="mainBtn" id="loginBtn">
     LOGIN / SIGNUP
   </button>
@@ -250,6 +252,7 @@ const loginBtn = document.getElementById('loginBtn')
 const googleBtn = document.getElementById('googleBtn')
 const emailInput = document.getElementById('email')
 const passwordInput = document.getElementById('password')
+const accessCodeInput = document.getElementById('accessCode')
 
 function showTCPopup(title, text) {
   document.getElementById("tcPopupTitle").textContent = title
@@ -259,6 +262,79 @@ function showTCPopup(title, text) {
 
 document.getElementById("tcPopupBtn").onclick = () => {
   document.getElementById("tcPopupOverlay").style.display = "none"
+}
+
+async function applyTeamAccessCode() {
+  const code =
+    accessCodeInput.value.trim().toUpperCase() ||
+    localStorage.getItem("pending_access_code")
+
+  if (!code) return true
+
+  const { data: { user } } = await supabase.auth.getUser()
+
+  if (!user) return false
+
+  const { data: team, error: teamError } = await supabase
+    .from("team_codes")
+    .select("*")
+    .eq("code", code)
+    .maybeSingle()
+
+  if (teamError || !team) {
+    localStorage.setItem("pending_access_code", code)
+    return true
+  }
+
+  if (!team.active) {
+    showTCPopup("Access Code Disabled", "This team access code is currently disabled.")
+    return false
+  }
+
+  const { data: existingMember } = await supabase
+    .from("team_members")
+    .select("*")
+    .eq("team_code_id", team.id)
+    .eq("user_id", user.id)
+    .maybeSingle()
+
+  if (existingMember) {
+    if (!existingMember.active) {
+      showTCPopup("Access Removed", "This account has been removed from this team.")
+      return false
+    }
+
+    localStorage.removeItem("pending_access_code")
+    return true
+  }
+
+  const { count } = await supabase
+    .from("team_members")
+    .select("*", { count: "exact", head: true })
+    .eq("team_code_id", team.id)
+    .eq("active", true)
+
+  if ((count || 0) >= team.max_users) {
+    showTCPopup("Team Full", "This team access code has reached its maximum number of accounts.")
+    return false
+  }
+
+  const { error: insertError } = await supabase
+    .from("team_members")
+    .insert({
+      team_code_id: team.id,
+      user_id: user.id,
+      email: user.email,
+      active: true
+    })
+
+  if (insertError) {
+    showTCPopup("Access Error", insertError.message)
+    return false
+  }
+
+  localStorage.removeItem("pending_access_code")
+  return true
 }
 
 function redirectAfterLogin() {
@@ -286,6 +362,11 @@ function redirectAfterLogin() {
 loginBtn.addEventListener('click', async () => {
   const email = emailInput.value.trim()
   const password = passwordInput.value.trim()
+  const accessCode = accessCodeInput.value.trim().toUpperCase()
+
+  if (accessCode) {
+    localStorage.setItem("pending_access_code", accessCode)
+  }
 
   if (!email || !password) {
     showTCPopup(
@@ -305,6 +386,14 @@ loginBtn.addEventListener('click', async () => {
     })
 
   if (!loginError) {
+    const ok = await applyTeamAccessCode()
+
+    if (!ok) {
+      loginBtn.disabled = false
+      loginBtn.textContent = "LOGIN / SIGNUP"
+      return
+    }
+
     redirectAfterLogin()
     return
   }
@@ -346,6 +435,11 @@ googleBtn.addEventListener('click', async () => {
   const params = new URLSearchParams(window.location.search)
   const next = params.get("next")
   const pendingMobileCode = localStorage.getItem("pending_mobile_folder_code")
+  const accessCode = accessCodeInput.value.trim().toUpperCase()
+
+  if (accessCode) {
+    localStorage.setItem("pending_access_code", accessCode)
+  }
 
   let redirectUrl = window.location.origin + "/auth.html"
 
