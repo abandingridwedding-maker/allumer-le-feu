@@ -244,9 +244,16 @@ loginBtn.addEventListener('click', async () => {
     })
 
   if (!loginError) {
-    window.location.href = 'index.html'
-    return
+  const pendingMobileCode = localStorage.getItem("pending_mobile_folder_code");
+
+  if (pendingMobileCode && /Android|iPhone|iPod/i.test(navigator.userAgent)) {
+    window.location.href = "mobile-simulator.html?code=" + encodeURIComponent(pendingMobileCode);
+  } else {
+    window.location.href = "index.html";
   }
+
+  return;
+}
 
   const { error: signupError } =
     await supabase.auth.signUp({
@@ -255,9 +262,15 @@ loginBtn.addEventListener('click', async () => {
     })
 
   if (signupError) {
-    alert(signupError.message)
-    return
+
+  if (signupError.message.toLowerCase().includes("rate limit")) {
+    alert("Too many login attempts. Please wait a few minutes and try again, or use Continue with Google.");
+  } else {
+    alert(signupError.message);
   }
+
+  return;
+}
 
   alert('Account created. Please login again.')
 })
@@ -267,7 +280,7 @@ googleBtn.addEventListener('click', async () => {
   await supabase.auth.signInWithOAuth({
     provider: 'google',
     options: {
-      redirectTo: window.location.origin
+      redirectTo: window.location.origin + "/auth.html"
     }
   })
 
