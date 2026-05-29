@@ -8,26 +8,31 @@
   <link rel="stylesheet" href="style.css" />
 </head>
 
-<body>
-  <main style="min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px;">
-    <div style="width:100%;max-width:420px;background:white;border-radius:24px;padding:32px;box-shadow:0 20px 60px rgba(0,0,0,.12);">
-      <h1 style="margin-top:0;">TEAM LOGIN</h1>
-      <p>Enter your team code to join your club access.</p>
+<body class="teamLoginBody">
 
-      <input id="email" type="email" placeholder="Email" style="width:100%;padding:14px;margin-bottom:12px;" />
-      <input id="password" type="password" placeholder="Password" style="width:100%;padding:14px;margin-bottom:12px;" />
-      <input id="teamCode" type="text" placeholder="Team Code" style="width:100%;padding:14px;margin-bottom:16px;" />
+  <main class="teamLoginScreen">
 
-      <button id="teamLoginBtn" style="width:100%;padding:16px;font-weight:800;">
-        LOGIN / SIGNUP WITH TEAM CODE
+    <img src="assets/tc-logo.png" class="teamLoginLogo" alt="TEAM-CLARITY" />
+
+    <section class="teamLoginCard">
+      <div class="teamLoginIcon">🔐</div>
+
+      <h1>Team Login</h1>
+      <p>Enter your email, password and team code to activate club access.</p>
+
+      <input id="email" type="email" placeholder="Email" />
+      <input id="password" type="password" placeholder="Password" />
+      <input id="teamCode" type="text" placeholder="Team Code" />
+
+      <button id="teamLoginBtn">Login / Sign up with Team Code</button>
+
+      <p id="teamLoginMessage"></p>
+
+      <button class="teamLoginBackBtn" onclick="window.location.href='index.html'">
+        ← Back
       </button>
+    </section>
 
-      <p id="teamLoginMessage" style="margin-top:16px;"></p>
-
-      <button onclick="window.location.href='index.html'" style="width:100%;padding:12px;margin-top:12px;">
-        Back
-      </button>
-    </div>
   </main>
 
   <script type="module" src="./team-login.js"></script>

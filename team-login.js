@@ -68,7 +68,7 @@ async function handleTeamLogin() {
     return;
   }
 
-  window.location.href = "playsimulator.html";
+  window.location.href = "index.html";
 }
 
 async function joinTeamWithCode(user, code) {
