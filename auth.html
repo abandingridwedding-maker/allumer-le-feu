@@ -244,24 +244,45 @@ loginBtn.addEventListener('click', async () => {
     })
 
   if (!loginError) {
-  const pendingMobileCode = localStorage.getItem("pending_mobile_folder_code");
 
-  if (pendingMobileCode && /Android|iPhone|iPod/i.test(navigator.userAgent)) {
-    window.location.href = "mobile-simulator.html?code=" + encodeURIComponent(pendingMobileCode);
+  const params = new URLSearchParams(window.location.search);
+  const next = params.get("next");
+
+  const pendingMobileCode =
+    localStorage.getItem("pending_mobile_folder_code");
+
+  if (
+    pendingMobileCode &&
+    /Android|iPhone|iPod/i.test(navigator.userAgent)
+  ) {
+
+    window.location.href =
+      "mobile-simulator.html?code=" +
+      encodeURIComponent(pendingMobileCode);
+
+  } else if (next) {
+
+    window.location.href = next;
+
   } else {
+
     window.location.href = "index.html";
+
   }
 
   return;
 }
 
-  const { error: signupError } =
-    await supabase.auth.signUp({
-      email,
-      password
-    })
+  return;
+}
 
-  if (signupError) {
+const { error: signupError } =
+  await supabase.auth.signUp({
+    email,
+    password
+  })
+
+if (signupError) {
 
   if (signupError.message.toLowerCase().includes("rate limit")) {
     alert("Too many login attempts. Please wait a few minutes and try again, or use Continue with Google.");
@@ -272,7 +293,8 @@ loginBtn.addEventListener('click', async () => {
   return;
 }
 
-  alert('Account created. Please login again.')
+alert("✅ Account created successfully.\n\nPlease log in to continue.");
+
 })
 
 googleBtn.addEventListener('click', async () => {
@@ -285,8 +307,3 @@ googleBtn.addEventListener('click', async () => {
   })
 
 })
-
-</script>
-
-</body>
-</html>

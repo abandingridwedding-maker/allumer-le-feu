@@ -164,6 +164,16 @@ resizeCanvas();
 window.addEventListener("resize", resizeCanvas);
 
 loadMobilePlayBtn.onclick = joinTeamFolder;
+const params = new URLSearchParams(window.location.search);
+const codeFromUrl = params.get("code") || localStorage.getItem("pending_mobile_folder_code");
+
+if (codeFromUrl) {
+  mobilePlayCode.value = codeFromUrl;
+
+  setTimeout(() => {
+    joinTeamFolder();
+  }, 500);
+}
 
 mobilePlayCode.addEventListener("keydown", e => {
   if (e.key === "Enter") joinTeamFolder();
@@ -235,7 +245,14 @@ panel.insertBefore(speedToggle, viewToggle.nextSibling);
 }
 
 async function joinTeamFolder() {
-  const code = mobilePlayCode.value.trim();
+  const params = new URLSearchParams(window.location.search);
+
+const code = (
+  mobilePlayCode.value ||
+  params.get("code") ||
+  localStorage.getItem("pending_mobile_folder_code") ||
+  ""
+).trim();
 
   if (!code) {
     alert("Enter a folder code.");
@@ -308,7 +325,7 @@ async function joinTeamFolder() {
     loadMobilePlayBtn.textContent = "Join Folder";
     return;
   }
-
+localStorage.removeItem("pending_mobile_folder_code");
   showPlaySelection();
 }
 
