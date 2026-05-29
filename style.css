@@ -2229,3 +2229,51 @@ body.simulatorActive #mobileScoreText {
     align-items: flex-start;
   }
 }
+
+.teamAccessSection{
+  display:flex;
+  justify-content:center;
+  margin-top:20px;
+}
+
+.teamAccessBtn{
+  width:920px;
+  max-width:95%;
+
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  gap:16px;
+
+  padding:18px;
+
+  background:#fff;
+  border:2px solid #ff5a14;
+  border-radius:20px;
+
+  text-decoration:none;
+
+  box-shadow:0 10px 25px rgba(0,0,0,.08);
+  transition:.2s;
+}
+
+.teamAccessBtn:hover{
+  transform:translateY(-2px);
+}
+
+.teamAccessIcon{
+  font-size:28px;
+}
+
+.teamAccessTitle{
+  color:#ff5a14;
+  font-size:22px;
+  font-weight:800;
+  line-height:1;
+}
+
+.teamAccessSub{
+  color:#666;
+  font-size:14px;
+  margin-top:4px;
+}
