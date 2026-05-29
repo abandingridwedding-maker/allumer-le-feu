@@ -1988,3 +1988,75 @@ body.simulatorActive #mobileScoreText {
   background: #ffe9df !important;
   color: #111111 !important;
 }
+
+/* =========================
+   TEAM-CLARITY POPUP
+========================= */
+
+.tcPopupOverlay{
+  position:fixed;
+  inset:0;
+  background:rgba(0,0,0,0.75);
+  display:none;
+  align-items:center;
+  justify-content:center;
+  z-index:99999;
+  padding:24px;
+}
+
+.tcPopupBox{
+  width:min(420px,90vw);
+  background:#ffffff;
+  border-radius:30px;
+  padding:34px 28px;
+  text-align:center;
+
+  border:3px solid #ff5a1f;
+
+  box-shadow:
+    0 10px 0 #d9430b,
+    0 24px 60px rgba(0,0,0,.25);
+}
+
+.tcPopupBox h2{
+  margin:0 0 14px;
+  color:#ff5a1f;
+  font-size:34px;
+  font-weight:900;
+}
+
+.tcPopupBox p{
+  margin:0 0 24px;
+  color:#555;
+  font-size:16px;
+  line-height:1.5;
+  font-weight:700;
+}
+
+.tcPopupBox button{
+  width:100%;
+  height:58px;
+
+  border:none;
+  border-radius:18px;
+
+  background:#ff5a1f;
+  color:white;
+
+  font-size:17px;
+  font-weight:900;
+
+  cursor:pointer;
+
+  box-shadow:
+    0 5px 0 #d9430b,
+    0 10px 20px rgba(0,0,0,.15);
+}
+
+.tcPopupBox button:active{
+  transform:translateY(4px);
+
+  box-shadow:
+    0 1px 0 #d9430b,
+    0 4px 10px rgba(0,0,0,.15);
+}
