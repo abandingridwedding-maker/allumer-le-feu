@@ -15,6 +15,7 @@ const teamStatus = document.getElementById("teamStatus");
 const maxUsersInput = document.getElementById("maxUsersInput");
 const updateMaxUsersBtn = document.getElementById("updateMaxUsersBtn");
 const toggleActiveBtn = document.getElementById("toggleActiveBtn");
+const deleteTeamBtn = document.getElementById("deleteTeamBtn");
 const playersList = document.getElementById("playersList");
 const teamMessage = document.getElementById("teamMessage");
 
@@ -45,6 +46,10 @@ async function init() {
 
   updateMaxUsersBtn.addEventListener("click", updateMaxUsers);
   toggleActiveBtn.addEventListener("click", toggleActiveStatus);
+
+  if (deleteTeamBtn) {
+    deleteTeamBtn.addEventListener("click", deleteTeam);
+  }
 
   await loadTeam();
 }
@@ -139,6 +144,32 @@ async function toggleActiveStatus() {
 
   showMessage(newStatus ? "Team enabled." : "Team disabled.", "success");
   await loadTeam();
+}
+
+async function deleteTeam() {
+  const confirmed = confirm(
+    "Are you sure you want to delete this team? This will remove the team code and all team members."
+  );
+
+  if (!confirmed) return;
+
+  const doubleConfirmed = confirm(
+    "Final confirmation: delete this team permanently?"
+  );
+
+  if (!doubleConfirmed) return;
+
+  const { error } = await supabase
+    .from("team_codes")
+    .delete()
+    .eq("id", teamId);
+
+  if (error) {
+    showMessage(error.message, "error");
+    return;
+  }
+
+  window.location.href = "admin.html";
 }
 
 window.removePlayer = async function(memberId) {
