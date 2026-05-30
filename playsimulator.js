@@ -923,11 +923,14 @@ draw();
 const APP_STRIPE_PAYMENT_LINK = "https://buy.stripe.com/fZu14n84iadA8lj4qO6Vq01";
 const APP_PAYWALL_WAIT_TIME = 1 * 60 * 1000;
 
-let appPromoUnlockedThisPageLoad = false;
+const PROMO_SESSION_KEY = "tc_promo_unlocked_session";
 
 function appHasValidAccess() {
   if (localStorage.getItem("subscriptionActive") === "true") return true;
-  return appPromoUnlockedThisPageLoad === true;
+
+  return sessionStorage.getItem(
+    PROMO_SESSION_KEY
+  ) === "true";
 }
 
 function appShowPaywall() {
@@ -942,8 +945,12 @@ function appHidePaywall() {
   if (overlay) overlay.classList.add("hidden");
 }
 
-function appUnlockPromoForThisPageLoadOnly() {
-  appPromoUnlockedThisPageLoad = true;
+function appUnlockPromoForThisSession() {
+  sessionStorage.setItem(
+    PROMO_SESSION_KEY,
+    "true"
+  );
+
   appHidePaywall();
 }
 
@@ -969,8 +976,8 @@ window.addEventListener("load", () => {
       const code = (input?.value || "").trim().toUpperCase();
 
       if (code === "AZRUGBY") {
-        appUnlockPromoForThisPageLoadOnly();
-      } else if (message) {
+  appUnlockPromoForThisSession();
+} else if (message) {
         message.textContent = "Invalid promo code.";
         message.style.color = "#ff5555";
       }

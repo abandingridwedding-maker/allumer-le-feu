@@ -1179,11 +1179,14 @@ function draw() {
 const STRIPE_PAYMENT_LINK = "https://buy.stripe.com/fZu14n84iadA8lj4qO6Vq01";
 const PAYWALL_WAIT_TIME = 1 * 60 * 1000;
 
-let promoUnlockedThisPageLoad = false;
+const PROMO_SESSION_KEY = "tc_promo_unlocked_session";
 
 function hasValidAccess() {
   if (localStorage.getItem("subscriptionActive") === "true") return true;
-  return promoUnlockedThisPageLoad === true;
+
+  return sessionStorage.getItem(
+    PROMO_SESSION_KEY
+  ) === "true";
 }
 
 function showPaywall() {
@@ -1198,8 +1201,13 @@ function hidePaywall() {
   if (overlay) overlay.classList.add("hidden");
 }
 
-function unlockPromoForThisPageLoadOnly() {
-  promoUnlockedThisPageLoad = true;
+function unlockPromoForThisSession() {
+
+  sessionStorage.setItem(
+    PROMO_SESSION_KEY,
+    "true"
+  );
+
   hidePaywall();
 }
 
@@ -1233,8 +1241,8 @@ const promoBtn = document.getElementById("promoBtn");
       const code = (input?.value || "").trim().toUpperCase();
 
       if (code === "AZRUGBY") {
-        unlockPromoForThisPageLoadOnly();
-      } else if (message) {
+  unlockPromoForThisSession();
+} else if (message) {
         message.textContent = t("invalid");
         message.style.color = "#ff5555";
       }
