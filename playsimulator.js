@@ -37,6 +37,12 @@ let players = {};
 let expectedPlayers = {};
 let ball = { x: 820, y: 430 };
 
+let opposition = {};
+let oppositionEnabled = false;
+let oppositionColor = "#1f6feb";
+let activeNotes = [];
+let notesGuideOn = true;
+
 let simRunning = false;
 let countdownValue = null;
 let timingClicks = {};
@@ -95,6 +101,7 @@ function clampAll() {
   applyActiveField();
   Object.values(players || {}).forEach(clampPlayer);
   Object.values(expectedPlayers || {}).forEach(clampPlayer);
+  Object.values(opposition || {}).forEach(clampPlayer);
   clampBall(ball);
 }
 
@@ -322,6 +329,160 @@ function drawPlayer(p, highlight = false, ghost = false) {
   drawCirclePlayer(p, highlight, ghost);
 }
 
+function drawOppositionPlayer(p) {
+  if (!p) return;
+  if (!shouldShowPlayer(Number(p.number))) return;
+  drawCirclePlayer(p, false, false);
+}
+
+// ---- Coaching-note rendering (read-only mirror of the builder) ----------
+function roundRectPath(x, y, w, h, r) {
+  ctx.beginPath();
+  if (ctx.roundRect) { ctx.roundRect(x, y, w, h, r); return; }
+  ctx.moveTo(x + r, y);
+  ctx.arcTo(x + w, y, x + w, y + h, r);
+  ctx.arcTo(x + w, y + h, x, y + h, r);
+  ctx.arcTo(x, y + h, x, y, r);
+  ctx.arcTo(x, y, x + w, y, r);
+  ctx.closePath();
+}
+
+function edgePointToward(bx, by, bw, bh, tx, ty) {
+  const cx = bx + bw / 2;
+  const cy = by + bh / 2;
+  const dx = tx - cx;
+  const dy = ty - cy;
+  if (dx === 0 && dy === 0) return { x: cx, y: cy };
+  const hw = bw / 2;
+  const hh = bh / 2;
+  const scale = 1 / Math.max(Math.abs(dx) / hw, Math.abs(dy) / hh);
+  return { x: cx + dx * scale, y: cy + dy * scale };
+}
+
+function annotationAnchor(a) {
+  if (a.type === "player") {
+    const src = a.team === "opposition" ? opposition : players;
+    const p = src[a.playerNumber];
+    if (p) return { x: p.x, y: p.y };
+  }
+  return { x: a.ax, y: a.ay };
+}
+
+function annotationVisible(a) {
+  if (a.type === "player") {
+    if (a.team === "opposition" && !oppositionEnabled) return false;
+    return shouldShowPlayer(Number(a.playerNumber));
+  }
+  return true;
+}
+
+function measureAnnotation(a) {
+  ctx.save();
+  ctx.font = "700 22px Arial";
+  const maxTextWidth = 260;
+  const words = String(a.text || "").split(/\s+/).filter(Boolean);
+  const lines = [];
+  let line = "";
+
+  words.forEach(w => {
+    const test = line ? line + " " + w : w;
+    if (ctx.measureText(test).width > maxTextWidth && line) {
+      lines.push(line);
+      line = w;
+    } else {
+      line = test;
+    }
+  });
+
+  if (line) lines.push(line);
+  if (!lines.length) lines.push("");
+
+  let textW = 0;
+  lines.forEach(l => { textW = Math.max(textW, ctx.measureText(l).width); });
+  ctx.restore();
+
+  const padX = 18;
+  const padY = 16;
+  const lineH = 28;
+  const w = Math.max(140, textW + padX * 2 + 22);
+  const h = padY * 2 + lines.length * lineH;
+  return { w, h, lines, lineH, padX, padY };
+}
+
+function drawAnnotation(a) {
+  if (!annotationVisible(a)) return;
+
+  const anchor = annotationAnchor(a);
+  const m = measureAnnotation(a);
+  let bx = a.bx;
+  let by = a.by;
+  const bw = m.w;
+  const bh = m.h;
+
+  // Keep the box on the field.
+  bx = clamp(bx, FIELD.left + 6, FIELD.right - bw - 6);
+  by = clamp(by, FIELD.top + 6, FIELD.bottom - bh - 6);
+
+  const edge = edgePointToward(bx, by, bw, bh, anchor.x, anchor.y);
+
+  ctx.save();
+  ctx.strokeStyle = "#ff5a00";
+  ctx.lineWidth = 3;
+  ctx.beginPath();
+  ctx.moveTo(edge.x, edge.y);
+  ctx.lineTo(anchor.x, anchor.y);
+  ctx.stroke();
+
+  const ang = Math.atan2(anchor.y - edge.y, anchor.x - edge.x);
+  const ah = 11;
+  ctx.fillStyle = "#ff5a00";
+  ctx.beginPath();
+  ctx.moveTo(anchor.x, anchor.y);
+  ctx.lineTo(anchor.x - ah * Math.cos(ang - 0.4), anchor.y - ah * Math.sin(ang - 0.4));
+  ctx.lineTo(anchor.x - ah * Math.cos(ang + 0.4), anchor.y - ah * Math.sin(ang + 0.4));
+  ctx.closePath();
+  ctx.fill();
+
+  ctx.beginPath();
+  ctx.arc(anchor.x, anchor.y, 5, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.restore();
+
+  ctx.save();
+  ctx.shadowColor = "rgba(0,0,0,.35)";
+  ctx.shadowBlur = 14;
+  ctx.shadowOffsetY = 5;
+  roundRectPath(bx, by, bw, bh, 14);
+  ctx.fillStyle = "#ffffff";
+  ctx.fill();
+  ctx.restore();
+
+  ctx.save();
+  roundRectPath(bx, by, bw, bh, 14);
+  ctx.clip();
+  ctx.fillStyle = "#ff5a00";
+  ctx.fillRect(bx, by, 7, bh);
+  ctx.restore();
+
+  ctx.save();
+  roundRectPath(bx, by, bw, bh, 14);
+  ctx.strokeStyle = "rgba(0,0,0,.14)";
+  ctx.lineWidth = 1.5;
+  ctx.stroke();
+  ctx.restore();
+
+  ctx.save();
+  ctx.fillStyle = "#111";
+  ctx.font = "700 22px Arial";
+  ctx.textAlign = "left";
+  ctx.textBaseline = "top";
+  m.lines.forEach((l, i) => {
+    ctx.fillText(l, bx + m.padX + 6, by + m.padY + i * m.lineH);
+  });
+  ctx.restore();
+}
+// ------------------------------------------------------------------------
+
 function drawFooter() {
   const footerTop = H - 92;
 
@@ -362,6 +523,10 @@ function draw() {
   drawPitch();
   drawPlayNameOverlay();
 
+  if (oppositionEnabled) {
+    Object.values(opposition || {}).forEach(drawOppositionPlayer);
+  }
+
   if (shadowGuideOn && expectedPlayers[selectedPlayer]) {
     drawPlayer(expectedPlayers[selectedPlayer], false, true);
   }
@@ -371,8 +536,17 @@ function draw() {
   });
 
   drawBall(ball);
+
+  if (notesGuideOn) {
+    (activeNotes || []).forEach(drawAnnotation);
+  }
+
   drawFooter();
   drawCountdown();
+}
+
+function notesForStep(step) {
+  return Array.isArray(step?.annotations) ? clone(step.annotations) : [];
 }
 
 function normalizeStep(step, defaults = {}) {
@@ -380,13 +554,22 @@ function normalizeStep(step, defaults = {}) {
   const normalizedGroup = step?.playerGroup || defaults.playerGroup || defaults.playerView || "all";
   const normalizedSize = step?.playerSize || defaults.playerSize || "small";
 
+  const stepOpposition = step?.opposition || {};
+  const normalizedOppEnabled = typeof step?.oppositionEnabled === "boolean"
+    ? step.oppositionEnabled
+    : Object.keys(stepOpposition).length > 0;
+
   return {
     ...step,
     pitchMode: normalizedPitchMode,
     playerGroup: normalizedGroup,
     playerSize: normalizedSize,
     players: step?.players || {},
-    ball: step?.ball || { x: 820, y: 430 }
+    ball: step?.ball || { x: 820, y: 430 },
+    opposition: stepOpposition,
+    oppositionEnabled: normalizedOppEnabled,
+    oppositionColor: step?.oppositionColor || defaults.oppositionColor || "#1f6feb",
+    annotations: Array.isArray(step?.annotations) ? step.annotations : []
   };
 }
 
@@ -396,7 +579,8 @@ function loadStep(step, resetExpected = false) {
   const normalized = normalizeStep(step, {
     pitchMode,
     playerGroup,
-    playerSize
+    playerSize,
+    oppositionColor
   });
 
   pitchMode = normalized.pitchMode || "full";
@@ -405,6 +589,13 @@ function loadStep(step, resetExpected = false) {
 
   players = clone(normalized.players || {});
   ball = clone(normalized.ball || { x: 820, y: 430 });
+
+  opposition = clone(normalized.opposition || {});
+  oppositionEnabled = !!normalized.oppositionEnabled;
+  oppositionColor = normalized.oppositionColor || oppositionColor;
+  Object.values(opposition).forEach(p => { if (!p.color) p.color = oppositionColor; });
+
+  activeNotes = notesForStep(normalized);
 
   if (resetExpected) {
     expectedPlayers = clone(normalized.players || {});
@@ -546,6 +737,7 @@ async function openPlayFolder() {
       pitchMode = playData.pitchMode || "full";
       playerGroup = playData.playerGroup || playData.playerView || "all";
       playerSize = playData.playerSize || "small";
+      oppositionColor = playData.oppositionColor || oppositionColor;
 
       const loadedSteps = playData.steps || [];
 
@@ -553,7 +745,8 @@ async function openPlayFolder() {
         normalizeStep(step, {
           pitchMode,
           playerGroup,
-          playerSize
+          playerSize,
+          oppositionColor
         })
       );
 
@@ -728,6 +921,17 @@ function interpolateStep(from, to, t) {
     clampPlayer(p);
   });
 
+  Object.values(opposition || {}).forEach(p => {
+    const a = from.opposition?.[p.number];
+    const b = to.opposition?.[p.number];
+
+    if (!a || !b) return;
+
+    p.x = a.x + (b.x - a.x) * smooth;
+    p.y = a.y + (b.y - a.y) * smooth;
+    clampPlayer(p);
+  });
+
   ball.x = from.ball.x + (to.ball.x - from.ball.x) * smooth;
   ball.y = from.ball.y + (to.ball.y - from.ball.y) * smooth;
   clampBall(ball);
@@ -769,6 +973,8 @@ async function startSimulation() {
   const duration = 900 / simSpeedMultiplier;
 
   for (let i = 1; i < selectedPlay.steps.length; i++) {
+    // Show this phase's coaching notes (if any) while moving into it.
+    activeNotes = notesForStep(selectedPlay.steps[i]);
     await animateBetweenSteps(selectedPlay.steps[i - 1], selectedPlay.steps[i], duration);
   }
 
@@ -909,8 +1115,18 @@ if (simSpeed) {
 
 const shadowGuideToggle = document.getElementById("shadowGuideToggle");
 if (shadowGuideToggle) {
+  shadowGuideOn = shadowGuideToggle.checked;
   shadowGuideToggle.onchange = e => {
     shadowGuideOn = e.target.checked;
+    draw();
+  };
+}
+
+const notesGuideToggle = document.getElementById("notesGuideToggle");
+if (notesGuideToggle) {
+  notesGuideOn = notesGuideToggle.checked;
+  notesGuideToggle.onchange = e => {
+    notesGuideOn = e.target.checked;
     draw();
   };
 }
