@@ -57,6 +57,13 @@ let idealPlayers = {};
 let ball = { x: 300, y: 300 };
 let idealBall = { x: 300, y: 300 };
 
+let opposition = {};
+let oppositionEnabled = false;
+
+let notesOn = true;
+let activeNotes = [];
+let notesBanner = null;
+
 let score = 0;
 let isDragging = false;
 let animationRunning = false;
@@ -96,6 +103,7 @@ function clampBallObject(b) {
 function clampAll() {
   Object.values(players || {}).forEach(clampPlayer);
   Object.values(idealPlayers || {}).forEach(clampPlayer);
+  Object.values(opposition || {}).forEach(clampPlayer);
   clampBallObject(ball);
   clampBallObject(idealBall);
 }
@@ -108,6 +116,13 @@ function normalizeStepsToMobileField(rawSteps) {
 
   cloned.forEach(step => {
     Object.values(step.players || {}).forEach(p => {
+      minX = Math.min(minX, p.x);
+      maxX = Math.max(maxX, p.x);
+      minY = Math.min(minY, p.y);
+      maxY = Math.max(maxY, p.y);
+    });
+
+    Object.values(step.opposition || {}).forEach(p => {
       minX = Math.min(minX, p.x);
       maxX = Math.max(maxX, p.x);
       minY = Math.min(minY, p.y);
@@ -138,6 +153,12 @@ function normalizeStepsToMobileField(rawSteps) {
   // Anchor bottom of the play to the bottom touchline area.
   cloned.forEach(step => {
     Object.values(step.players || {}).forEach(p => {
+      p.x = targetCX + (p.x - sourceCX) * scale;
+      p.y = FIELD.bottom - (maxY - p.y) * scale;
+      clampPlayer(p);
+    });
+
+    Object.values(step.opposition || {}).forEach(p => {
       p.x = targetCX + (p.x - sourceCX) * scale;
       p.y = FIELD.bottom - (maxY - p.y) * scale;
       clampPlayer(p);
@@ -225,6 +246,16 @@ function ensureMobileToggles() {
     speedToggle.textContent = `Speed: ${repSpeed}x`;
   };
 
+  const notesToggle = document.createElement("button");
+  notesToggle.id = "mobileNotesToggle";
+  notesToggle.type = "button";
+  notesToggle.textContent = "Notes: ON";
+  notesToggle.onclick = () => {
+    notesOn = !notesOn;
+    notesToggle.textContent = notesOn ? "Notes: ON" : "Notes: OFF";
+    updateNotesBanner();
+  };
+
 const choosePlayBtn = document.createElement("button");
 choosePlayBtn.id = "mobileChoosePlayBtn";
 choosePlayBtn.type = "button";
@@ -242,6 +273,33 @@ choosePlayBtn.onclick = () => {
 panel.insertBefore(shadowToggle, choosePlayBtn.nextSibling);
 panel.insertBefore(viewToggle, shadowToggle.nextSibling);
 panel.insertBefore(speedToggle, viewToggle.nextSibling);
+panel.insertBefore(notesToggle, speedToggle.nextSibling);
+}
+
+function ensureNotesBanner() {
+  if (notesBanner) return notesBanner;
+
+  notesBanner = document.createElement("div");
+  notesBanner.id = "mobileNotesBanner";
+  notesBanner.style.cssText = "position:absolute;top:10px;left:50%;transform:translateX(-50%);z-index:40;max-width:88%;background:#ffffff;color:#111;border-left:6px solid #ff5a00;border-radius:14px;padding:10px 14px;font-family:Arial,sans-serif;font-weight:700;font-size:14px;line-height:1.3;text-align:center;box-shadow:0 8px 28px rgba(0,0,0,.35);display:none;pointer-events:none;";
+
+  const wrap = document.getElementById("mobilePitchWrap") || document.body;
+  if (getComputedStyle(wrap).position === "static") wrap.style.position = "relative";
+  wrap.appendChild(notesBanner);
+
+  return notesBanner;
+}
+
+function updateNotesBanner() {
+  const banner = ensureNotesBanner();
+  const texts = (activeNotes || []).map(a => a && a.text).filter(Boolean);
+
+  if (notesOn && texts.length) {
+    banner.innerHTML = texts.map(t => "📋 " + t).join("<br>");
+    banner.style.display = "block";
+  } else {
+    banner.style.display = "none";
+  }
 }
 
 async function joinTeamFolder() {
@@ -393,6 +451,18 @@ function applyStep(step) {
   idealPlayers = clone(step.players || {});
   ball = clone(step.ball || { x: 300, y: 300 });
   idealBall = clone(step.ball || { x: 300, y: 300 });
+
+  opposition = clone(step.opposition || {});
+  oppositionEnabled = typeof step.oppositionEnabled === "boolean"
+    ? step.oppositionEnabled
+    : (Object.keys(opposition).length > 0);
+  Object.values(opposition).forEach(o => {
+    if (!o.color) o.color = step.oppositionColor || "#1f6feb";
+  });
+
+  activeNotes = Array.isArray(step.annotations) ? step.annotations : [];
+  updateNotesBanner();
+
   clampAll();
 }
 
@@ -599,6 +669,7 @@ function render() {
 
   if (shadowOn) drawGuideShadow();
 
+  drawOpposition();
   drawPlayers();
   drawBall();
 
@@ -658,6 +729,33 @@ function drawGuideShadow() {
   ctx.fillText(selectedPlayer, p.x, p.y);
 
   ctx.restore();
+}
+
+function drawOpposition() {
+  if (!oppositionEnabled) return;
+
+  Object.values(opposition || {}).forEach(o => {
+    const p = toScreen(o);
+
+    ctx.save();
+
+    ctx.fillStyle = o.color || "#1f6feb";
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, 8.5, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.strokeStyle = "#ffffff";
+    ctx.lineWidth = 2.5;
+    ctx.stroke();
+
+    ctx.fillStyle = "#ffffff";
+    ctx.font = "900 8px Arial";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText(o.number, p.x, p.y);
+
+    ctx.restore();
+  });
 }
 
 function drawPlayers() {
@@ -764,6 +862,10 @@ mobilePlayBtn.onclick = async () => {
   animationRunning = true;
 
   for (let i = 1; i < steps.length; i++) {
+    // Surface this phase's coaching note (if any) as we move into it.
+    activeNotes = Array.isArray(steps[i].annotations) ? steps[i].annotations : [];
+    updateNotesBanner();
+
     await animateToStep(steps[i], 900 / repSpeed);
     currentStepIndex = i;
   }
@@ -793,10 +895,12 @@ function animateToStep(targetStep, duration = 900) {
   return new Promise(resolve => {
     const startPlayers = clone(players);
     const startIdealPlayers = clone(idealPlayers);
+    const startOpposition = clone(opposition);
     const startBall = clone(ball);
     const startIdealBall = clone(idealBall);
 
     const targetPlayers = targetStep.players || {};
+    const targetOpposition = targetStep.opposition || {};
     const targetBall = targetStep.ball || ball;
 
     const startTime = performance.now();
@@ -827,6 +931,17 @@ function animateToStep(targetStep, duration = 900) {
         player.x = a.x + (b.x - a.x) * smooth;
         player.y = a.y + (b.y - a.y) * smooth;
         clampPlayer(player);
+      });
+
+      Object.values(opposition).forEach(o => {
+        const a = startOpposition[o.number];
+        const b = targetOpposition[o.number];
+
+        if (!a || !b) return;
+
+        o.x = a.x + (b.x - a.x) * smooth;
+        o.y = a.y + (b.y - a.y) * smooth;
+        clampPlayer(o);
       });
 
       ball.x = startBall.x + (targetBall.x - startBall.x) * smooth;
