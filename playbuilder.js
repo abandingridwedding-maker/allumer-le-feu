@@ -543,37 +543,14 @@ function cancelAnnotationEditor() {
   draw();
 }
 
-function ensureContinueBar() {
-  let bar = document.getElementById("tcContinueBar");
-  if (bar) return bar;
-
-  bar = document.createElement("div");
-  bar.id = "tcContinueBar";
-  bar.className = "hidden";
-  bar.style.cssText = "position:fixed;left:50%;bottom:28px;transform:translateX(-50%);z-index:10000;display:flex;align-items:center;gap:14px;background:rgba(17,17,17,.86);color:#fff;padding:12px 18px;border-radius:999px;box-shadow:0 12px 40px rgba(0,0,0,.4);font-family:Arial,sans-serif;";
-
-  bar.innerHTML = `
-    <span style="font-size:14px;opacity:.85;">Click the field to continue</span>
-    <button id="tcContinueBtn" type="button" style="background:#ff5a00;color:#fff;border:none;border-radius:999px;padding:9px 18px;font-weight:800;cursor:pointer;">Continue ▶</button>
-  `;
-
-  document.body.appendChild(bar);
-  bar.querySelector("#tcContinueBtn").onclick = () => resolveContinue();
-  return bar;
-}
-
 function waitForContinue() {
   awaitingContinue = true;
-  const bar = ensureContinueBar();
-  bar.classList.remove("hidden");
   return new Promise(res => { continueResolver = res; });
 }
 
 function resolveContinue() {
   if (!awaitingContinue) return;
   awaitingContinue = false;
-  const bar = document.getElementById("tcContinueBar");
-  if (bar) bar.classList.add("hidden");
   const r = continueResolver;
   continueResolver = null;
   if (r) r();
@@ -1026,7 +1003,11 @@ function oppositionHitTest(p) {
 }
 
 canvas.addEventListener("mousedown", e => {
-  if (awaitingContinue) { resolveContinue(); return; }
+  if (awaitingContinue) {
+    const cp = canvasPoint(e);
+    if (annotationCloseHitTest(cp)) resolveContinue();
+    return;
+  }
   if (isAnimating) return;
 
   const p = canvasPoint(e);
@@ -1099,6 +1080,11 @@ canvas.addEventListener("mousedown", e => {
 
 canvas.addEventListener("mousemove", e => {
   const p = canvasPoint(e);
+
+  if (awaitingContinue) {
+    canvas.style.cursor = annotationCloseHitTest(p) ? "pointer" : "default";
+    return;
+  }
 
   if (draggingType === "ball") {
     ball.x = p.x - dragOffset.x;
@@ -1226,6 +1212,23 @@ function clearSteps() {
   draw();
 }
 
+function stepBack() {
+  if (!steps.length) return;
+
+  steps.pop();
+
+  if (steps.length) {
+    // Reapply the new last step so the field shows where you were.
+    applyStep(steps[steps.length - 1]);
+  } else {
+    // No steps left — keep the builder active so you can re-save step 1.
+    builderStarted = true;
+  }
+
+  updateBuilderButton();
+  draw();
+}
+
 function animateBetweenSteps(from, to, duration = 900) {
   return new Promise(resolve => {
     const start = performance.now();
@@ -1274,6 +1277,7 @@ function animateBetweenSteps(from, to, duration = 900) {
 async function playAnimation() {
   if (steps.length < 2) return alert("Create at least 2 steps first.");
 
+  setAnnotationMode(false);
   isAnimating = true;
   applyStep(steps[0]);
   draw();
@@ -1305,6 +1309,7 @@ async function playAnimation() {
 
   resolveContinue();
   isAnimating = false;
+  canvas.style.cursor = "";
   draw();
 }
 
@@ -1809,11 +1814,11 @@ function bind(id, event, fn) {
 ensureOppositionControls();
 ensureAnnotationControls();
 ensureAnnotationEditor();
-ensureContinueBar();
 
 bind("builderMainBtn", "click", builderMainAction);
 bind("playAnimationBtn", "click", playAnimation);
 bind("clearStepsBtn", "click", clearSteps);
+bind("stepBackBtn", "click", stepBack);
 bind("savePlayBtn", "click", savePlay);
 bind("loadPlayBtn", "click", openPlayFolder);
 bind("foldersBtn", "click", openFoldersModal);
