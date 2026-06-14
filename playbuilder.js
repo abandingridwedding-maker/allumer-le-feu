@@ -1767,35 +1767,41 @@ async function openPlayFolder() {
 // does not already provide elements with these IDs. Existing markup with
 // #oppositionToggle / #oppositionColor is respected and left untouched.
 function ensureOppositionControls() {
-  if (document.getElementById("oppositionToggle") && document.getElementById("oppositionColor")) return;
+  let toggle = document.getElementById("oppositionToggle");
+  let colorSelect = document.getElementById("oppositionColor");
 
-  // Opposition ON/OFF toggle
-  const toggle = document.createElement("button");
-  toggle.id = "oppositionToggle";
-  toggle.type = "button";
-  toggle.textContent = "Opposition: OFF";
+  // Create them only if the page doesn't already have them.
+  if (!toggle) {
+    toggle = document.createElement("button");
+    toggle.id = "oppositionToggle";
+    toggle.type = "button";
+    toggle.textContent = "Opposition: OFF";
+  }
+  if (!colorSelect) {
+    colorSelect = document.createElement("select");
+    colorSelect.id = "oppositionColor";
+    colorSelect.innerHTML = `
+      <option value="blue">Opp Blue</option>
+      <option value="black">Opp Black</option>
+      <option value="red">Opp Red</option>
+      <option value="white">Opp White</option>
+    `;
+  }
 
-  // Opposition colour selector
-  const colorSelect = document.createElement("select");
-  colorSelect.id = "oppositionColor";
-  colorSelect.innerHTML = `
-    <option value="blue">Opp Blue</option>
-    <option value="black">Opp Black</option>
-    <option value="red">Opp Red</option>
-    <option value="white">Opp White</option>
-  `;
-
-  // The bottom controls row (the one holding Full Pitch, Red, etc.)
-  const tc = document.getElementById("teamColor");
-  const bar = tc ? tc.parentNode : null;
+  // The bottom controls row (holds Full Pitch, Red, etc.)
+  const pitch = document.getElementById("pitchMode");
+  const bar = pitch ? pitch.parentNode : (document.getElementById("teamColor")?.parentNode || null);
 
   if (bar) {
-    // Opposition ON/OFF -> second button from the left
-    bar.insertBefore(toggle, bar.children[1] || null);
-    // Opposition colour -> last control in the row
+    // Opposition ON/OFF -> right after Full Pitch (second from left)
+    if (pitch) {
+      bar.insertBefore(toggle, pitch.nextSibling);
+    } else {
+      bar.insertBefore(toggle, bar.children[1] || null);
+    }
+    // Opposition colour -> very last control in the row
     bar.appendChild(colorSelect);
   } else {
-    // Fallback if the row can't be found
     toggle.style.cssText = "position:fixed;top:12px;right:150px;z-index:9999;";
     colorSelect.style.cssText = "position:fixed;top:12px;right:12px;z-index:9999;";
     document.body.appendChild(toggle);
