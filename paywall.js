@@ -1,9 +1,8 @@
 import { supabase } from "./supabase.js";
 
-// Where the "Subscribe" button sends people:
+// --- Easy-to-edit settings ---
 const STRIPE_LINK = "https://buy.stripe.com/fZu14n84iadA8lj4qO6Vq01";
-
-// Session flag set when someone unlocks with a promo code:
+const PRICE_LABEL = "€2.99 / month";   // <-- change price/currency here (e.g. "£2.99 / month")
 const PROMO_SESSION_KEY = "tc_promo_unlocked_session";
 
 function hasValidAccess() {
@@ -42,7 +41,7 @@ function buildPaywall(settings) {
   overlay.id = "tcPaywallOverlay";
   overlay.style.cssText = [
     "position:fixed", "inset:0", "z-index:999999",
-    "background:rgba(10,10,12,0.82)",
+    "background:rgba(10,10,12,0.85)",
     "display:flex", "align-items:center", "justify-content:center",
     "padding:20px",
     "font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif"
@@ -50,25 +49,28 @@ function buildPaywall(settings) {
 
   const promoBlock = settings.promo_enabled ? `
     <div style="margin-top:22px;border-top:1px solid #eee;padding-top:18px;">
-      <div style="font-weight:600;margin-bottom:8px;">Have a promo code?</div>
+      <div style="font-weight:600;margin-bottom:8px;color:#111;">Have a promo code?</div>
       <input id="tcPromoInput" type="text" placeholder="Enter code"
-        style="width:100%;padding:11px 13px;border:1px solid #d0d3d8;border-radius:9px;font-size:1rem;box-sizing:border-box;" />
+        style="width:100%;padding:12px 14px;border:1px solid #d0d3d8;border-radius:10px;font-size:1rem;box-sizing:border-box;" />
       <button id="tcPromoBtn"
-        style="width:100%;margin-top:10px;padding:11px;border:none;border-radius:9px;background:#111;color:#fff;font-weight:700;cursor:pointer;">
+        style="width:100%;margin-top:10px;padding:12px;border:none;border-radius:10px;background:#111;color:#fff;font-weight:700;font-size:1rem;cursor:pointer;">
         Apply code
       </button>
       <div id="tcPromoMsg" style="margin-top:8px;font-size:0.9rem;min-height:1.1em;"></div>
     </div>` : "";
 
   overlay.innerHTML = `
-    <div style="max-width:420px;width:100%;background:#fff;border-radius:18px;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,0.35);">
-      <div style="background:#ff5a1f;color:#fff;padding:24px 28px;">
-        <div style="font-size:1.3rem;font-weight:800;">Unlock Team Clarity</div>
-        <div style="opacity:.9;font-size:.9rem;margin-top:4px;">Subscribe to keep using the app.</div>
+    <div style="max-width:420px;width:100%;background:#fff;border-radius:20px;overflow:hidden;box-shadow:0 24px 70px rgba(0,0,0,0.45);">
+      <div style="background:#ff5a1f;color:#fff;padding:26px 30px;">
+        <div style="font-size:1.4rem;font-weight:800;">Unlock Team Clarity</div>
+        <div style="opacity:.92;font-size:.92rem;margin-top:5px;">Full access for your whole squad.</div>
       </div>
-      <div style="padding:26px 28px;">
+      <div style="padding:28px 30px;">
+        <div style="text-align:center;margin-bottom:20px;">
+          <span style="font-size:2.4rem;font-weight:900;color:#111;">${PRICE_LABEL}</span>
+        </div>
         <button id="tcUnlockBtn"
-          style="width:100%;padding:14px;border:none;border-radius:10px;background:#ff5a1f;color:#fff;font-size:1.05rem;font-weight:800;cursor:pointer;">
+          style="width:100%;padding:15px;border:none;border-radius:12px;background:#ff5a1f;color:#fff;font-size:1.1rem;font-weight:800;cursor:pointer;">
           Subscribe
         </button>
         ${promoBlock}
@@ -87,7 +89,6 @@ function buildPaywall(settings) {
       const msg = document.getElementById("tcPromoMsg");
       const entered = (input.value || "").trim().toLowerCase();
       const correct = (settings.promo_code || "").trim().toLowerCase();
-
       if (entered && correct && entered === correct) {
         sessionStorage.setItem(PROMO_SESSION_KEY, "true");
         overlay.remove();
@@ -105,15 +106,11 @@ function buildPaywall(settings) {
 
 async function initPaywall() {
   if (hasValidAccess()) return;
-
   const settings = await loadSettings();
-  if (!settings) return;                 // no settings row → do nothing
-  if (!settings.paywall_enabled) return; // gate switched off in the panel
-
-  if (await isAdminUser()) return;       // never bug the admin
-
+  if (!settings) return;
+  if (!settings.paywall_enabled) return;
+  if (await isAdminUser()) return;
   const delayMs = Math.max(0, Number(settings.paywall_delay_seconds) || 0) * 1000;
-
   setTimeout(() => {
     if (!hasValidAccess()) buildPaywall(settings);
   }, delayMs);
