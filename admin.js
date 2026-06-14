@@ -95,35 +95,20 @@ async function loadTeams() {
         .eq("active", true);
 
       return `
-  <div class="adminTeamCard">
-
-    <div>
-      <h3>${team.team_name}</h3>
-
-      <p>
-        <strong>Code:</strong>
-        ${team.code}
-      </p>
-
-      <p>
-        <strong>Users:</strong>
-        ${count || 0} / ${team.max_users}
-      </p>
-
-      <p>
-        <strong>Status:</strong>
-        ${team.active ? "Active" : "Disabled"}
-      </p>
-    </div>
-
-    <button
-      onclick="window.location.href='admin-team.html?id=${team.id}'"
-    >
-      Manage Team
-    </button>
-
-  </div>
-`;
+        <div class="adminTeamCard">
+          <div>
+            <h3>${team.team_name}</h3>
+            <p><strong>Code:</strong> ${team.code}</p>
+            <p><strong>Users:</strong> ${count || 0} / ${team.max_users}</p>
+            <p><strong>Status:</strong> ${team.active ? "Active" : "Disabled"}</p>
+          </div>
+          <button onclick="window.location.href='admin-team.html?id=${team.id}'">
+            Manage Team
+          </button>
+        </div>
+      `;
+    })
+  );
 
   teamsList.innerHTML = html.join("");
 }
