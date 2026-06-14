@@ -305,12 +305,12 @@ function updateNotesBanner() {
 async function joinTeamFolder() {
   const params = new URLSearchParams(window.location.search);
 
-const code = (
-  mobilePlayCode.value ||
-  params.get("code") ||
-  localStorage.getItem("pending_mobile_folder_code") ||
-  ""
-).trim();
+  const code = (
+    mobilePlayCode.value ||
+    params.get("code") ||
+    localStorage.getItem("pending_mobile_folder_code") ||
+    ""
+  ).trim();
 
   if (!code) {
     alert("Enter a folder code.");
@@ -320,10 +320,7 @@ const code = (
   loadMobilePlayBtn.disabled = true;
   loadMobilePlayBtn.textContent = "Joining...";
 
-  const {
-    data: { user },
-    error: userError
-  } = await supabase.auth.getUser();
+  const { data: { user }, error: userError } = await supabase.auth.getUser();
 
   if (userError || !user) {
     alert("Please log in first to join this folder.");
@@ -332,35 +329,18 @@ const code = (
     return;
   }
 
-  const { data: foundFolder, error: folderError } = await supabase
-    .from("folders")
-    .select("id, name, share_code")
-    .ilike("share_code", code)
-    .limit(1)
-    .maybeSingle();
+  // Secure join: finds folder by code AND records membership in one gated call
+  const { data: joined, error: joinError } = await supabase
+    .rpc("join_folder_by_code", { p_code: code });
 
-  if (folderError || !foundFolder) {
+  if (joinError || !joined || !joined.length) {
     alert("Folder not found.");
     loadMobilePlayBtn.disabled = false;
     loadMobilePlayBtn.textContent = "Join Folder";
     return;
   }
 
-  folder = foundFolder;
-
-  const { error: memberError } = await supabase
-    .from("folder_members")
-    .insert({
-      folder_id: folder.id,
-      player_id: user.id
-    });
-
-  if (memberError && memberError.code !== "23505") {
-    alert(memberError.message || "Could not join folder.");
-    loadMobilePlayBtn.disabled = false;
-    loadMobilePlayBtn.textContent = "Join Folder";
-    return;
-  }
+  folder = { id: joined[0].id, name: joined[0].name };
 
   const { data: folderPlays, error: playsError } = await supabase
     .from("plays")
@@ -383,7 +363,8 @@ const code = (
     loadMobilePlayBtn.textContent = "Join Folder";
     return;
   }
-localStorage.removeItem("pending_mobile_folder_code");
+
+  localStorage.removeItem("pending_mobile_folder_code");
   showPlaySelection();
 }
 
