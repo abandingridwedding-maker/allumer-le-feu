@@ -6,6 +6,9 @@ const teamCodeInput = document.getElementById("teamCode");
 const teamLoginBtn = document.getElementById("teamLoginBtn");
 const teamLoginMessage = document.getElementById("teamLoginMessage");
 
+// 👇 CHANGE THIS if admins should land somewhere else (e.g. "admin-team.html")
+const ADMIN_LANDING_PAGE = "admin.html";
+
 teamLoginBtn.addEventListener("click", handleTeamLogin);
 
 async function handleTeamLogin() {
@@ -13,8 +16,9 @@ async function handleTeamLogin() {
   const password = passwordInput.value.trim();
   const code = teamCodeInput.value.trim().toUpperCase();
 
-  if (!email || !password || !code) {
-    showMessage("Please complete all fields.", "error");
+  // team code is NO LONGER required here — only email + password
+  if (!email || !password) {
+    showMessage("Please enter your email and password.", "error");
     return;
   }
 
@@ -57,6 +61,26 @@ async function handleTeamLogin() {
 
   if (!user) {
     showMessage("User not found after login.", "error");
+    resetButton();
+    return;
+  }
+
+  // 👇 NEW: ask the database whether this user is an admin
+  const { data: isAdmin, error: adminError } = await supabase.rpc("is_admin");
+
+  if (adminError) {
+    console.error("is_admin check failed:", adminError);
+  }
+
+  if (isAdmin === true) {
+    // Admin: no team code needed
+    window.location.href = ADMIN_LANDING_PAGE;
+    return;
+  }
+
+  // Non-admin: team code is required from here on
+  if (!code) {
+    showMessage("Please enter your team code.", "error");
     resetButton();
     return;
   }
