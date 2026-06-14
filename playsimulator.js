@@ -67,6 +67,7 @@ let simRunning = false;
 let countdownValue = null;
 let timingClicks = {};
 let sessionStartTime = null;
+let simRunId = 0;
 
 const BASE_PLAYER_SPEED = 4;
 
@@ -1002,8 +1003,9 @@ async function openQrCodes() {
   }
 }
 
-async function countdown() {
+async function countdown(myRun) {
   for (const value of [3, 2, 1, 0]) {
+    if (myRun !== simRunId) return;
     countdownValue = value;
     draw();
     await new Promise(resolve => setTimeout(resolve, 700));
@@ -1053,11 +1055,16 @@ function interpolateStep(from, to, t) {
   clampBall(ball);
 }
 
-function animateBetweenSteps(from, to, duration) {
+function animateBetweenSteps(from, to, duration, myRun) {
   return new Promise(resolve => {
     const start = performance.now();
 
     function frame(now) {
+      if (myRun !== simRunId) {
+        resolve();
+        return;
+      }
+
       const t = Math.min((now - start) / duration, 1);
 
       interpolateStep(from, to, t);
@@ -1077,20 +1084,29 @@ async function startSimulation() {
     return;
   }
 
+  // New run cancels any rep already in progress
+  const myRun = ++simRunId;
+
   timingClicks = {};
   sessionStartTime = Date.now();
 
+  simRunning = false;
+  countdownValue = null;
+
   loadStep(selectedPlay.steps[0], true);
 
-  await countdown();
+  await countdown(myRun);
+  if (myRun !== simRunId) return;
 
   simRunning = true;
 
   const duration = 900 / simSpeedMultiplier;
 
   for (let i = 1; i < selectedPlay.steps.length; i++) {
+    if (myRun !== simRunId) return;
     activeNotes = notesForStep(selectedPlay.steps[i]);
-    await animateBetweenSteps(selectedPlay.steps[i - 1], selectedPlay.steps[i], duration);
+    await animateBetweenSteps(selectedPlay.steps[i - 1], selectedPlay.steps[i], duration, myRun);
+    if (myRun !== simRunId) return;
   }
 
   simRunning = false;
@@ -1211,11 +1227,13 @@ if (startSimBtn) startSimBtn.onclick = startSimulation;
 const resetSimBtn = document.getElementById("resetSimBtn");
 if (resetSimBtn) {
   resetSimBtn.onclick = () => {
-    if (selectedPlay?.steps?.[0]) loadStep(selectedPlay.steps[0], true);
-
+    simRunId++;            // cancels any running rep/countdown immediately
     simRunning = false;
     countdownValue = null;
     timingClicks = {};
+
+    if (selectedPlay?.steps?.[0]) loadStep(selectedPlay.steps[0], true);
+
     draw();
   };
 }
