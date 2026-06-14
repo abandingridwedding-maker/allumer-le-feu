@@ -42,37 +42,27 @@ async function joinFolder() {
     return;
   }
 
-  const { data: folder, error: folderError } = await supabase
-    .from("folders")
-    .select("id, name, share_code")
-    .eq("share_code", code)
-    .single();
+  // Secure join: finds the folder by code AND adds membership in one call.
+  const { data, error } = await supabase.rpc("join_folder_by_code", {
+    p_code: code
+  });
 
-  if (folderError || !folder) {
+  if (error) {
+    console.error(error);
+    showMessage(error.message || "Could not join folder.", "error");
+    resetButton();
+    return;
+  }
+
+  const folder = Array.isArray(data) ? data[0] : data;
+
+  if (!folder) {
     showMessage("Folder not found.", "error");
     resetButton();
     return;
   }
 
-  const { error: joinError } = await supabase
-    .from("folder_members")
-    .insert({
-      folder_id: folder.id,
-      player_id: user.id
-    });
-
-  if (joinError) {
-    if (joinError.code === "23505") {
-      showMessage("You already have access to this folder.", "success");
-    } else {
-      console.error(joinError);
-      showMessage(joinError.message || "Could not join folder.", "error");
-      resetButton();
-      return;
-    }
-  } else {
-    showMessage(`Joined folder: ${folder.name}`, "success");
-  }
+  showMessage(`Joined folder: ${folder.name}`, "success");
 
   setTimeout(() => {
     window.location.href = "playsimulator.html";
