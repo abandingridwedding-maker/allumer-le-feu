@@ -57,7 +57,7 @@ function buildPaywall(settings) {
   const promoBlock = settings.promo_enabled ? `
     <div style="margin-top:26px;border-top:1px solid #f0f0f0;padding-top:22px;">
       <div style="font-weight:700;margin-bottom:10px;color:#444;text-align:center;">Have a promo code?</div>
-      <input id="tcPromoInput" type="text" placeholder="TEAM CODE"
+      <input id="tcPromoInput" type="text" placeholder="Enter code"
         style="width:100%;padding:15px 16px;border:1px solid #e2e4e8;border-radius:16px;font-size:1rem;text-align:center;font-weight:600;color:#444;box-sizing:border-box;outline:none;" />
       <button id="tcPromoBtn" style="${btnStyle}margin-top:14px;">Apply Code</button>
       <div id="tcPromoMsg" style="margin-top:10px;font-size:0.9rem;min-height:1.1em;text-align:center;"></div>

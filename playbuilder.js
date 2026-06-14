@@ -1769,40 +1769,37 @@ async function openPlayFolder() {
 function ensureOppositionControls() {
   if (document.getElementById("oppositionToggle") && document.getElementById("oppositionColor")) return;
 
-  const wrap = document.createElement("div");
-  wrap.id = "oppositionControlsWrap";
+  // Opposition ON/OFF toggle
+  const toggle = document.createElement("button");
+  toggle.id = "oppositionToggle";
+  toggle.type = "button";
+  toggle.textContent = "Opposition: OFF";
 
-  wrap.innerHTML = `
-    <button id="oppositionToggle" type="button">Opposition: OFF</button>
-    <select id="oppositionColor">
-      <option value="blue">Opp Blue</option>
-      <option value="black">Opp Black</option>
-      <option value="red">Opp Red</option>
-      <option value="white">Opp White</option>
-    </select>
+  // Opposition colour selector
+  const colorSelect = document.createElement("select");
+  colorSelect.id = "oppositionColor";
+  colorSelect.innerHTML = `
+    <option value="blue">Opp Blue</option>
+    <option value="black">Opp Black</option>
+    <option value="red">Opp Red</option>
+    <option value="white">Opp White</option>
   `;
 
+  // The bottom controls row (the one holding Full Pitch, Red, etc.)
   const tc = document.getElementById("teamColor");
+  const bar = tc ? tc.parentNode : null;
 
-  if (tc && tc.parentNode) {
-    tc.parentNode.insertBefore(wrap, tc.nextSibling);
-    wrap.style.display = "inline-flex";
-    wrap.style.gap = "8px";
-    wrap.style.marginLeft = "8px";
-    wrap.style.alignItems = "center";
+  if (bar) {
+    // Opposition ON/OFF -> second button from the left
+    bar.insertBefore(toggle, bar.children[1] || null);
+    // Opposition colour -> last control in the row
+    bar.appendChild(colorSelect);
   } else {
-    wrap.style.position = "fixed";
-    wrap.style.top = "12px";
-    wrap.style.right = "12px";
-    wrap.style.zIndex = "9999";
-    wrap.style.display = "flex";
-    wrap.style.gap = "8px";
-    wrap.style.alignItems = "center";
-    wrap.style.background = "rgba(0,0,0,.75)";
-    wrap.style.color = "#fff";
-    wrap.style.padding = "10px 12px";
-    wrap.style.borderRadius = "12px";
-    document.body.appendChild(wrap);
+    // Fallback if the row can't be found
+    toggle.style.cssText = "position:fixed;top:12px;right:150px;z-index:9999;";
+    colorSelect.style.cssText = "position:fixed;top:12px;right:12px;z-index:9999;";
+    document.body.appendChild(toggle);
+    document.body.appendChild(colorSelect);
   }
 }
 
@@ -1862,3 +1859,88 @@ initPlayers();
 updateBuilderButton();
 draw();
 
+// ---------- Export the animation to a downloadable video ----------
+function tcSleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+async function tcPlayForExport() {
+  setAnnotationMode(false);
+  isAnimating = true;
+  applyStep(steps[0]);
+  draw();
+  await tcSleep((annotations || []).length ? 2200 : 600);
+
+  for (let i = 1; i < steps.length; i++) {
+    annotations = [];
+    draw();
+    await animateBetweenSteps(steps[i - 1], steps[i], 900 / builderSpeedMultiplier);
+    annotations = clone(steps[i].annotations || []);
+    draw();
+    await tcSleep(annotations.length ? 2200 : 400);
+  }
+
+  isAnimating = false;
+  canvas.style.cursor = "";
+  draw();
+}
+
+async function exportAnimationToVideo() {
+  if (steps.length < 2) {
+    alert("Create at least 2 steps before exporting a video.");
+    return;
+  }
+
+  // Hide the save dialog so the pitch is visible while it records.
+  document.getElementById("savePlayModal")?.classList.add("hidden");
+
+  const mime = [
+    "video/mp4;codecs=avc1",
+    "video/webm;codecs=vp9",
+    "video/webm;codecs=vp8",
+    "video/webm"
+  ].find(t => window.MediaRecorder && MediaRecorder.isTypeSupported(t));
+
+  if (!mime) {
+    alert("Sorry — this browser can't record video. Try the latest Chrome.");
+    return;
+  }
+
+  const stream = canvas.captureStream(30);
+  const recorder = new MediaRecorder(stream, { mimeType: mime, videoBitsPerSecond: 8000000 });
+  const chunks = [];
+  recorder.ondataavailable = e => { if (e.data.size > 0) chunks.push(e.data); };
+  const stopped = new Promise(res => (recorder.onstop = res));
+
+  recorder.start();
+  await tcPlayForExport();
+  await tcSleep(300);
+  recorder.stop();
+  await stopped;
+
+  const ext = mime.startsWith("video/mp4") ? "mp4" : "webm";
+  const blob = new Blob(chunks, { type: mime });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `${(currentPlayName || "team-clarity-play").replace(/[^\w-]+/g, "_") || "play"}.${ext}`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+// Drop an "Export to Video" button into the Save Play dialog (next to Cancel / Save Play).
+function tcEnsureExportButton() {
+  const confirmBtn = document.getElementById("confirmSavePlayBtn");
+  if (!confirmBtn || document.getElementById("exportVideoBtn")) return;
+  const btn = document.createElement("button");
+  btn.id = "exportVideoBtn";
+  btn.type = "button";
+  btn.textContent = "🎬 Export to Video";
+  btn.onclick = exportAnimationToVideo;
+  confirmBtn.parentNode.insertBefore(btn, confirmBtn);
+}
+
+const tcSaveBtnForExport = document.getElementById("savePlayBtn");
+if (tcSaveBtnForExport) {
+  tcSaveBtnForExport.addEventListener("click", () => setTimeout(tcEnsureExportButton, 60));
+}
