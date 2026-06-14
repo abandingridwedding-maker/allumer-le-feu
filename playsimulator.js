@@ -335,7 +335,6 @@ function drawOppositionPlayer(p) {
   drawCirclePlayer(p, false, false);
 }
 
-// ---- Coaching-note rendering (read-only mirror of the builder) ----------
 function roundRectPath(x, y, w, h, r) {
   ctx.beginPath();
   if (ctx.roundRect) { ctx.roundRect(x, y, w, h, r); return; }
@@ -419,7 +418,6 @@ function drawAnnotation(a) {
   const bw = m.w;
   const bh = m.h;
 
-  // Keep the box on the field.
   bx = clamp(bx, FIELD.left + 6, FIELD.right - bw - 6);
   by = clamp(by, FIELD.top + 6, FIELD.bottom - bh - 6);
 
@@ -481,7 +479,6 @@ function drawAnnotation(a) {
   });
   ctx.restore();
 }
-// ------------------------------------------------------------------------
 
 function drawFooter() {
   const footerTop = H - 92;
@@ -753,6 +750,7 @@ async function openPlayFolder() {
       selectedPlay = {
         id: play.id,
         name: play.name,
+        folder_id: play.folder_id || null,
         pitchMode,
         playerGroup,
         playerSize,
@@ -795,72 +793,170 @@ async function saveTrainingLogToDatabase(log) {
   }
 }
 
-async function getTrainingLogs() {
+async function saveSimulatorLog(log) {
+  const user = await getCurrentUser();
+  if (!user || !selectedPlay) return;
+  if (!selectedPlay.folder_id) return; // only folder plays are coach-trackable
+
+  const { error } = await supabase.from("simulator_logs").insert({
+    user_id: user.id,
+    folder_id: selectedPlay.folder_id,
+    play_id: selectedPlay.id,
+    play_name: selectedPlay.name,
+    selected_player: log.player,
+    score: log.score,
+    completed_at: new Date().toISOString()
+  });
+
+  if (error) {
+    console.error("Simulator log save failed:", error);
+  }
+}
+
+// ---------------- Training Log: coach overview vs player own -------------
+
+async function isCoachUser(user) {
+  const { data: adminFlag } = await supabase.rpc("is_admin");
+  if (adminFlag === true) return true;
+
+  const { count } = await supabase
+    .from("folders")
+    .select("id", { count: "exact", head: true })
+    .eq("coach_id", user.id);
+
+  return (count || 0) > 0;
+}
+
+async function getCoachLogs() {
+  const { data, error } = await supabase.rpc("get_coach_simulator_logs");
+  if (error) {
+    alert(error.message);
+    return [];
+  }
+  return data || [];
+}
+
+async function getOwnTrainingLogs(user) {
   const { data, error } = await supabase
     .from("training_logs")
     .select("*")
+    .eq("user_id", user.id)
     .order("created_at", { ascending: false });
 
   if (error) {
     alert(error.message);
     return [];
   }
-
   return data || [];
 }
 
-function renderLogs(logs, filteredName = null) {
+function renderCoachLogs(logs) {
   const list = document.getElementById("logsList");
   list.innerHTML = "";
 
-  if (filteredName) {
-    const back = document.createElement("button");
-    back.textContent = "← Back to all logs";
-    back.style.marginBottom = "18px";
-    back.onclick = openLogs;
-    list.appendChild(back);
+  if (!logs.length) {
+    list.innerHTML = `<div class="emptyFolder">No simulator reps logged yet.</div>`;
+    return;
   }
 
-  if (!logs || logs.length === 0) {
-    list.innerHTML += `<div class="emptyFolder">No training logs yet.</div>`;
+  const byPlayer = {};
+  for (const log of logs) {
+    const key = log.email || log.user_id || "Unknown player";
+    if (!byPlayer[key]) byPlayer[key] = { email: key, reps: [] };
+    byPlayer[key].reps.push(log);
+  }
+
+  const players = Object.values(byPlayer).sort((a, b) => b.reps.length - a.reps.length);
+
+  players.forEach(p => {
+    const scores = p.reps.map(r => r.score).filter(s => s !== null && s !== undefined);
+    const avg = scores.length ? (scores.reduce((a, b) => a + b, 0) / scores.length).toFixed(1) : "-";
+    const playCount = new Set(p.reps.map(r => r.play_name)).size;
+
+    const byPlay = {};
+    for (const r of p.reps) {
+      const pn = r.play_name || "Unknown play";
+      if (!byPlay[pn]) byPlay[pn] = [];
+      byPlay[pn].push(r);
+    }
+
+    const detail = document.createElement("div");
+    detail.style.cssText = "display:none; padding:8px 16px 14px; background:#fafafa;";
+    detail.innerHTML = Object.entries(byPlay).map(([playName, reps]) => {
+      const repScores = reps.map(r => `${r.score ?? "-"}/10`).join(", ");
+      const folderName = reps[0].folder_name ? ` · ${reps[0].folder_name}` : "";
+      return `
+        <div style="padding:8px 0; border-top:1px solid #eee;">
+          <strong>${playName}</strong>${folderName} — done ${reps.length} time(s)<br>
+          <span style="color:#555;">Scores: ${repScores}</span>
+        </div>`;
+    }).join("");
+
+    const card = document.createElement("div");
+    card.style.cssText = "margin-bottom:12px; border:1px solid #eee; border-radius:12px; overflow:hidden;";
+
+    const header = document.createElement("div");
+    header.style.cssText = "cursor:pointer; padding:14px 16px; display:flex; justify-content:space-between; align-items:center; background:#fff;";
+    header.innerHTML = `
+      <div>
+        <div style="font-weight:700; color:#ff5a1f;">${p.email}</div>
+        <div style="color:#555; font-size:0.9em;">${p.reps.length} rep(s) · ${playCount} play(s) · avg ${avg}/10</div>
+      </div>
+      <div class="logToggle" style="font-size:1.2em; color:#999;">▾</div>`;
+
+    header.onclick = () => {
+      const open = detail.style.display === "block";
+      detail.style.display = open ? "none" : "block";
+      const toggle = header.querySelector(".logToggle");
+      if (toggle) toggle.textContent = open ? "▾" : "▴";
+    };
+
+    card.appendChild(header);
+    card.appendChild(detail);
+    list.appendChild(card);
+  });
+}
+
+function renderPlayerLogs(logs) {
+  const list = document.getElementById("logsList");
+  list.innerHTML = "";
+
+  if (!logs.length) {
+    list.innerHTML = `<div class="emptyFolder">No training logs yet.</div>`;
     return;
   }
 
   logs.forEach(log => {
     const item = document.createElement("div");
     item.className = "savedPlayItem";
-
     const date = new Date(log.created_at).toLocaleString();
-    const name = log.player_name || "Unknown player";
-
     item.innerHTML = `
       <div>
-        <div class="savedPlayName" data-player="${name}" style="cursor:pointer;">
-          ${name}
-        </div>
+        <div class="savedPlayName">${log.play_name || "Unknown play"}</div>
         <div class="savedPlayMeta">
-          ${date} | ${log.play_name || "Unknown play"} | Player ${log.player_number} | Score: ${log.score}/10
+          ${date} | Player ${log.player_number} | Score: ${log.score}/10
         </div>
-      </div>
-    `;
-
+      </div>`;
     list.appendChild(item);
-  });
-
-  list.querySelectorAll("[data-player]").forEach(nameEl => {
-    nameEl.onclick = async () => {
-      const playerName = nameEl.dataset.player;
-      const allLogs = await getTrainingLogs();
-      const filtered = allLogs.filter(log => log.player_name === playerName);
-      renderLogs(filtered, playerName);
-    };
   });
 }
 
 async function openLogs() {
   const modal = document.getElementById("logsModal");
-  const logs = await getTrainingLogs();
-  renderLogs(logs);
+  const user = await getCurrentUser();
+  if (!user) return;
+
+  const list = document.getElementById("logsList");
+  if (list) list.innerHTML = "Loading...";
+
+  const coach = await isCoachUser(user);
+
+  if (coach) {
+    renderCoachLogs(await getCoachLogs());
+  } else {
+    renderPlayerLogs(await getOwnTrainingLogs(user));
+  }
+
   modal.classList.remove("hidden");
 }
 
@@ -973,7 +1069,6 @@ async function startSimulation() {
   const duration = 900 / simSpeedMultiplier;
 
   for (let i = 1; i < selectedPlay.steps.length; i++) {
-    // Show this phase's coaching notes (if any) while moving into it.
     activeNotes = notesForStep(selectedPlay.steps[i]);
     await animateBetweenSteps(selectedPlay.steps[i - 1], selectedPlay.steps[i], duration);
   }
@@ -1025,6 +1120,7 @@ async function calculateScore() {
   };
 
   await saveTrainingLogToDatabase(log);
+  await saveSimulatorLog(log);
 
   document.getElementById("scoreResult").innerHTML = `
     <div style="font-size:72px;font-weight:900;color:#ffd700;margin-bottom:25px;">${finalScore}/10</div>
