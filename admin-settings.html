@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>App Settings — Team Clarity Admin</title>
+<style>
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: #f4f5f7; color: #1a1a1a; padding: 40px 16px;
+  }
+  .card {
+    max-width: 520px; margin: 0 auto; background: #fff;
+    border-radius: 16px; box-shadow: 0 6px 24px rgba(0,0,0,0.08); overflow: hidden;
+  }
+  .card header { background: #ff5a1f; color: #fff; padding: 22px 28px; }
+  .card header h1 { margin: 0; font-size: 1.25rem; }
+  .card header p { margin: 4px 0 0; opacity: .9; font-size: .85rem; }
+  .body { padding: 28px; }
+  .field { margin-bottom: 22px; }
+  .field label.title { display:block; font-weight:600; margin-bottom:6px; }
+  .field .hint { font-size:.8rem; color:#666; margin-bottom:8px; }
+  input[type="text"], input[type="number"] {
+    width: 100%; padding: 11px 13px; border:1px solid #d0d3d8;
+    border-radius: 9px; font-size: 1rem;
+  }
+  .toggle { display:flex; align-items:center; gap:10px; }
+  .toggle input { width:20px; height:20px; }
+  button.save {
+    width:100%; padding:13px; border:none; border-radius:10px;
+    background:#ff5a1f; color:#fff; font-size:1rem; font-weight:700; cursor:pointer;
+  }
+  button.save:disabled { opacity:.6; cursor:default; }
+  #status { margin-top:14px; text-align:center; font-weight:600; min-height:1.2em; }
+  .back { display:inline-block; margin-bottom:18px; color:#ff5a1f; text-decoration:none; font-weight:600; }
+</style>
+</head>
+<body>
+  <div class="card">
+    <header>
+      <h1>App Settings</h1>
+      <p>Promo code &amp; pay gate controls</p>
+    </header>
+    <div class="body">
+      <a class="back" href="admin.html">&larr; Back to admin</a>
+      <div id="formWrap">
+        <div class="field">
+          <label class="title" for="promoCode">Promo code</label>
+          <div class="hint">Players type this in the pay gate to unlock for the session.</div>
+          <input type="text" id="promoCode" placeholder="e.g. AZRUGBY" />
+        </div>
+
+        <div class="field toggle">
+          <input type="checkbox" id="promoEnabled" />
+          <label for="promoEnabled">Show the promo code box in the pay gate</label>
+        </div>
+
+        <div class="field toggle">
+          <input type="checkbox" id="paywallEnabled" />
+          <label for="paywallEnabled">Show the pay gate at all</label>
+        </div>
+
+        <div class="field">
+          <label class="title" for="paywallDelay">Pay gate appears after (seconds)</label>
+          <div class="hint">How long someone can use the app before the pay gate pops up. 0 = immediately.</div>
+          <input type="number" id="paywallDelay" min="0" step="1" />
+        </div>
+
+        <button class="save" id="saveBtn">Save settings</button>
+        <div id="status"></div>
+      </div>
+    </div>
+  </div>
+  <script type="module" src="admin-settings.js"></script>
+</body>
+</html>
