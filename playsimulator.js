@@ -5,6 +5,26 @@ tcBallImg.src = "assets/tc-ball.png";
 
 const socket = io();
 
+// --- Simulator room (keeps two players' sessions from colliding) ---
+function getSimRoom() {
+  let code = sessionStorage.getItem("tc_sim_room");
+  if (!code) {
+    const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+    code = "";
+    for (let i = 0; i < 4; i++) {
+      code += chars[Math.floor(Math.random() * chars.length)];
+    }
+    sessionStorage.setItem("tc_sim_room", code);
+  }
+  return code;
+}
+
+const SIM_ROOM = getSimRoom();
+
+socket.on("connect", () => {
+  socket.emit("sim-screen-join", SIM_ROOM);
+});
+
 const canvas = document.getElementById("field");
 const ctx = canvas.getContext("2d");
 ctx.imageSmoothingEnabled = true;
@@ -967,7 +987,7 @@ async function openQrCodes() {
   modal.classList.remove("hidden");
   grid.innerHTML = "";
 
-  const res = await fetch("/api/sim-qrs");
+  const res = await fetch("/api/sim-qrs?room=" + encodeURIComponent(SIM_ROOM));
   const data = await res.json();
 
   for (let i = 1; i <= 15; i++) {
@@ -976,7 +996,7 @@ async function openQrCodes() {
     item.innerHTML = `
       <div>Player ${i}</div>
       <img src="${data.qrs[i]}">
-      <div>${data.baseUrl}/simcontroller.html?p=${i}</div>
+      <div>${data.baseUrl}/simcontroller.html?p=${i}&room=${SIM_ROOM}</div>
     `;
     grid.appendChild(item);
   }
