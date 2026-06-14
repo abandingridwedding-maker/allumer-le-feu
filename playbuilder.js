@@ -1770,7 +1770,6 @@ function ensureOppositionControls() {
   let toggle = document.getElementById("oppositionToggle");
   let colorSelect = document.getElementById("oppositionColor");
 
-  // Create them only if the page doesn't already have them.
   if (!toggle) {
     toggle = document.createElement("button");
     toggle.id = "oppositionToggle";
@@ -1788,19 +1787,26 @@ function ensureOppositionControls() {
     `;
   }
 
-  // The bottom controls row (holds Full Pitch, Red, etc.)
   const pitch = document.getElementById("pitchMode");
-  const bar = pitch ? pitch.parentNode : (document.getElementById("teamColor")?.parentNode || null);
+  const teamColorEl = document.getElementById("teamColor");
+  const playerGroupEl = document.getElementById("playerGroup");
+  const bar = pitch ? pitch.parentNode : (teamColorEl?.parentNode || null);
 
   if (bar) {
-    // Opposition ON/OFF -> right after Full Pitch (second from left)
+    // Opposition ON/OFF -> right after Full Pitch
     if (pitch) {
       bar.insertBefore(toggle, pitch.nextSibling);
     } else {
       bar.insertBefore(toggle, bar.children[1] || null);
     }
-    // Opposition colour -> very last control in the row
-    bar.appendChild(colorSelect);
+
+    // Opp colour -> right after the ON/OFF toggle
+    bar.insertBefore(colorSelect, toggle.nextSibling);
+
+    // Red (team colour) -> right after All Players
+    if (teamColorEl && playerGroupEl) {
+      bar.insertBefore(teamColorEl, playerGroupEl.nextSibling);
+    }
   } else {
     toggle.style.cssText = "position:fixed;top:12px;right:150px;z-index:9999;";
     colorSelect.style.cssText = "position:fixed;top:12px;right:12px;z-index:9999;";
