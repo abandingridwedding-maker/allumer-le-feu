@@ -1,5 +1,46 @@
 const socket = io();
 
+// --- Clarity Live room (keeps each team's session separate) ---
+function getLiveRoom() {
+  const params = new URLSearchParams(window.location.search);
+  const fromUrl = (params.get("room") || "").trim().toUpperCase();
+  if (fromUrl) {
+    sessionStorage.setItem("tc_live_room", fromUrl);
+    return fromUrl;
+  }
+  let code = sessionStorage.getItem("tc_live_room");
+  if (!code) {
+    const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+    code = "";
+    for (let i = 0; i < 4; i++) {
+      code += chars[Math.floor(Math.random() * chars.length)];
+    }
+    sessionStorage.setItem("tc_live_room", code);
+  }
+  return code;
+}
+
+const LIVE_ROOM = getLiveRoom();
+
+socket.on("connect", () => {
+  socket.emit("coach-join", LIVE_ROOM);
+});
+
+function showRoomBanner() {
+  if (document.getElementById("tcRoomBanner")) return;
+  const b = document.createElement("div");
+  b.id = "tcRoomBanner";
+  b.style.cssText = [
+    "position:fixed", "top:10px", "left:50%", "transform:translateX(-50%)",
+    "z-index:99999", "background:#ff5a1f", "color:#fff",
+    "padding:8px 18px", "border-radius:999px", "font-weight:800",
+    "font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Arial,sans-serif",
+    "font-size:15px", "letter-spacing:1px", "box-shadow:0 4px 14px rgba(0,0,0,0.3)"
+  ].join(";");
+  b.textContent = "LIVE CODE: " + LIVE_ROOM;
+  document.body.appendChild(b);
+}
+
 const tcBallImg = new Image();
 tcBallImg.src = "assets/tc-ball.png";
 
@@ -892,7 +933,7 @@ if (qrBtn) {
     modal.classList.remove("hidden");
     grid.innerHTML = "";
 
-    const res = await fetch("/api/qrs");
+    const res = await fetch("/api/qrs?room=" + encodeURIComponent(LIVE_ROOM));
     const data = await res.json();
 
     for (let i = 1; i <= 15; i++) {
@@ -902,7 +943,7 @@ if (qrBtn) {
       item.innerHTML = `
         <div>Player ${i}</div>
         <img src="${data.qrs[i]}" />
-        <div>${data.baseUrl}/controller.html?p=${i}</div>
+        <div>${data.baseUrl}/controller.html?p=${i}&room=${LIVE_ROOM}</div>
       `;
 
       grid.appendChild(item);
@@ -1215,6 +1256,7 @@ window.addEventListener("load", () => {
   currentLang = "en";
 
   applyTranslations();
+  showRoomBanner();
   applyActiveField();
   syncControls();
   updateToolVisibility();

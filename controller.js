@@ -2,6 +2,7 @@ const socket = io({ transports: ["websocket", "polling"] });
 
 const params = new URLSearchParams(window.location.search);
 const playerNumber = Number(params.get("p") || 1);
+const room = (params.get("room") || "").trim().toUpperCase();
 
 const statusEl = document.getElementById("status");
 const playerNumberEl = document.getElementById("playerNumber");
@@ -20,9 +21,12 @@ function setStatus(text, connected = false) {
 }
 
 function joinLive() {
-  socket.emit("controller-connect", playerNumber);
-  socket.emit("controller-join", playerNumber);
-  socket.emit("player-join", playerNumber);
+  if (!room) {
+    setStatus("Scan the coach's QR code", false);
+    return false;
+  }
+  socket.emit("controller-join", { number: playerNumber, room });
+  return true;
 }
 
 function resetStick() {
@@ -147,8 +151,9 @@ window.addEventListener("mouseup", () => {
 });
 
 socket.on("connect", () => {
-  joinLive();
-  setStatus("Connected ✅", true);
+  if (joinLive()) {
+    setStatus("Connected ✅", true);
+  }
 });
 
 socket.on("live-controller-ack", data => {
