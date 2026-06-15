@@ -52,6 +52,34 @@ let isAnimating = false;
 let builderSpeedMultiplier = 1;
 let setPieceCycle = 0;
 
+// ---- Play / Pause control ----
+let isPaused = false;
+
+const ICON_PLAY  = '<svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8 5v14l11-7z"/></svg>';
+const ICON_PAUSE = '<svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><rect x="6" y="5" width="4" height="14" rx="1.2"/><rect x="14" y="5" width="4" height="14" rx="1.2"/></svg>';
+
+function setPlayButtonState(state) {           // 'play' or 'pause'
+  const btn = document.getElementById("playAnimationBtn");
+  if (!btn) return;
+  btn.innerHTML = state === "pause" ? ICON_PAUSE : ICON_PLAY;
+  btn.setAttribute("aria-label", state === "pause" ? "Pause" : "Play");
+}
+
+function onPlayButton() {
+  if (!isAnimating) {
+    playAnimation();              // not running → start
+  } else if (awaitingContinue) {
+    setPlayButtonState("pause");  // sitting on a note → continue
+    resolveContinue();
+  } else if (isPaused) {
+    isPaused = false;             // resume from the exact point
+    setPlayButtonState("pause");
+  } else {
+    isPaused = true;              // freeze mid-movement
+    setPlayButtonState("play");
+  }
+}
+
 function clone(obj) { return JSON.parse(JSON.stringify(obj)); }
 function clamp(v, min, max) { return Math.max(min, Math.min(max, v)); }
 function colorName(hex) { for (const k in COLORS) { if (COLORS[k] === hex) return k; } return null; }
@@ -915,11 +943,48 @@ function drawOppositionPlayer(p) {
   drawCirclePlayer(p);
 }
 
+function drawPlayNameLabel(text, x, y, size = 24) {
+  const label = String(text || "").toUpperCase();
+  ctx.save();
+  ctx.font = `900 ${size}px Courier New`;
+  ctx.textAlign = "left";
+  ctx.textBaseline = "alphabetic";
+
+  const tw = ctx.measureText(label).width;
+  const padX = 18;
+  const padY = 12;
+  const boxX = x - padX;
+  const boxY = y - size - padY + 4;
+  const boxW = tw + padX * 2;
+  const boxH = size + padY * 2;
+  const r = 4;
+
+  // Grey translucent background (matches the Simulator label).
+  ctx.fillStyle = "rgba(40,40,40,0.72)";
+  if (ctx.roundRect) { ctx.beginPath(); ctx.roundRect(boxX, boxY, boxW, boxH, r); ctx.fill(); }
+  else ctx.fillRect(boxX, boxY, boxW, boxH);
+
+  // Gold border.
+  ctx.strokeStyle = "#ffd700";
+  ctx.lineWidth = 3;
+  if (ctx.roundRect) { ctx.beginPath(); ctx.roundRect(boxX, boxY, boxW, boxH, r); ctx.stroke(); }
+  else ctx.strokeRect(boxX, boxY, boxW, boxH);
+
+  // Gold text with a soft shadow.
+  ctx.fillStyle = "#ffd700";
+  ctx.shadowColor = "#000";
+  ctx.shadowOffsetX = 3;
+  ctx.shadowOffsetY = 3;
+  ctx.fillText(label, x, y);
+
+  ctx.restore();
+}
+
 function drawFooter() {
   const y = H - 72;
 
   if (currentPlayName) {
-    pixelText(currentPlayName.toUpperCase(), 45, 95, 24, "left", "#ffd700");
+    drawPlayNameLabel(currentPlayName, 45, 95, 24);
   }
 
   ctx.fillStyle = "rgba(0,0,0,.42)";
@@ -1231,10 +1296,20 @@ function stepBack() {
 
 function animateBetweenSteps(from, to, duration = 900) {
   return new Promise(resolve => {
-    const start = performance.now();
+    let elapsed = 0;
+    let last = performance.now();
 
     function frame(now) {
-      const t = Math.min((now - start) / duration, 1);
+      const dt = now - last;
+      last = now;
+
+      if (isPaused) {            // hold here, keep the loop alive, freeze the frame
+        requestAnimationFrame(frame);
+        return;
+      }
+
+      elapsed += dt;             // time only advances when not paused
+      const t = Math.min(elapsed / duration, 1);
       const s = t * t * (3 - 2 * t);
 
       Object.values(players).forEach(p => {
@@ -1279,12 +1354,16 @@ async function playAnimation() {
 
   setAnnotationMode(false);
   isAnimating = true;
+  isPaused = false;
+  setPlayButtonState("pause");
   applyStep(steps[0]);
   draw();
 
   // Pause on the first step if it carries any coaching notes.
   if ((annotations || []).length) {
+    setPlayButtonState("play");
     await waitForContinue();
+    setPlayButtonState("pause");
   }
 
   for (let i = 1; i < steps.length; i++) {
@@ -1303,12 +1382,16 @@ async function playAnimation() {
     draw();
 
     if (annotations.length) {
+      setPlayButtonState("play");
       await waitForContinue();
+      setPlayButtonState("pause");
     }
   }
 
   resolveContinue();
   isAnimating = false;
+  isPaused = false;
+  setPlayButtonState("play");
   canvas.style.cursor = "";
   draw();
 }
@@ -1825,7 +1908,7 @@ ensureAnnotationControls();
 ensureAnnotationEditor();
 
 bind("builderMainBtn", "click", builderMainAction);
-bind("playAnimationBtn", "click", playAnimation);
+bind("playAnimationBtn", "click", onPlayButton);
 bind("clearStepsBtn", "click", clearSteps);
 bind("stepBackBtn", "click", stepBack);
 bind("savePlayBtn", "click", savePlay);
@@ -1870,6 +1953,7 @@ syncControls();
 initPlayers();
 updateBuilderButton();
 draw();
+setPlayButtonState("play");
 
 // ---------- Export the animation to a downloadable video ----------
 function tcSleep(ms) { return new Promise(r => setTimeout(r, ms)); }
@@ -1877,6 +1961,7 @@ function tcSleep(ms) { return new Promise(r => setTimeout(r, ms)); }
 async function tcPlayForExport() {
   setAnnotationMode(false);
   isAnimating = true;
+  isPaused = false;
   applyStep(steps[0]);
   draw();
   await tcSleep((annotations || []).length ? 2200 : 600);
