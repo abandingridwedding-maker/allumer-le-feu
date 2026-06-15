@@ -127,13 +127,33 @@
   <script type="module">
     import { supabase } from './supabase.js'
 
-    const {
-      data: { session }
-    } = await supabase.auth.getSession()
+    // Only these elements require a login. Everything else on the page —
+    // notably the Help button and the guide links inside it — is intentionally
+    // NOT gated, so visitors can read how the app works before signing in.
+    const GATED_SELECTOR = '.homeCard, .teamAccessBtn'
 
-    if (!session) {
-      window.location.href = 'auth.html'
-    }
+    document.addEventListener('click', async (event) => {
+      const link = event.target.closest(GATED_SELECTOR)
+      if (!link) return            // Help, logo, empty space, etc. → ignored
+
+      // Hold the navigation until we know whether Team Clarity recognises them.
+      event.preventDefault()
+
+      const destination = link.getAttribute('href')
+
+      const {
+        data: { session }
+      } = await supabase.auth.getSession()
+
+      if (session) {
+        // Recognised → behaves as if already logged in, go straight in.
+        window.location.href = destination
+      } else {
+        // Not recognised → send to login, returning here after success.
+        window.location.href =
+          'auth.html?next=' + encodeURIComponent(destination)
+      }
+    })
   </script>
 <script type="module" src="paywall.js"></script>
 <script type="module" src="team-badge.js"></script>
