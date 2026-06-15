@@ -6,9 +6,14 @@ const PRICE_LABEL = "€2.99 / month";       // change price/currency here
 const LOGO_SRC = "assets/tc-logo.png";     // your flame logo
 const PROMO_SESSION_KEY = "tc_promo_unlocked_session";
 
-function hasValidAccess() {
+async function hasValidAccess() {
   if (localStorage.getItem("subscriptionActive") === "true") return true;
   if (sessionStorage.getItem(PROMO_SESSION_KEY) === "true") return true;
+  // team members (club already paid) get access automatically
+  try {
+    const { data: teamName } = await supabase.rpc("get_my_team");
+    if (teamName) return true;
+  } catch (e) {}
   return false;
 }
 
@@ -101,14 +106,14 @@ function buildPaywall(settings) {
 }
 
 async function initPaywall() {
-  if (hasValidAccess()) return;
+  if (await hasValidAccess()) return;
   const settings = await loadSettings();
   if (!settings) return;
   if (!settings.paywall_enabled) return;
   if (await isAdminUser()) return;
   const delayMs = Math.max(0, Number(settings.paywall_delay_seconds) || 0) * 1000;
-  setTimeout(() => {
-    if (!hasValidAccess()) buildPaywall(settings);
+  setTimeout(async () => {
+    if (!(await hasValidAccess())) buildPaywall(settings);
   }, delayMs);
 }
 

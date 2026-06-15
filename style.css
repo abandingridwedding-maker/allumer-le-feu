@@ -2386,3 +2386,8 @@ body.simulatorActive #mobileScoreText {
   font-size: 14px;
   font-weight: 900;
 }
+#tcTeamBadge{
+  position:fixed; bottom:14px; left:14px; z-index:10000;
+  background:#F4571C; color:#fff; font-weight:700; font-size:13px;
+  padding:6px 12px; border-radius:999px; box-shadow:0 4px 14px rgba(0,0,0,.2);
+}
