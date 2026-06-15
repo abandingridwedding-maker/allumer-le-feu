@@ -80,6 +80,13 @@ let targetCameraZoom = 1;
 let cameraCenterY = 350;
 let targetCameraCenterY = 350;
 
+// Logical (CSS) canvas size — all the drawing maths uses these. The actual
+// canvas buffer is scaled up by devicePixelRatio for a crisp picture.
+let viewW = 0;
+let viewH = 0;
+
+let hintEl = null;
+
 function clamp(value, min, max) {
   return Math.max(min, Math.min(max, value));
 }
@@ -176,13 +183,42 @@ function normalizeStepsToMobileField(rawSteps) {
 
 function resizeCanvas() {
   const rect = mobilePitch.getBoundingClientRect();
-  mobilePitch.width = Math.max(320, Math.floor(rect.width || window.innerWidth));
-  mobilePitch.height = Math.max(220, Math.floor(rect.height || window.innerHeight));
+  viewW = Math.max(320, Math.floor(rect.width || window.innerWidth));
+  viewH = Math.max(220, Math.floor(rect.height || window.innerHeight));
+
+  // Render at the device's pixel density for a sharp picture, capped at 2x so
+  // very high-DPI phones don't get a huge, slow buffer.
+  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  const bufferW = Math.floor(viewW * dpr);
+  const bufferH = Math.floor(viewH * dpr);
+
+  if (mobilePitch.width !== bufferW || mobilePitch.height !== bufferH) {
+    mobilePitch.width = bufferW;
+    mobilePitch.height = bufferH;
+  }
+
   updateCameraTarget(true);
 }
 
+// Phones fire resize/orientationchange BEFORE finishing layout, so a single
+// measurement reads the OLD size and the pitch comes out the wrong ratio.
+// Re-measure a few times until the new orientation has settled.
+let tcResizeTimer = null;
+function scheduleResize() {
+  clearTimeout(tcResizeTimer);
+  resizeCanvas();                       // immediate best guess
+  tcResizeTimer = setTimeout(() => {
+    resizeCanvas();                     // after layout settles
+    setTimeout(resizeCanvas, 250);      // once more for slow iOS relayout
+  }, 150);
+}
+
 resizeCanvas();
-window.addEventListener("resize", resizeCanvas);
+window.addEventListener("resize", scheduleResize);
+window.addEventListener("orientationchange", scheduleResize);
+if (window.visualViewport) {
+  window.visualViewport.addEventListener("resize", scheduleResize);
+}
 
 loadMobilePlayBtn.onclick = joinTeamFolder;
 const params = new URLSearchParams(window.location.search);
@@ -302,6 +338,45 @@ function updateNotesBanner() {
   }
 }
 
+// Branded toast message — replaces native alert() so errors don't look like
+// jarring system pop-ups on a phone.
+function showMessage(text, type = "error") {
+  let el = document.getElementById("mobileToast");
+  if (!el) {
+    el = document.createElement("div");
+    el.id = "mobileToast";
+    el.style.cssText = "position:fixed;left:50%;top:18px;transform:translateX(-50%);z-index:100000;max-width:90%;padding:13px 18px;border-radius:14px;font-family:Arial,sans-serif;font-weight:800;font-size:15px;text-align:center;color:#fff;box-shadow:0 10px 30px rgba(0,0,0,.3);";
+    document.body.appendChild(el);
+  }
+  el.style.background = type === "success" ? "#16a34a" : "#F4571C";
+  el.textContent = text;
+  el.style.display = "block";
+  clearTimeout(el._tcTimer);
+  el._tcTimer = setTimeout(() => { el.style.display = "none"; }, 2600);
+}
+
+// On-pitch hint shown until the player taps their shirt number, so a first
+// timer knows what to do instead of tapping the pitch and seeing nothing.
+function ensureHint() {
+  if (hintEl) return hintEl;
+
+  hintEl = document.createElement("div");
+  hintEl.id = "mobileNumberHint";
+  hintEl.style.cssText = "position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);z-index:35;max-width:80%;background:rgba(20,18,16,.82);color:#fff;border:2px solid #F4571C;border-radius:16px;padding:14px 18px;font-family:Arial,sans-serif;font-weight:800;font-size:15px;text-align:center;box-shadow:0 10px 30px rgba(0,0,0,.4);pointer-events:none;display:none;";
+  hintEl.textContent = "👇 Tap your shirt number below to start";
+
+  const wrap = document.getElementById("mobilePitchWrap") || document.body;
+  if (getComputedStyle(wrap).position === "static") wrap.style.position = "relative";
+  wrap.appendChild(hintEl);
+
+  return hintEl;
+}
+
+function updateHint() {
+  const el = ensureHint();
+  el.style.display = selectedPlayer ? "none" : "block";
+}
+
 async function joinTeamFolder() {
   const params = new URLSearchParams(window.location.search);
 
@@ -313,7 +388,7 @@ async function joinTeamFolder() {
   ).trim();
 
   if (!code) {
-    alert("Enter a folder code.");
+    showMessage("Enter a folder code.");
     return;
   }
 
@@ -323,9 +398,9 @@ async function joinTeamFolder() {
   const { data: { user }, error: userError } = await supabase.auth.getUser();
 
   if (userError || !user) {
-    alert("Please log in first to join this folder.");
+    showMessage("Please log in first to join this folder.");
     localStorage.setItem("pending_mobile_folder_code", code);
-    window.location.href = "auth.html";
+    setTimeout(() => { window.location.href = "auth.html"; }, 1200);
     return;
   }
 
@@ -334,7 +409,7 @@ async function joinTeamFolder() {
     .rpc("join_folder_by_code", { p_code: code });
 
   if (joinError || !joined || !joined.length) {
-    alert("Folder not found.");
+    showMessage("Folder not found.");
     loadMobilePlayBtn.disabled = false;
     loadMobilePlayBtn.textContent = "Join Folder";
     return;
@@ -349,7 +424,7 @@ async function joinTeamFolder() {
     .order("created_at", { ascending: false });
 
   if (playsError) {
-    alert(playsError.message);
+    showMessage(playsError.message);
     loadMobilePlayBtn.disabled = false;
     loadMobilePlayBtn.textContent = "Join Folder";
     return;
@@ -358,7 +433,7 @@ async function joinTeamFolder() {
   plays = folderPlays || [];
 
   if (!plays.length) {
-    alert("This folder has no plays yet.");
+    showMessage("This folder has no plays yet.");
     loadMobilePlayBtn.disabled = false;
     loadMobilePlayBtn.textContent = "Join Folder";
     return;
@@ -400,13 +475,15 @@ function openPlay(play) {
   steps = normalizeStepsToMobileField(data.steps || []);
   pitchMode = data.pitchMode || "full";
   currentStepIndex = 0;
+  selectedPlayer = null;            // fresh play → no number picked yet
 
   if (!steps.length) {
-    alert("This play has no steps.");
+    showMessage("This play has no steps.");
     return;
   }
 
   applyStep(steps[0]);
+  buildPlayerButtons();             // only the numbers used in this play
 
   mobileHome.classList.add("hidden");
   mobileSimulatorScreen.classList.remove("hidden");
@@ -420,6 +497,7 @@ function openPlay(play) {
   score = 0;
   updateScore();
   resizeCanvas();
+  updateHint();                     // show the "tap your number" prompt
 
   if (!renderStarted) {
     renderStarted = true;
@@ -450,33 +528,41 @@ function applyStep(step) {
 function buildPlayerButtons() {
   mobilePlayerButtons.innerHTML = "";
 
-  for (let i = 1; i <= 15; i++) {
+  // Only show the shirt numbers that actually appear in this play.
+  let numbers = [];
+  steps.forEach(s => Object.values(s.players || {}).forEach(p => {
+    const n = Number(p.number);
+    if (!numbers.includes(n)) numbers.push(n);
+  }));
+  numbers.sort((a, b) => a - b);
+  if (!numbers.length) { for (let i = 1; i <= 15; i++) numbers.push(i); }
+
+  numbers.forEach(i => {
     const btn = document.createElement("button");
     btn.innerText = i;
     btn.className = "mobilePlayerBtn";
 
     btn.onclick = () => {
-  selectedPlayer = i;
+      selectedPlayer = i;
 
-  document.querySelectorAll(".mobilePlayerBtn").forEach(b => {
-    b.classList.remove("activeMobilePlayer");
-    b.classList.remove("active");
-  });
+      document.querySelectorAll(".mobilePlayerBtn").forEach(b => {
+        b.classList.remove("activeMobilePlayer");
+        b.classList.remove("active");
+      });
 
-  btn.classList.add("activeMobilePlayer");
-  btn.classList.add("active");
+      btn.classList.add("activeMobilePlayer");
+      btn.classList.add("active");
 
-  updateCameraTarget(true);
-};
+      updateHint();
+      updateCameraTarget(true);
+    };
 
     mobilePlayerButtons.appendChild(btn);
-  }
+  });
 }
 
-buildPlayerButtons();
-
 function getBehindBaseScale() {
-  return (mobilePitch.width / 700) * 0.78;
+  return (viewW / 700) * 0.78;
 }
 
 function getIdealTargetForSelected() {
@@ -534,7 +620,7 @@ function getSmartZoom() {
 
   const bounds = getActiveBounds();
   const lateralSpan = Math.max(1, bounds.maxY - bounds.minY);
-  const allowedWidth = mobilePitch.width * 0.72;
+  const allowedWidth = viewW * 0.72;
   const baseScale = getBehindBaseScale();
   const maxZoomToFitWidth = allowedWidth / lateralSpan / baseScale;
 
@@ -545,8 +631,8 @@ function getOverviewRect() {
   return {
     x: -60,
     y: 6,
-    w: mobilePitch.width + 120,
-    h: mobilePitch.height - 12
+    w: viewW + 120,
+    h: viewH - 12
   };
 }
 
@@ -555,7 +641,7 @@ function toScreen(point) {
     const s = getBehindBaseScale() * cameraZoom;
 
     return {
-      x: mobilePitch.width / 2 + (cameraCenterY - point.y) * s,
+      x: viewW / 2 + (cameraCenterY - point.y) * s,
       y: point.x * s + cameraY
     };
   }
@@ -574,7 +660,7 @@ function toField(screenX, screenY) {
 
     return {
       x: (screenY - cameraY) / s,
-      y: cameraCenterY - ((screenX - mobilePitch.width / 2) / s)
+      y: cameraCenterY - ((screenX - viewW / 2) / s)
     };
   }
 
@@ -622,10 +708,10 @@ function updateCameraTarget(snap = false) {
 
   const s = getBehindBaseScale() * targetCameraZoom;
 
-  targetCameraY = mobilePitch.height / 2 - focusX * s;
+  targetCameraY = viewH / 2 - focusX * s;
 
   const pitchHeight = 1200 * s;
-  const minY = mobilePitch.height - pitchHeight;
+  const minY = viewH - pitchHeight;
   const maxY = 0;
 
   targetCameraY = clamp(targetCameraY, minY, maxY);
@@ -638,7 +724,10 @@ function updateCameraTarget(snap = false) {
 }
 
 function render() {
-  ctx.clearRect(0, 0, mobilePitch.width, mobilePitch.height);
+  // Draw in logical pixels but at device resolution → crisp on retina screens.
+  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.clearRect(0, 0, viewW, viewH);
 
   updateCameraTarget(false);
 
@@ -662,7 +751,7 @@ function drawPitch() {
 
   if (!(img.complete && img.naturalWidth > 0)) {
     ctx.fillStyle = "#15651c";
-    ctx.fillRect(0, 0, mobilePitch.width, mobilePitch.height);
+    ctx.fillRect(0, 0, viewW, viewH);
     return;
   }
 
@@ -670,7 +759,7 @@ function drawPitch() {
     const s = getBehindBaseScale() * cameraZoom;
 
     ctx.save();
-    ctx.translate(mobilePitch.width / 2 + cameraCenterY * s, cameraY);
+    ctx.translate(viewW / 2 + cameraCenterY * s, cameraY);
     ctx.scale(s, s);
     ctx.rotate(Math.PI / 2);
     ctx.drawImage(img, 0, 0, 1200, 700);
@@ -815,8 +904,11 @@ function moveSelectedPlayer(e) {
   e.preventDefault();
 
   const touch = e.touches[0];
+  if (!touch) return;
+
   const rect = mobilePitch.getBoundingClientRect();
 
+  // Touch coordinates are in CSS pixels, which match our logical drawing space.
   const fieldPoint = toField(
     touch.clientX - rect.left,
     touch.clientY - rect.top
@@ -836,7 +928,12 @@ function moveSelectedPlayer(e) {
 mobilePlayBtn.onclick = async () => {
   mobileControlOverlay.classList.add("hidden");
 
-  if (animationRunning || steps.length < 2) return;
+  if (animationRunning) return;
+
+  if (steps.length < 2) {
+    showMessage("This play needs at least 2 steps to run.");
+    return;
+  }
 
   await showCountdown();
 
@@ -1049,4 +1146,3 @@ function showScorePopup(value) {
     if (document.body.contains(popup)) popup.remove();
   }, 2500);
 }
-
