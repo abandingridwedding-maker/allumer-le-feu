@@ -1109,6 +1109,12 @@ async function startSimulation() {
     if (myRun !== simRunId) return;
   }
 
+  // Grace period — keep accepting controller movement for ~2s so the player
+  // can reach their final spot before the score is locked in. simRunning stays
+  // true here on purpose: the sim-player-move handler is gated on it.
+  await new Promise(resolve => setTimeout(resolve, 2000));
+  if (myRun !== simRunId) return;
+
   simRunning = false;
   await calculateScore();
 }
@@ -1269,4 +1275,3 @@ applyActiveField();
 updateControls();
 updatePitchModeSelect();
 draw();
-

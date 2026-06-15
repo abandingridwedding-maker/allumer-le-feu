@@ -565,7 +565,7 @@ canvas.grabbing {
     align-items: flex-start;
   }
 }/* =========================================================
-   TEAM-CLARITY — COMPACT PRO TOPBAR UPGRADE
+   TEAM-CLARITY â€” COMPACT PRO TOPBAR UPGRADE
    Add-on only. Safe to paste at bottom of style.css.
 ========================================================= */
 
@@ -708,7 +708,7 @@ button.resetBtn:hover {
     min-width: 180px;
   }
 }/* =========================================================
-   TEAM-CLARITY — TWO-ROW TOPBAR FIX
+   TEAM-CLARITY â€” TWO-ROW TOPBAR FIX
 ========================================================= */
 
 #topbar {
@@ -758,7 +758,7 @@ button.resetBtn:hover {
     justify-content: flex-start;
   }
 }/* =========================================================
-   TEAM-CLARITY — FINAL BUTTON COLOUR CLEANUP
+   TEAM-CLARITY â€” FINAL BUTTON COLOUR CLEANUP
 ========================================================= */
 
 button,
@@ -801,7 +801,7 @@ input[type="range"] {
 #simSpeed {
   accent-color: var(--orange) !important;
 }/* =========================================================
-   FINAL OVERRIDE — ALL TOPBAR BUTTONS SAME STYLE
+   FINAL OVERRIDE â€” ALL TOPBAR BUTTONS SAME STYLE
 ========================================================= */
 
 #topbar button,
@@ -1346,18 +1346,21 @@ body.simulatorActive #mobilePitchWrap {
 }
 
 body.simulatorActive #mobilePitch {
-  width: 100vw;
-  height: 100dvh;
+  /* Framed card to match #fieldShell on the laptop builder/simulator.
+     The wrap is a fixed, flex-centering backdrop (#f7f4f1), so the canvas
+     sits as a white rounded card with the page colour showing around it. */
+  width: calc(100vw - 24px) !important;
+  height: calc(100dvh - 24px) !important;
 
   margin: 0 !important;
-  border-radius: 0;
+  border-radius: 22px;
 
   display: block;
 
-  background: transparent !important;
+  background: #ffffff !important;
   background-image: none !important;
 
-  box-shadow: none !important;
+  box-shadow: 0 12px 32px rgba(0,0,0,.20) !important;
 
   touch-action: none;
 }
@@ -1676,7 +1679,7 @@ body.simulatorActive .mobileControlPanel #mobileLoadPlayBtn {
     0 8px 18px rgba(0,0,0,.14);
 }
 
-/* MOBILE PLAY NAME — LAPTOP STYLE TOP RIGHT */
+/* MOBILE PLAY NAME â€” LAPTOP STYLE TOP RIGHT */
 body.simulatorActive #mobilePlayName {
   display: block !important;
   position: fixed !important;
@@ -1713,7 +1716,7 @@ line-height: 0.95;
   text-overflow: ellipsis;
 }
 
-/* FIX — SHOW SELECTED PLAY NAME ON MOBILE SIMULATOR */
+/* FIX â€” SHOW SELECTED PLAY NAME ON MOBILE SIMULATOR */
 body.simulatorActive .mobileSimTopbar div {
   display: block !important;
 }

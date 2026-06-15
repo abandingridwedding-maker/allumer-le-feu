@@ -67,6 +67,7 @@ let notesBanner = null;
 let score = 0;
 let isDragging = false;
 let animationRunning = false;
+let repRunId = 0; // bumps each rep / reset so a stale grace-period score is ignored
 let renderStarted = false;
 
 let shadowOn = true;
@@ -79,13 +80,6 @@ let cameraZoom = 1;
 let targetCameraZoom = 1;
 let cameraCenterY = 350;
 let targetCameraCenterY = 350;
-
-// Logical (CSS) canvas size — all the drawing maths uses these. The actual
-// canvas buffer is scaled up by devicePixelRatio for a crisp picture.
-let viewW = 0;
-let viewH = 0;
-
-let hintEl = null;
 
 function clamp(value, min, max) {
   return Math.max(min, Math.min(max, value));
@@ -183,26 +177,17 @@ function normalizeStepsToMobileField(rawSteps) {
 
 function resizeCanvas() {
   const rect = mobilePitch.getBoundingClientRect();
-  viewW = Math.max(320, Math.floor(rect.width || window.innerWidth));
-  viewH = Math.max(220, Math.floor(rect.height || window.innerHeight));
-
-  // Render at the device's pixel density for a sharp picture, capped at 2x so
-  // very high-DPI phones don't get a huge, slow buffer.
-  const dpr = Math.min(window.devicePixelRatio || 1, 2);
-  const bufferW = Math.floor(viewW * dpr);
-  const bufferH = Math.floor(viewH * dpr);
-
-  if (mobilePitch.width !== bufferW || mobilePitch.height !== bufferH) {
-    mobilePitch.width = bufferW;
-    mobilePitch.height = bufferH;
+  const w = Math.max(320, Math.floor(rect.width || window.innerWidth));
+  const h = Math.max(220, Math.floor(rect.height || window.innerHeight));
+  if (mobilePitch.width !== w || mobilePitch.height !== h) {
+    mobilePitch.width = w;
+    mobilePitch.height = h;
   }
-
   updateCameraTarget(true);
 }
 
-// Phones fire resize/orientationchange BEFORE finishing layout, so a single
-// measurement reads the OLD size and the pitch comes out the wrong ratio.
-// Re-measure a few times until the new orientation has settled.
+// Phones fire resize/orientationchange BEFORE finishing layout, so one
+// measurement reads the old size. Re-measure a few times until it settles.
 let tcResizeTimer = null;
 function scheduleResize() {
   clearTimeout(tcResizeTimer);
@@ -338,45 +323,6 @@ function updateNotesBanner() {
   }
 }
 
-// Branded toast message — replaces native alert() so errors don't look like
-// jarring system pop-ups on a phone.
-function showMessage(text, type = "error") {
-  let el = document.getElementById("mobileToast");
-  if (!el) {
-    el = document.createElement("div");
-    el.id = "mobileToast";
-    el.style.cssText = "position:fixed;left:50%;top:18px;transform:translateX(-50%);z-index:100000;max-width:90%;padding:13px 18px;border-radius:14px;font-family:Arial,sans-serif;font-weight:800;font-size:15px;text-align:center;color:#fff;box-shadow:0 10px 30px rgba(0,0,0,.3);";
-    document.body.appendChild(el);
-  }
-  el.style.background = type === "success" ? "#16a34a" : "#F4571C";
-  el.textContent = text;
-  el.style.display = "block";
-  clearTimeout(el._tcTimer);
-  el._tcTimer = setTimeout(() => { el.style.display = "none"; }, 2600);
-}
-
-// On-pitch hint shown until the player taps their shirt number, so a first
-// timer knows what to do instead of tapping the pitch and seeing nothing.
-function ensureHint() {
-  if (hintEl) return hintEl;
-
-  hintEl = document.createElement("div");
-  hintEl.id = "mobileNumberHint";
-  hintEl.style.cssText = "position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);z-index:35;max-width:80%;background:rgba(20,18,16,.82);color:#fff;border:2px solid #F4571C;border-radius:16px;padding:14px 18px;font-family:Arial,sans-serif;font-weight:800;font-size:15px;text-align:center;box-shadow:0 10px 30px rgba(0,0,0,.4);pointer-events:none;display:none;";
-  hintEl.textContent = "👇 Tap your shirt number below to start";
-
-  const wrap = document.getElementById("mobilePitchWrap") || document.body;
-  if (getComputedStyle(wrap).position === "static") wrap.style.position = "relative";
-  wrap.appendChild(hintEl);
-
-  return hintEl;
-}
-
-function updateHint() {
-  const el = ensureHint();
-  el.style.display = selectedPlayer ? "none" : "block";
-}
-
 async function joinTeamFolder() {
   const params = new URLSearchParams(window.location.search);
 
@@ -388,7 +334,7 @@ async function joinTeamFolder() {
   ).trim();
 
   if (!code) {
-    showMessage("Enter a folder code.");
+    alert("Enter a folder code.");
     return;
   }
 
@@ -398,9 +344,9 @@ async function joinTeamFolder() {
   const { data: { user }, error: userError } = await supabase.auth.getUser();
 
   if (userError || !user) {
-    showMessage("Please log in first to join this folder.");
+    alert("Please log in first to join this folder.");
     localStorage.setItem("pending_mobile_folder_code", code);
-    setTimeout(() => { window.location.href = "auth.html"; }, 1200);
+    window.location.href = "auth.html";
     return;
   }
 
@@ -409,7 +355,7 @@ async function joinTeamFolder() {
     .rpc("join_folder_by_code", { p_code: code });
 
   if (joinError || !joined || !joined.length) {
-    showMessage("Folder not found.");
+    alert("Folder not found.");
     loadMobilePlayBtn.disabled = false;
     loadMobilePlayBtn.textContent = "Join Folder";
     return;
@@ -424,7 +370,7 @@ async function joinTeamFolder() {
     .order("created_at", { ascending: false });
 
   if (playsError) {
-    showMessage(playsError.message);
+    alert(playsError.message);
     loadMobilePlayBtn.disabled = false;
     loadMobilePlayBtn.textContent = "Join Folder";
     return;
@@ -433,7 +379,7 @@ async function joinTeamFolder() {
   plays = folderPlays || [];
 
   if (!plays.length) {
-    showMessage("This folder has no plays yet.");
+    alert("This folder has no plays yet.");
     loadMobilePlayBtn.disabled = false;
     loadMobilePlayBtn.textContent = "Join Folder";
     return;
@@ -475,15 +421,13 @@ function openPlay(play) {
   steps = normalizeStepsToMobileField(data.steps || []);
   pitchMode = data.pitchMode || "full";
   currentStepIndex = 0;
-  selectedPlayer = null;            // fresh play → no number picked yet
 
   if (!steps.length) {
-    showMessage("This play has no steps.");
+    alert("This play has no steps.");
     return;
   }
 
   applyStep(steps[0]);
-  buildPlayerButtons();             // only the numbers used in this play
 
   mobileHome.classList.add("hidden");
   mobileSimulatorScreen.classList.remove("hidden");
@@ -497,7 +441,6 @@ function openPlay(play) {
   score = 0;
   updateScore();
   resizeCanvas();
-  updateHint();                     // show the "tap your number" prompt
 
   if (!renderStarted) {
     renderStarted = true;
@@ -528,41 +471,33 @@ function applyStep(step) {
 function buildPlayerButtons() {
   mobilePlayerButtons.innerHTML = "";
 
-  // Only show the shirt numbers that actually appear in this play.
-  let numbers = [];
-  steps.forEach(s => Object.values(s.players || {}).forEach(p => {
-    const n = Number(p.number);
-    if (!numbers.includes(n)) numbers.push(n);
-  }));
-  numbers.sort((a, b) => a - b);
-  if (!numbers.length) { for (let i = 1; i <= 15; i++) numbers.push(i); }
-
-  numbers.forEach(i => {
+  for (let i = 1; i <= 15; i++) {
     const btn = document.createElement("button");
     btn.innerText = i;
     btn.className = "mobilePlayerBtn";
 
     btn.onclick = () => {
-      selectedPlayer = i;
+  selectedPlayer = i;
 
-      document.querySelectorAll(".mobilePlayerBtn").forEach(b => {
-        b.classList.remove("activeMobilePlayer");
-        b.classList.remove("active");
-      });
+  document.querySelectorAll(".mobilePlayerBtn").forEach(b => {
+    b.classList.remove("activeMobilePlayer");
+    b.classList.remove("active");
+  });
 
-      btn.classList.add("activeMobilePlayer");
-      btn.classList.add("active");
+  btn.classList.add("activeMobilePlayer");
+  btn.classList.add("active");
 
-      updateHint();
-      updateCameraTarget(true);
-    };
+  updateCameraTarget(true);
+};
 
     mobilePlayerButtons.appendChild(btn);
-  });
+  }
 }
 
+buildPlayerButtons();
+
 function getBehindBaseScale() {
-  return (viewW / 700) * 0.78;
+  return (mobilePitch.width / 700) * 0.78;
 }
 
 function getIdealTargetForSelected() {
@@ -620,7 +555,7 @@ function getSmartZoom() {
 
   const bounds = getActiveBounds();
   const lateralSpan = Math.max(1, bounds.maxY - bounds.minY);
-  const allowedWidth = viewW * 0.72;
+  const allowedWidth = mobilePitch.width * 0.72;
   const baseScale = getBehindBaseScale();
   const maxZoomToFitWidth = allowedWidth / lateralSpan / baseScale;
 
@@ -631,8 +566,8 @@ function getOverviewRect() {
   return {
     x: -60,
     y: 6,
-    w: viewW + 120,
-    h: viewH - 12
+    w: mobilePitch.width + 120,
+    h: mobilePitch.height - 12
   };
 }
 
@@ -641,7 +576,7 @@ function toScreen(point) {
     const s = getBehindBaseScale() * cameraZoom;
 
     return {
-      x: viewW / 2 + (cameraCenterY - point.y) * s,
+      x: mobilePitch.width / 2 + (cameraCenterY - point.y) * s,
       y: point.x * s + cameraY
     };
   }
@@ -660,7 +595,7 @@ function toField(screenX, screenY) {
 
     return {
       x: (screenY - cameraY) / s,
-      y: cameraCenterY - ((screenX - viewW / 2) / s)
+      y: cameraCenterY - ((screenX - mobilePitch.width / 2) / s)
     };
   }
 
@@ -708,10 +643,10 @@ function updateCameraTarget(snap = false) {
 
   const s = getBehindBaseScale() * targetCameraZoom;
 
-  targetCameraY = viewH / 2 - focusX * s;
+  targetCameraY = mobilePitch.height / 2 - focusX * s;
 
   const pitchHeight = 1200 * s;
-  const minY = viewH - pitchHeight;
+  const minY = mobilePitch.height - pitchHeight;
   const maxY = 0;
 
   targetCameraY = clamp(targetCameraY, minY, maxY);
@@ -724,10 +659,7 @@ function updateCameraTarget(snap = false) {
 }
 
 function render() {
-  // Draw in logical pixels but at device resolution → crisp on retina screens.
-  const dpr = Math.min(window.devicePixelRatio || 1, 2);
-  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-  ctx.clearRect(0, 0, viewW, viewH);
+  ctx.clearRect(0, 0, mobilePitch.width, mobilePitch.height);
 
   updateCameraTarget(false);
 
@@ -751,7 +683,7 @@ function drawPitch() {
 
   if (!(img.complete && img.naturalWidth > 0)) {
     ctx.fillStyle = "#15651c";
-    ctx.fillRect(0, 0, viewW, viewH);
+    ctx.fillRect(0, 0, mobilePitch.width, mobilePitch.height);
     return;
   }
 
@@ -759,7 +691,7 @@ function drawPitch() {
     const s = getBehindBaseScale() * cameraZoom;
 
     ctx.save();
-    ctx.translate(viewW / 2 + cameraCenterY * s, cameraY);
+    ctx.translate(mobilePitch.width / 2 + cameraCenterY * s, cameraY);
     ctx.scale(s, s);
     ctx.rotate(Math.PI / 2);
     ctx.drawImage(img, 0, 0, 1200, 700);
@@ -904,11 +836,8 @@ function moveSelectedPlayer(e) {
   e.preventDefault();
 
   const touch = e.touches[0];
-  if (!touch) return;
-
   const rect = mobilePitch.getBoundingClientRect();
 
-  // Touch coordinates are in CSS pixels, which match our logical drawing space.
   const fieldPoint = toField(
     touch.clientX - rect.left,
     touch.clientY - rect.top
@@ -928,12 +857,9 @@ function moveSelectedPlayer(e) {
 mobilePlayBtn.onclick = async () => {
   mobileControlOverlay.classList.add("hidden");
 
-  if (animationRunning) return;
+  if (animationRunning || steps.length < 2) return;
 
-  if (steps.length < 2) {
-    showMessage("This play needs at least 2 steps to run.");
-    return;
-  }
+  const myRep = ++repRunId; // claim this rep; reset/back will bump and cancel it
 
   await showCountdown();
 
@@ -950,10 +876,16 @@ mobilePlayBtn.onclick = async () => {
 
   animationRunning = false;
 
+  // Grace period — give the player ~2s to settle into their final spot
+  // (dragging stays live) before the score is locked in.
+  await new Promise(resolve => setTimeout(resolve, 2000));
+  if (myRep !== repRunId) return; // a reset/back happened during the grace window
+
   calculateScore(true);
 };
 
 mobileResetBtn.onclick = () => {
+  repRunId++; // cancel any rep/grace-period score in flight
   currentStepIndex = 0;
   applyStep(steps[0]);
   score = 0;
@@ -963,6 +895,7 @@ mobileResetBtn.onclick = () => {
 };
 
 backToMobileHome.onclick = () => {
+  repRunId++; // cancel any rep/grace-period score in flight
   mobileSimulatorScreen.classList.add("hidden");
   mobileHome.classList.remove("hidden");
   mobileControlOverlay.classList.add("hidden");
