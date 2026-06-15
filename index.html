@@ -78,6 +78,52 @@
 
   </main>
 
+  <!-- HELP BUTTON + POPUP -->
+  <button id="helpBtn" onclick="toggleHelp(event)">❓ Help</button>
+
+  <div id="helpMenu">
+    <a href="assets/TEAM-CLARITY-LIVE-Guide.pdf"             target="_blank">🎮 Clarity Live — Guide</a>
+    <a href="assets/TEAM-CLARITY-BUILDER-Guide.pdf"          target="_blank">📋 Play Builder — Guide</a>
+    <a href="assets/TEAM-CLARITY-SIMULATOR-Guide%20final.pdf" target="_blank">🏃 Player Simulator — Guide</a>
+  </div>
+
+  <style>
+    #helpBtn {
+      position: fixed; bottom: 24px; right: 24px;
+      background: #fff; color: #ff5a1f;
+      border: 2px solid #ff5a1f; border-radius: 24px;
+      padding: 10px 22px; font-size: 15px; font-weight: 600;
+      cursor: pointer; box-shadow: 0 2px 8px rgba(0,0,0,.12); z-index: 1000;
+    }
+    #helpBtn:hover { background: #ff5a1f; color: #fff; }
+
+    #helpMenu {
+      display: none; position: fixed; bottom: 74px; right: 24px;
+      background: #fff; border: 1px solid #eee; border-radius: 12px;
+      box-shadow: 0 6px 24px rgba(0,0,0,.15); overflow: hidden;
+      z-index: 1000; min-width: 240px;
+    }
+    #helpMenu.open { display: block; }
+    #helpMenu a {
+      display: block; padding: 14px 18px; color: #333;
+      text-decoration: none; font-size: 14px; border-bottom: 1px solid #f2f2f2;
+    }
+    #helpMenu a:last-child { border-bottom: none; }
+    #helpMenu a:hover { background: #fff4ef; color: #ff5a1f; }
+  </style>
+
+  <script>
+    function toggleHelp(e) {
+      e.stopPropagation();
+      document.getElementById('helpMenu').classList.toggle('open');
+    }
+    document.addEventListener('click', function (e) {
+      const menu = document.getElementById('helpMenu');
+      if (!menu.contains(e.target)) menu.classList.remove('open');
+    });
+  </script>
+  <!-- END HELP -->
+
   <script type="module">
     import { supabase } from './supabase.js'
 

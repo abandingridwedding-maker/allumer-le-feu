@@ -2,9 +2,10 @@ import { supabase } from "./supabase.js";
 
 // --- Easy-to-edit settings ---
 const STRIPE_LINK = "https://buy.stripe.com/fZu14n84iadA8lj4qO6Vq01";
-const PRICE_LABEL = "€2.99 / month";       // change price/currency here
-const LOGO_SRC = "assets/tc-logo.png";     // your flame logo
+const PRICE_LABEL = "€2.99 / month";        // change price/currency here
+const LOGO_SRC = "assets/tc-logo.png";      // your flame logo
 const PROMO_SESSION_KEY = "tc_promo_unlocked_session";
+const TRIAL_USED_KEY = "tc_trial_used_ms";  // total trial time used up on this device
 
 async function hasValidAccess() {
   if (localStorage.getItem("subscriptionActive") === "true") return true;
@@ -105,16 +106,65 @@ function buildPaywall(settings) {
   }
 }
 
+// ---- Trial timer (per device) ----
+// paywall_delay_seconds is treated as the TOTAL trial length. We accumulate
+// real time spent with a tab open (and visible) across every page load, and
+// once it reaches the limit the pay gate appears and stays from then on.
+let tcTrialInterval = null;
+const TRIAL_TICK_MS = 5000;
+
+function getTrialUsed() {
+  return Number(localStorage.getItem(TRIAL_USED_KEY) || 0);
+}
+
+function addTrialUsed(ms) {
+  if (ms > 0) localStorage.setItem(TRIAL_USED_KEY, String(getTrialUsed() + ms));
+}
+
+function startTrialTimer(trialMs, settings) {
+  // Trial already used up on this device → gate straight away.
+  if (getTrialUsed() >= trialMs) { buildPaywall(settings); return; }
+
+  let last = Date.now();
+
+  // Reset the reference whenever the tab is shown/hidden so background time
+  // (another app, locked phone, different tab) is never counted.
+  document.addEventListener("visibilitychange", () => { last = Date.now(); });
+
+  tcTrialInterval = setInterval(async () => {
+    if (document.visibilityState !== "visible") { last = Date.now(); return; }
+
+    // Stopped being needed (subscribed / promo entered / joined a team).
+    if (await hasValidAccess()) {
+      clearInterval(tcTrialInterval);
+      tcTrialInterval = null;
+      return;
+    }
+
+    const now = Date.now();
+    addTrialUsed(now - last);
+    last = now;
+
+    if (getTrialUsed() >= trialMs) {
+      clearInterval(tcTrialInterval);
+      tcTrialInterval = null;
+      buildPaywall(settings);
+    }
+  }, TRIAL_TICK_MS);
+}
+
 async function initPaywall() {
   if (await hasValidAccess()) return;
   const settings = await loadSettings();
   if (!settings) return;
   if (!settings.paywall_enabled) return;
   if (await isAdminUser()) return;
-  const delayMs = Math.max(0, Number(settings.paywall_delay_seconds) || 0) * 1000;
-  setTimeout(async () => {
-    if (!(await hasValidAccess())) buildPaywall(settings);
-  }, delayMs);
+
+  const trialMs = Math.max(0, Number(settings.paywall_delay_seconds) || 0) * 1000;
+
+  if (trialMs === 0) { buildPaywall(settings); return; }   // 0 = gate immediately, no trial
+
+  startTrialTimer(trialMs, settings);
 }
 
 initPaywall();
