@@ -2391,3 +2391,17 @@ body.simulatorActive #mobileScoreText {
   background:#F4571C; color:#fff; font-weight:700; font-size:13px;
   padding:6px 12px; border-radius:999px; box-shadow:0 4px 14px rgba(0,0,0,.2);
 }
+#tcUserBar{
+  position:fixed; bottom:14px; left:14px; z-index:10000;
+  display:flex; align-items:center; gap:8px;
+}
+#tcTeamBadge{
+  background:#F4571C; color:#fff; font-weight:700; font-size:13px;
+  padding:6px 12px; border-radius:999px; box-shadow:0 4px 14px rgba(0,0,0,.2);
+}
+#tcLogoutBtn{
+  background:#fff; color:#2A2622; border:1px solid #ddd; cursor:pointer;
+  font-weight:700; font-size:13px; padding:6px 12px; border-radius:999px;
+  box-shadow:0 4px 14px rgba(0,0,0,.15);
+}
+#tcLogoutBtn:hover{ border-color:#F4571C; color:#F4571C; }
