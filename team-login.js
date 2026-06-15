@@ -85,76 +85,23 @@ async function handleTeamLogin() {
     return;
   }
 
-  const joined = await joinTeamWithCode(user, code);
+  const { data: result, error } = await supabase.rpc("join_team_with_code", { p_code: code });
+  if (error) { showMessage(error.message, "error"); resetButton(); return; }
 
-  if (!joined) {
-    resetButton();
-    return;
-  }
+  if (result === "OK") { window.location.href = "index.html"; return; }
 
-  window.location.href = "index.html";
+  const msgs = {
+    INVALID_CODE: "Invalid team code.",
+    CODE_DISABLED: "This team code is currently disabled.",
+    TEAM_FULL: "This team has reached its maximum number of accounts.",
+    REMOVED: "This account has been removed from this team.",
+    NOT_LOGGED_IN: "Please log in again."
+  };
+  showMessage(msgs[result] || "Could not join team.", "error");
+  resetButton();
 }
 
-async function joinTeamWithCode(user, code) {
-  const { data: team, error: teamError } = await supabase
-    .from("team_codes")
-    .select("*")
-    .eq("code", code)
-    .maybeSingle();
 
-  if (teamError || !team) {
-    showMessage("Invalid team code.", "error");
-    return false;
-  }
-
-  if (!team.active) {
-    showMessage("This team code is currently disabled.", "error");
-    return false;
-  }
-
-  const { data: existingMember } = await supabase
-    .from("team_members")
-    .select("*")
-    .eq("team_code_id", team.id)
-    .eq("user_id", user.id)
-    .maybeSingle();
-
-  if (existingMember) {
-    if (!existingMember.active) {
-      showMessage("This account has been removed from this team.", "error");
-      return false;
-    }
-
-    return true;
-  }
-
-  const { count } = await supabase
-    .from("team_members")
-    .select("*", { count: "exact", head: true })
-    .eq("team_code_id", team.id)
-    .eq("active", true);
-
-  if ((count || 0) >= team.max_users) {
-    showMessage("This team has reached its maximum number of accounts.", "error");
-    return false;
-  }
-
-  const { error: insertError } = await supabase
-    .from("team_members")
-    .insert({
-      team_code_id: team.id,
-      user_id: user.id,
-      email: user.email,
-      active: true
-    });
-
-  if (insertError) {
-    showMessage(insertError.message, "error");
-    return false;
-  }
-
-  return true;
-}
 
 function showMessage(message, type) {
   teamLoginMessage.textContent = message;
