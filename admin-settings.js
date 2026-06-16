@@ -26,6 +26,7 @@ async function init() {
 
   await loadSettings();
   await loadUsage();
+  await loadAccounts();
   saveBtn.addEventListener("click", saveSettings);
 }
 
@@ -149,4 +150,62 @@ function escapeHtml(s) {
     .replace(/&/g, "&amp;")
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;");
+}
+
+let allAccounts = [];
+
+async function loadAccounts() {
+  const status = document.getElementById("accountsStatus");
+  const search = document.getElementById("accountsSearch");
+
+  const { data, error } = await supabase.rpc("list_accounts");
+
+  if (error) {
+    status.textContent = error.message;
+    status.style.color = "#c0392b";
+    return;
+  }
+  if (!data || data.length === 0) {
+    status.textContent = "No accounts yet.";
+    return;
+  }
+
+  // data comes oldest-first, so #1 is the very first account created.
+  allAccounts = data.map((row, i) => ({
+    num: i + 1,
+    email: row.email || "(no email)",
+    created: row.created_at
+  }));
+
+  status.textContent =
+    allAccounts.length === 1 ? "1 account" : allAccounts.length + " accounts";
+  renderAccounts(allAccounts);
+
+  search.addEventListener("input", () => {
+    const q = search.value.trim().toLowerCase();
+    const filtered = q
+      ? allAccounts.filter((a) => a.email.toLowerCase().includes(q))
+      : allAccounts;
+    renderAccounts(filtered);
+  });
+}
+
+function renderAccounts(list) {
+  const wrap = document.getElementById("accountsTableWrap");
+  if (list.length === 0) {
+    wrap.innerHTML = '<p class="usageHint">No matches.</p>';
+    return;
+  }
+  let html =
+    '<table class="usageTable"><thead><tr>' +
+    "<th>#</th><th>Email</th><th>Created</th>" +
+    "</tr></thead><tbody>";
+  for (const a of list) {
+    html +=
+      "<tr><td>" + a.num + "</td><td>" +
+      escapeHtml(a.email) + "</td><td>" +
+      formatDate(new Date(a.created).getTime()) + "</td></tr>";
+  }
+  html += "</tbody></table>";
+  wrap.innerHTML = html;
 }
