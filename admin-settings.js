@@ -25,6 +25,7 @@ async function init() {
   }
 
   await loadSettings();
+  await loadUsage();
   saveBtn.addEventListener("click", saveSettings);
 }
 
@@ -78,4 +79,74 @@ async function saveSettings() {
 function showStatus(msg, ok) {
   statusBox.textContent = msg;
   statusBox.style.color = ok ? "#1e7e34" : "#c0392b";
+}
+
+async function loadUsage() {
+  const status = document.getElementById("usageStatus");
+  const wrap = document.getElementById("usageTableWrap");
+
+  const { data, error } = await supabase
+    .from("usage_sessions")
+    .select("email, started_at, last_seen_at")
+    .order("last_seen_at", { ascending: false });
+
+  if (error) {
+    status.textContent = error.message;
+    status.style.color = "#c0392b";
+    return;
+  }
+  if (!data || data.length === 0) {
+    status.textContent = "No usage recorded yet.";
+    return;
+  }
+
+  // Aggregate per email: total active time, session count, last seen.
+  const byEmail = {};
+  for (const row of data) {
+    const key = row.email || "(unknown)";
+    const dur = Math.max(0, new Date(row.last_seen_at) - new Date(row.started_at));
+    if (!byEmail[key]) byEmail[key] = { email: key, totalMs: 0, sessions: 0, lastSeen: 0 };
+    byEmail[key].totalMs += dur;
+    byEmail[key].sessions += 1;
+    const ls = new Date(row.last_seen_at).getTime();
+    if (ls > byEmail[key].lastSeen) byEmail[key].lastSeen = ls;
+  }
+
+  const users = Object.values(byEmail).sort((a, b) => b.lastSeen - a.lastSeen);
+  status.textContent = users.length === 1 ? "1 user" : users.length + " users";
+
+  let html =
+    '<table class="usageTable"><thead><tr>' +
+    "<th>Email</th><th>Active time</th><th>Sessions</th><th>Last seen</th>" +
+    "</tr></thead><tbody>";
+  for (const u of users) {
+    html +=
+      "<tr><td>" + escapeHtml(u.email) + "</td><td>" +
+      formatDuration(u.totalMs) + "</td><td>" +
+      u.sessions + "</td><td>" +
+      formatDate(u.lastSeen) + "</td></tr>";
+  }
+  html += "</tbody></table>";
+  wrap.innerHTML = html;
+}
+
+function formatDuration(ms) {
+  const mins = Math.round(ms / 60000);
+  if (mins < 1) return "< 1 min";
+  if (mins < 60) return mins + " min";
+  const h = Math.floor(mins / 60);
+  const m = mins % 60;
+  return m === 0 ? h + "h" : h + "h " + m + "m";
+}
+
+function formatDate(ts) {
+  if (!ts) return "—";
+  return new Date(ts).toLocaleString();
+}
+
+function escapeHtml(s) {
+  return String(s)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
 }

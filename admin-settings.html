@@ -35,6 +35,12 @@
   button.save:disabled { opacity:.6; cursor:default; }
   #status { margin-top:14px; text-align:center; font-weight:600; min-height:1.2em; }
   .back { display:inline-block; margin-bottom:18px; color:#ff5a1f; text-decoration:none; font-weight:600; }
+  .usageHint { font-size:.85rem; color:#666; margin-bottom:12px; }
+  .usageTable { width:100%; border-collapse:collapse; font-size:.85rem; }
+  .usageTable th, .usageTable td { text-align:left; padding:8px 6px; border-bottom:1px solid #eee; }
+  .usageTable th { color:#666; font-weight:600; }
+  .usageTable td:first-child { word-break:break-all; }
+  .usageTable tbody tr:hover { background:#fafafa; }
 </style>
 </head>
 <body>
@@ -71,6 +77,16 @@
         <button class="save" id="saveBtn">Save settings</button>
         <div id="status"></div>
       </div>
+    </div>
+  </div>
+  <div class="card" id="usageCard" style="margin-top:24px;">
+    <header>
+      <h1>Usage</h1>
+      <p>Who has been using Team-Clarity</p>
+    </header>
+    <div class="body">
+      <div id="usageStatus" class="usageHint">Loading…</div>
+      <div id="usageTableWrap"></div>
     </div>
   </div>
   <script type="module" src="admin-settings.js"></script>
