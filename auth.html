@@ -455,13 +455,28 @@ googleBtn.addEventListener('click', async () => {
       encodeURIComponent(next)
   }
 
-  await supabase.auth.signInWithOAuth({
+  const { error: oauthError } = await supabase.auth.signInWithOAuth({
     provider: 'google',
     options: {
       redirectTo: redirectUrl
     }
   })
+
+  if (oauthError) {
+    showTCPopup("Google Sign-In Error", oauthError.message)
+  }
 })
+
+// Handle the return trip from Google (and the case where the visitor is
+// already signed in). Supabase parses the session out of the URL during
+// startup; once it's there we finish the job the same way the email/password
+// path does — apply any pending team code, then move into the app.
+;(async () => {
+  const { data: { session } } = await supabase.auth.getSession()
+  if (!session) return
+  const ok = await applyTeamAccessCode()
+  if (ok) redirectAfterLogin()
+})()
 </script>
 <script type="module" src="paywall.js"></script>
 </body>
