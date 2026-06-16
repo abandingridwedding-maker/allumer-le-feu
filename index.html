@@ -76,6 +76,17 @@
       </a>
     </section>
 
+    <!-- LEGAL FOOTER -->
+    <footer class="tcFooter">
+      <nav class="tcFooterNav">
+        <button type="button" class="tcFooterLink" onclick="document.getElementById('privacyModal').showModal()">Privacy Notice</button>
+        <span class="tcFooterDot">•</span>
+        <button type="button" class="tcFooterLink" onclick="document.getElementById('legalModal').showModal()">Legal Notice</button>
+      </nav>
+      <p class="tcFooterCopy">© <span id="tcYear"></span> Team-Clarity</p>
+    </footer>
+    <!-- END LEGAL FOOTER -->
+
   </main>
 
   <!-- HELP BUTTON + POPUP -->
@@ -123,6 +134,127 @@
     });
   </script>
   <!-- END HELP -->
+
+  <!-- LEGAL MODALS -->
+  <dialog id="privacyModal" class="tcModal">
+    <div class="tcModalHead">
+      <h2>Privacy Notice</h2>
+      <button class="tcModalClose" aria-label="Close" onclick="document.getElementById('privacyModal').close()">&times;</button>
+    </div>
+    <div class="tcModalBody">
+      <p class="tcUpdated">Last updated: [add date]</p>
+      <p>Team-Clarity ("we") collects your email address and a password when you create an account on this website.</p>
+
+      <h3>What we collect</h3>
+      <p>Your email address and a password you choose.</p>
+
+      <h3>Why we collect it</h3>
+      <p>To create and manage your account so you can log in and use the service.</p>
+
+      <h3>Legal basis</h3>
+      <p>This data is necessary to provide the service you requested.</p>
+
+      <h3>How long we keep it</h3>
+      <p>For as long as your account is active. If you delete your account or ask us to remove it, we delete your email address.</p>
+
+      <h3>Sharing</h3>
+      <p>We do not sell or share your email address. Account data is stored securely with our hosting provider, Render Services, Inc.</p>
+
+      <h3>Security</h3>
+      <p>Passwords are stored securely (hashed), never in plain text.</p>
+
+      <h3>Your rights</h3>
+      <p>Under the GDPR you can access, correct, or delete your data at any time. To delete your account, email <a href="mailto:myteamclarity@gmail.com">myteamclarity@gmail.com</a> and we will remove your data. You can also lodge a complaint with the CNIL (<a href="https://www.cnil.fr" target="_blank" rel="noopener">www.cnil.fr</a>).</p>
+
+      <h3>Contact</h3>
+      <p><a href="mailto:myteamclarity@gmail.com">myteamclarity@gmail.com</a></p>
+    </div>
+  </dialog>
+
+  <dialog id="legalModal" class="tcModal">
+    <div class="tcModalHead">
+      <h2>Legal Notice</h2>
+      <button class="tcModalClose" aria-label="Close" onclick="document.getElementById('legalModal').close()">&times;</button>
+    </div>
+    <div class="tcModalBody">
+      <h3>Site publisher</h3>
+      <p>
+        AB Zondagh<br>
+        6 Clos de la Tour, 69970 Chaponnay, France<br>
+        Email: <a href="mailto:myteamclarity@gmail.com">myteamclarity@gmail.com</a><br>
+        Publication director: AB Zondagh
+      </p>
+
+      <h3>Hosting provider</h3>
+      <p>
+        Render Services, Inc.<br>
+        525 Brannan Street, Suite 300, San Francisco, CA 94107, USA<br>
+        Tel: +1 415 881 5869
+      </p>
+
+      <h3>Domain registrar</h3>
+      <p>
+        GoDaddy.com, LLC<br>
+        100 S. Mill Avenue, Suite 1600, Tempe, AZ 85281, USA<br>
+        Tel: +1 480 505 8800
+      </p>
+    </div>
+  </dialog>
+
+  <style>
+    .tcFooter {
+      margin-top: auto;            /* pins footer to the bottom of the centred screen */
+      padding-top: 36px;
+      text-align: center;
+      width: 100%;
+    }
+    .tcFooterNav {
+      display: flex; justify-content: center; align-items: center;
+      gap: 12px; flex-wrap: wrap; margin-bottom: 8px;
+    }
+    .tcFooterLink {
+      background: none; border: none; padding: 0; cursor: pointer;
+      font: inherit; font-size: 14px; color: var(--text);
+      border-bottom: 1px solid transparent; transition: color .15s, border-color .15s;
+    }
+    .tcFooterLink:hover, .tcFooterLink:focus-visible {
+      color: var(--orange); border-bottom-color: var(--orange); outline: none;
+    }
+    .tcFooterDot { color: var(--muted); font-size: 13px; }
+    .tcFooterCopy { margin: 0; font-size: 13px; color: var(--muted); }
+
+    .tcModal {
+      border: none; border-radius: var(--radius); padding: 0;
+      width: min(92vw, 620px); max-height: 85vh;
+      background: var(--card); color: var(--text);
+      box-shadow: 0 24px 60px rgba(20,20,20,.25);
+    }
+    .tcModal::backdrop { background: rgba(15,15,15,.45); }
+    .tcModalHead {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 18px 22px; border-bottom: 1px solid var(--line);
+      position: sticky; top: 0; background: var(--card);
+    }
+    .tcModalHead h2 { margin: 0; font-size: 18px; color: var(--orange); }
+    .tcModalClose {
+      background: none; border: none; color: var(--muted);
+      font-size: 26px; line-height: 1; cursor: pointer; padding: 0 4px;
+    }
+    .tcModalClose:hover { color: var(--text); }
+    .tcModalBody { padding: 6px 22px 26px; overflow-y: auto; }
+    .tcModalBody h3 { font-size: 14px; margin: 18px 0 4px; color: var(--orange); }
+    .tcModalBody p { margin: 4px 0 12px; font-size: 14px; line-height: 1.55; }
+    .tcModalBody .tcUpdated { color: var(--muted); font-size: 13px; }
+    .tcModalBody a { color: var(--orange); }
+  </style>
+
+  <script>
+    document.getElementById('tcYear').textContent = new Date().getFullYear();
+    document.querySelectorAll('dialog.tcModal').forEach(function (d) {
+      d.addEventListener('click', function (e) { if (e.target === d) d.close(); });
+    });
+  </script>
+  <!-- END LEGAL MODALS -->
 
   <script type="module">
     import { supabase } from './supabase.js'
