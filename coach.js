@@ -212,16 +212,7 @@ const TEXT = {
     speed: "Speed",
     freeBallMode: "LIVE MODE",
     attack: "ATTACK: RIGHT → LEFT",
-    footer: "Drag players or ball | Double-click player = attach ball",
-    session: "SESSION LIVE 🔴",
-    message1: "Your session is connected.",
-    message2: "To keep players connected and continue managing your team:",
-    price: "€2.99 / month",
-unlock: "Start Subscription",
-    promo: "Promo code:",
-    promoPlaceholder: "Enter code",
-    applyPromo: "Apply Promo Code",
-    invalid: "Invalid promo code."
+    footer: "Drag players or ball | Double-click player = attach ball"
   }
 };
 
@@ -244,16 +235,6 @@ function applyTranslations() {
   safeText("closeQr", t("close"));
   safeText("freezeBtn", t("freeze"));
   safeText("resetBtn", t("reset"));
-  safeText("paywallTitle", t("session"));
-  safeText("paywallLine1", t("message1"));
-  safeText("paywallLine2", t("message2"));
-  safeText("paywallPrice", t("price"));
-  safeText("unlockBtn", t("unlock"));
-  safeText("promoLabel", t("promo"));
-  safeText("promoBtn", t("applyPromo"));
-
-  const promoInput = document.getElementById("promoInput");
-  if (promoInput) promoInput.placeholder = t("promoPlaceholder");
 }
 
 function syncControls() {
@@ -1217,40 +1198,9 @@ function draw() {
   drawFooter();
 }
 
-const STRIPE_PAYMENT_LINK = "https://buy.stripe.com/fZu14n84iadA8lj4qO6Vq01";
-const PAYWALL_WAIT_TIME = 1 * 60 * 1000;
-
-const PROMO_SESSION_KEY = "tc_promo_unlocked_session";
-
-function hasValidAccess() {
-  if (localStorage.getItem("subscriptionActive") === "true") return true;
-
-  return sessionStorage.getItem(
-    PROMO_SESSION_KEY
-  ) === "true";
-}
-
-function showPaywall() {
-  if (hasValidAccess()) return;
-
-  const overlay = document.getElementById("paywallOverlay");
-  if (overlay) overlay.classList.remove("hidden");
-}
-
-function hidePaywall() {
-  const overlay = document.getElementById("paywallOverlay");
-  if (overlay) overlay.classList.add("hidden");
-}
-
-function unlockPromoForThisSession() {
-
-  sessionStorage.setItem(
-    PROMO_SESSION_KEY,
-    "true"
-  );
-
-  hidePaywall();
-}
+// Access gating is handled centrally by paywall.js (a single, no-price,
+// promo-only gate shared by every page). The old per-page price popup that
+// used to live here has been removed.
 
 window.addEventListener("load", () => {
   currentLang = "en";
@@ -1261,33 +1211,4 @@ window.addEventListener("load", () => {
   syncControls();
   updateToolVisibility();
   draw();
-
-  if (!hasValidAccess()) {
-    setTimeout(showPaywall, PAYWALL_WAIT_TIME);
-  }
-
-  const unlockBtn = document.getElementById("unlockBtn");
-
-if (unlockBtn) {
-  unlockBtn.onclick = () => {
-  window.location.href = STRIPE_PAYMENT_LINK;
-  };
-}
-
-const promoBtn = document.getElementById("promoBtn");
-
-  if (promoBtn) {
-    promoBtn.onclick = () => {
-      const input = document.getElementById("promoInput");
-      const message = document.getElementById("promoMessage");
-      const code = (input?.value || "").trim().toUpperCase();
-
-      if (code === "AZRUGBY") {
-  unlockPromoForThisSession();
-} else if (message) {
-        message.textContent = t("invalid");
-        message.style.color = "#ff5555";
-      }
-    };
-  }
 });
