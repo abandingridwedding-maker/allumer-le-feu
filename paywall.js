@@ -1,15 +1,17 @@
 import { supabase } from "./supabase.js";
 
 // --- Easy-to-edit settings ---
-const STRIPE_LINK = "https://buy.stripe.com/fZu14n84iadA8lj4qO6Vq01";
-const PRICE_LABEL = "€2.99 / month";        // change price/currency here
+const STRIPE_LINK = "https://buy.stripe.com/fZu14n84iadA8lj4qO6Vq01"; // unused during beta — kept for when paid plans return
+const PRICE_LABEL = "€2.99 / month";        // unused during beta — kept for when paid plans return
 const LOGO_SRC = "assets/tc-logo.png";      // your flame logo
-const PROMO_SESSION_KEY = "tc_promo_unlocked_session";
+const PROMO_FREE_DAYS = 14;                 // how many days a valid code unlocks for (the "couple weeks free")
+const PROMO_UNLOCK_KEY = "tc_promo_unlocked_until"; // ms timestamp when free access ends
 const TRIAL_USED_KEY = "tc_trial_used_ms";  // total trial time used up on this device
 
 async function hasValidAccess() {
   if (localStorage.getItem("subscriptionActive") === "true") return true;
-  if (sessionStorage.getItem(PROMO_SESSION_KEY) === "true") return true;
+  const promoUntil = Number(localStorage.getItem(PROMO_UNLOCK_KEY) || 0);
+  if (promoUntil && Date.now() < promoUntil) return true;
   // team members (club already paid) get access automatically
   try {
     const { data: teamName } = await supabase.rpc("get_my_team");
@@ -60,50 +62,42 @@ function buildPaywall(settings) {
     "font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Arial,sans-serif"
   ].join(";");
 
-  const promoBlock = settings.promo_enabled ? `
-    <div style="margin-top:26px;border-top:1px solid #f0f0f0;padding-top:22px;">
-      <div style="font-weight:700;margin-bottom:10px;color:#444;text-align:center;">Have a promo code?</div>
-      <input id="tcPromoInput" type="text" placeholder="Enter code"
+  const promoBlock = `
+    <div style="margin-top:24px;">
+      <input id="tcPromoInput" type="text" placeholder="Enter your access code"
         style="width:100%;padding:15px 16px;border:1px solid #e2e4e8;border-radius:16px;font-size:1rem;text-align:center;font-weight:600;color:#444;box-sizing:border-box;outline:none;" />
-      <button id="tcPromoBtn" style="${btnStyle}margin-top:14px;">Apply Code</button>
+      <button id="tcPromoBtn" style="${btnStyle}margin-top:14px;">Unlock</button>
       <div id="tcPromoMsg" style="margin-top:10px;font-size:0.9rem;min-height:1.1em;text-align:center;"></div>
-    </div>` : "";
+    </div>`;
 
   overlay.innerHTML = `
     <div style="max-width:440px;width:100%;background:#fff;border-radius:30px;padding:34px 32px 38px;box-shadow:0 30px 80px rgba(0,0,0,0.5);box-sizing:border-box;text-align:center;">
       <img src="${LOGO_SRC}" alt="Team Clarity" style="width:230px;max-width:80%;height:auto;margin:0 auto 18px;display:block;" />
       <div style="font-size:1.9rem;font-weight:900;color:#ff5a1f;letter-spacing:.5px;">UNLOCK ACCESS</div>
-      <div style="color:#666;font-weight:600;margin-top:8px;line-height:1.4;">Subscribe to unlock full access for your squad.</div>
-      <div style="margin:22px 0 24px;font-size:2.5rem;font-weight:900;color:#111;">${PRICE_LABEL}</div>
-      <button id="tcUnlockBtn" style="${btnStyle}">Subscribe</button>
+      <div style="color:#666;font-weight:600;margin-top:8px;line-height:1.4;">Enter your access code to unlock the app free for ${PROMO_FREE_DAYS} days.</div>
       ${promoBlock}
     </div>`;
 
   document.body.appendChild(overlay);
 
-  document.getElementById("tcUnlockBtn").onclick = () => {
-    window.location.href = STRIPE_LINK;
+  const applyPromo = () => {
+    const input = document.getElementById("tcPromoInput");
+    const msg = document.getElementById("tcPromoMsg");
+    const entered = (input.value || "").trim().toLowerCase();
+    const correct = (settings.promo_code || "").trim().toLowerCase();
+    if (entered && correct && entered === correct) {
+      const until = Date.now() + PROMO_FREE_DAYS * 24 * 60 * 60 * 1000;
+      localStorage.setItem(PROMO_UNLOCK_KEY, String(until));
+      overlay.remove();
+    } else {
+      msg.textContent = "Invalid code.";
+      msg.style.color = "#c0392b";
+    }
   };
-
-  if (settings.promo_enabled) {
-    const applyPromo = () => {
-      const input = document.getElementById("tcPromoInput");
-      const msg = document.getElementById("tcPromoMsg");
-      const entered = (input.value || "").trim().toLowerCase();
-      const correct = (settings.promo_code || "").trim().toLowerCase();
-      if (entered && correct && entered === correct) {
-        sessionStorage.setItem(PROMO_SESSION_KEY, "true");
-        overlay.remove();
-      } else {
-        msg.textContent = "Invalid promo code.";
-        msg.style.color = "#c0392b";
-      }
-    };
-    document.getElementById("tcPromoBtn").onclick = applyPromo;
-    document.getElementById("tcPromoInput").addEventListener("keydown", (e) => {
-      if (e.key === "Enter") applyPromo();
-    });
-  }
+  document.getElementById("tcPromoBtn").onclick = applyPromo;
+  document.getElementById("tcPromoInput").addEventListener("keydown", (e) => {
+    if (e.key === "Enter") applyPromo();
+  });
 }
 
 // ---- Trial timer (per device) ----
