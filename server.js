@@ -388,6 +388,17 @@ io.on("connection", socket => {
     emitRoomState(socket.data.room);
   });
 
+  socket.on("coach-team-color", colorName => {
+    const st = rooms[socket.data.room];
+    if (!st) return;
+    const color = COLORS[colorName] || COLORS.red;
+    st.teamColor = color;
+    Object.values(st.players).forEach(p => {
+      p.color = color;
+    });
+    emitRoomState(socket.data.room);
+  });
+
   socket.on("coach-pitch-mode", mode => {
     const st = rooms[socket.data.room];
     if (!st) return;
