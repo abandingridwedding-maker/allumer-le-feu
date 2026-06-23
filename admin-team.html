@@ -1,40 +1,136 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>TEAM-CLARITY Team Admin</title>
-  <link rel="stylesheet" href="style.css" />
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>App Settings — Team Clarity Admin</title>
+<style>
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: #f4f5f7; color: #1a1a1a; padding: 40px 16px;
+  }
+  .card {
+    max-width: 520px; margin: 0 auto; background: #fff;
+    border-radius: 16px; box-shadow: 0 6px 24px rgba(0,0,0,0.08); overflow: hidden;
+  }
+  .card header { background: #ff5a1f; color: #fff; padding: 22px 28px; }
+  .card header h1 { margin: 0; font-size: 1.25rem; }
+  .card header p { margin: 4px 0 0; opacity: .9; font-size: .85rem; }
+  .body { padding: 28px; }
+  .field { margin-bottom: 22px; }
+  .field label.title { display:block; font-weight:600; margin-bottom:6px; }
+  .field .hint { font-size:.8rem; color:#666; margin-bottom:8px; }
+  input[type="text"], input[type="number"] {
+    width: 100%; padding: 11px 13px; border:1px solid #d0d3d8;
+    border-radius: 9px; font-size: 1rem;
+  }
+  .toggle { display:flex; align-items:center; gap:10px; }
+  .toggle input { width:20px; height:20px; }
+  button.save {
+    width:100%; padding:13px; border:none; border-radius:10px;
+    background:#ff5a1f; color:#fff; font-size:1rem; font-weight:700; cursor:pointer;
+  }
+  button.save:disabled { opacity:.6; cursor:default; }
+  #status { margin-top:14px; text-align:center; font-weight:600; min-height:1.2em; }
+  .back { display:inline-block; margin-bottom:18px; color:#ff5a1f; text-decoration:none; font-weight:600; }
+  .usageHint { font-size:.85rem; color:#666; margin-bottom:12px; }
+  .usageTable { width:100%; border-collapse:collapse; font-size:.85rem; }
+  .usageTable th, .usageTable td { text-align:left; padding:8px 6px; border-bottom:1px solid #eee; }
+  .usageTable th { color:#666; font-weight:600; }
+  .usageTable td:first-child { word-break:break-all; }
+  .usageTable tbody tr:hover { background:#fafafa; }
+
+  /* User-content tree */
+  .tree details { border-bottom:1px solid #eee; }
+  .tree summary { cursor:pointer; padding:9px 4px; font-weight:600; list-style:none; }
+  .tree summary::-webkit-details-marker { display:none; }
+  .tree summary:hover { background:#fafafa; }
+  .tree .coach > summary { font-size:.95rem; }
+  .tree .folder { margin-left:14px; }
+  .tree .folder > summary { font-weight:500; color:#333; }
+  .tree .count { color:#999; font-weight:400; font-size:.8rem; }
+  .tree .play {
+    margin-left:28px; padding:8px 4px; font-size:.82rem;
+    display:flex; justify-content:space-between; gap:10px; align-items:center;
+    border-top:1px dashed #eee;
+  }
+  .tree .play .meta { color:#777; font-size:.78rem; margin-top:2px; }
+  .tree .viewBtn {
+    border:1px solid #ff5a1f; background:#fff; color:#ff5a1f;
+    border-radius:7px; padding:4px 11px; font-size:.78rem; cursor:pointer; white-space:nowrap;
+  }
+  .tree .viewBtn:hover { background:#ff5a1f; color:#fff; }
+</style>
 </head>
 <body>
-  <div id="topbar">
-    <div class="brand">TEAM-CLARITY TEAM ADMIN</div>
-    <button onclick="window.location.href='admin.html'">Back to Admin</button>
+  <div class="card">
+    <header>
+      <h1>App Settings</h1>
+      <p>Promo code &amp; pay gate controls</p>
+    </header>
+    <div class="body">
+      <a class="back" href="admin.html">&larr; Back to admin</a>
+      <div id="formWrap">
+        <div class="field">
+          <label class="title" for="promoCode">Promo code</label>
+          <div class="hint">Players type this in the pay gate to unlock for the session.</div>
+          <input type="text" id="promoCode" placeholder="e.g. AZRUGBY" />
+        </div>
+
+        <div class="field toggle">
+          <input type="checkbox" id="promoEnabled" />
+          <label for="promoEnabled">Show the promo code box in the pay gate</label>
+        </div>
+
+        <div class="field toggle">
+          <input type="checkbox" id="paywallEnabled" />
+          <label for="paywallEnabled">Show the pay gate at all</label>
+        </div>
+
+        <div class="field">
+          <label class="title" for="paywallDelay">Pay gate appears after (seconds)</label>
+          <div class="hint">How long someone can use the app before the pay gate pops up. 0 = immediately.</div>
+          <input type="number" id="paywallDelay" min="0" step="1" />
+        </div>
+
+        <button class="save" id="saveBtn">Save settings</button>
+        <div id="status"></div>
+      </div>
+    </div>
   </div>
-
-  <main style="padding:24px; max-width:900px; margin:auto;">
-    <h1 id="teamTitle">Loading...</h1>
-
-    <section style="margin-bottom:24px;">
-      <p><strong>Code:</strong> <span id="teamCode"></span></p>
-      <p><strong>Users:</strong> <span id="userCount"></span></p>
-      <p><strong>Status:</strong> <span id="teamStatus"></span></p>
-
-      <input id="maxUsersInput" type="number" />
-      <button id="updateMaxUsersBtn">Update Max Users</button>
-      <button id="toggleActiveBtn">Disable / Enable Team</button>
-<button id="deleteTeamBtn" style="background:#b00020;color:white;">
-  Delete Team
-</button>
-      <p id="teamMessage"></p>
-    </section>
-
-    <section>
-      <h2>Team Players</h2>
-      <div id="playersList">Loading players...</div>
-    </section>
-  </main>
-
-  <script type="module" src="./admin-team.js"></script>
+  <div class="card" id="usageCard" style="margin-top:24px;">
+    <header>
+      <h1>Usage</h1>
+      <p>Who has been using Team-Clarity</p>
+    </header>
+    <div class="body">
+      <div id="usageStatus" class="usageHint">Loading…</div>
+      <div id="usageTableWrap"></div>
+    </div>
+  </div>
+  <div class="card" id="accountsCard" style="margin-top:24px;">
+    <header>
+      <h1>Accounts created</h1>
+      <p>Everyone who has registered</p>
+    </header>
+    <div class="body">
+      <div id="accountsStatus" class="usageHint">Loading…</div>
+      <input type="text" id="accountsSearch" placeholder="Search by email…" style="margin-bottom:14px;" />
+      <div id="accountsTableWrap"></div>
+    </div>
+  </div>
+  <div class="card" id="userContentCard" style="margin-top:24px;">
+    <header>
+      <h1>User content</h1>
+      <p>Folders and plays created by every coach</p>
+    </header>
+    <div class="body">
+      <div id="userContentStatus" class="usageHint">Loading…</div>
+      <div id="userContentWrap"></div>
+    </div>
+  </div>
+  <script type="module" src="admin-settings.js"></script>
 </body>
 </html>
