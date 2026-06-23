@@ -86,9 +86,11 @@ async function loadUsage() {
   const status = document.getElementById("usageStatus");
   const wrap = document.getElementById("usageTableWrap");
 
+  // Now reads the honest "active_seconds" and the per-tool "page_seconds"
+  // recorded by the new usage tracker.
   const { data, error } = await supabase
     .from("usage_sessions")
-    .select("email, started_at, last_seen_at")
+    .select("email, last_seen_at, active_seconds, page_seconds")
     .order("last_seen_at", { ascending: false });
 
   if (error) {
@@ -101,16 +103,24 @@ async function loadUsage() {
     return;
   }
 
-  // Aggregate per email: total active time, session count, last seen.
+  // Aggregate per email: real active time, where they spent it, sessions, last seen.
   const byEmail = {};
   for (const row of data) {
     const key = row.email || "(unknown)";
-    const dur = Math.max(0, new Date(row.last_seen_at) - new Date(row.started_at));
-    if (!byEmail[key]) byEmail[key] = { email: key, totalMs: 0, sessions: 0, lastSeen: 0 };
-    byEmail[key].totalMs += dur;
-    byEmail[key].sessions += 1;
+    if (!byEmail[key]) {
+      byEmail[key] = { email: key, totalSec: 0, sessions: 0, lastSeen: 0, tools: {} };
+    }
+    const rec = byEmail[key];
+    rec.totalSec += Number(row.active_seconds) || 0;
+    rec.sessions += 1;
+
     const ls = new Date(row.last_seen_at).getTime();
-    if (ls > byEmail[key].lastSeen) byEmail[key].lastSeen = ls;
+    if (ls > rec.lastSeen) rec.lastSeen = ls;
+
+    const pages = row.page_seconds || {};
+    for (const tool in pages) {
+      rec.tools[tool] = (rec.tools[tool] || 0) + (Number(pages[tool]) || 0);
+    }
   }
 
   const users = Object.values(byEmail).sort((a, b) => b.lastSeen - a.lastSeen);
@@ -118,17 +128,29 @@ async function loadUsage() {
 
   let html =
     '<table class="usageTable"><thead><tr>' +
-    "<th>Email</th><th>Active time</th><th>Sessions</th><th>Last seen</th>" +
+    "<th>Email</th><th>Active time</th><th>Where</th><th>Sessions</th><th>Last seen</th>" +
     "</tr></thead><tbody>";
   for (const u of users) {
     html +=
       "<tr><td>" + escapeHtml(u.email) + "</td><td>" +
-      formatDuration(u.totalMs) + "</td><td>" +
+      formatDuration(u.totalSec * 1000) + "</td><td>" +
+      formatTools(u.tools) + "</td><td>" +
       u.sessions + "</td><td>" +
       formatDate(u.lastSeen) + "</td></tr>";
   }
   html += "</tbody></table>";
   wrap.innerHTML = html;
+}
+
+// Turns the per-tool seconds into a readable line, busiest tool first.
+// e.g. "Play Builder 12m · Player Simulator 4m"
+function formatTools(tools) {
+  const entries = Object.entries(tools).filter(([, sec]) => (Number(sec) || 0) > 0);
+  if (entries.length === 0) return "—";
+  entries.sort((a, b) => b[1] - a[1]);
+  return entries
+    .map(([name, sec]) => escapeHtml(name) + " " + formatDuration(sec * 1000))
+    .join(" · ");
 }
 
 function formatDuration(ms) {
