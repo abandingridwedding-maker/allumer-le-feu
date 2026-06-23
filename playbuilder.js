@@ -2041,3 +2041,89 @@ const tcSaveBtnForExport = document.getElementById("savePlayBtn");
 if (tcSaveBtnForExport) {
   tcSaveBtnForExport.addEventListener("click", () => setTimeout(tcEnsureExportButton, 60));
 }
+// ================= Read-only View Mode (admin) =================
+// Opened as playbuilder.html?view=<playId>. Loads that play through the
+// admin-only RPC, shows it LOCKED (no editing, no saving), and offers the
+// existing video export. Does nothing on a normal Play Builder visit.
+(async function tcViewMode() {
+  const params = new URLSearchParams(location.search);
+  const viewId = params.get("view");
+  if (!viewId) return; // normal builder — leave everything alone
+
+  // Fetch the play (the database refuses this unless you're an admin).
+  let row;
+  try {
+    const { data, error } = await supabase.rpc("admin_get_play", { p_id: viewId });
+    if (error) { alert("Could not open play: " + error.message); return; }
+    row = data && data[0];
+  } catch (e) {
+    alert("Could not open play.");
+    return;
+  }
+  if (!row) { alert("Play not found."); return; }
+
+  // ---- Load it into the builder, exactly like the Load button does ----
+  const d = row.play_data || {};
+  currentPlayName = row.play_name || "Play";
+  pitchMode = d.pitchMode || "full";
+  playerGroup = d.playerGroup || d.playerView || "all";
+  playerSize = d.playerSize || "small";
+  oppositionEnabled = typeof d.oppositionEnabled === "boolean" ? d.oppositionEnabled : false;
+  oppositionColor = d.oppositionColor || oppositionColor;
+  steps = d.steps || [];
+  builderStarted = true;
+
+  syncControls();
+  if (steps[0]) applyStep(steps[0]);
+  if (typeof updateBuilderButton === "function") updateBuilderButton();
+
+  // ---- Lock everything down ----
+  // 1) Hide the editing buttons (Play / Pause stays).
+  ["setPieceCycleBtn", "addNoteBtn", "builderMainBtn", "stepBackBtn", "clearStepsBtn",
+   "oppositionToggle", "savePlayBtn", "loadPlayBtn", "foldersBtn"]
+    .forEach((id) => { const el = document.getElementById(id); if (el) el.style.display = "none"; });
+
+  // 2) Freeze the dropdowns so the play can't be altered.
+  document.querySelectorAll("select").forEach((s) => { s.disabled = true; });
+
+  // 3) Swallow all mouse/touch on the pitch so pieces can't be dragged.
+  //    Captured before the canvas's own handlers, blocked only over the pitch.
+  const swallow = (e) => {
+    if (e.target === canvas) { e.stopPropagation(); e.preventDefault(); }
+  };
+  ["mousedown", "mousemove", "mouseup", "click", "dblclick", "contextmenu",
+   "touchstart", "touchmove", "touchend", "pointerdown", "pointermove", "pointerup"]
+    .forEach((evt) => document.addEventListener(evt, swallow, { capture: true, passive: false }));
+
+  // ---- Read-only banner with Export + Close ----
+  const bar = document.createElement("div");
+  bar.style.cssText =
+    "position:fixed;top:0;left:0;right:0;z-index:99999;display:flex;align-items:center;" +
+    "gap:14px;padding:10px 16px;background:#ff5a1f;color:#fff;" +
+    "font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;" +
+    "box-shadow:0 2px 10px rgba(0,0,0,.2);";
+
+  const label = document.createElement("div");
+  label.style.cssText = "font-weight:700;flex:1;";
+  label.textContent = "👁 Viewing: " + currentPlayName + "  —  read-only";
+
+  const exportBtn = document.createElement("button");
+  exportBtn.type = "button";
+  exportBtn.textContent = "🎬 Export to Video";
+  exportBtn.style.cssText =
+    "border:none;border-radius:8px;padding:8px 14px;font-weight:700;cursor:pointer;background:#fff;color:#ff5a1f;";
+  exportBtn.onclick = () => { if (typeof exportAnimationToVideo === "function") exportAnimationToVideo(); };
+
+  const closeBtn = document.createElement("button");
+  closeBtn.type = "button";
+  closeBtn.textContent = "✕ Close";
+  closeBtn.style.cssText =
+    "border:1px solid #fff;border-radius:8px;padding:8px 14px;font-weight:700;cursor:pointer;background:transparent;color:#fff;";
+  closeBtn.onclick = () => window.close();
+
+  bar.appendChild(label);
+  bar.appendChild(exportBtn);
+  bar.appendChild(closeBtn);
+  document.body.appendChild(bar);
+  document.body.style.paddingTop = "56px";
+})();
