@@ -41,6 +41,27 @@
   .usageTable th { color:#666; font-weight:600; }
   .usageTable td:first-child { word-break:break-all; }
   .usageTable tbody tr:hover { background:#fafafa; }
+
+  /* User-content tree */
+  .tree details { border-bottom:1px solid #eee; }
+  .tree summary { cursor:pointer; padding:9px 4px; font-weight:600; list-style:none; }
+  .tree summary::-webkit-details-marker { display:none; }
+  .tree summary:hover { background:#fafafa; }
+  .tree .coach > summary { font-size:.95rem; }
+  .tree .folder { margin-left:14px; }
+  .tree .folder > summary { font-weight:500; color:#333; }
+  .tree .count { color:#999; font-weight:400; font-size:.8rem; }
+  .tree .play {
+    margin-left:28px; padding:8px 4px; font-size:.82rem;
+    display:flex; justify-content:space-between; gap:10px; align-items:center;
+    border-top:1px dashed #eee;
+  }
+  .tree .play .meta { color:#777; font-size:.78rem; margin-top:2px; }
+  .tree .viewBtn {
+    border:1px solid #ff5a1f; background:#fff; color:#ff5a1f;
+    border-radius:7px; padding:4px 11px; font-size:.78rem; cursor:pointer; white-space:nowrap;
+  }
+  .tree .viewBtn:hover { background:#ff5a1f; color:#fff; }
 </style>
 </head>
 <body>
@@ -98,6 +119,16 @@
       <div id="accountsStatus" class="usageHint">Loading…</div>
       <input type="text" id="accountsSearch" placeholder="Search by email…" style="margin-bottom:14px;" />
       <div id="accountsTableWrap"></div>
+    </div>
+  </div>
+  <div class="card" id="userContentCard" style="margin-top:24px;">
+    <header>
+      <h1>User content</h1>
+      <p>Folders and plays created by every coach</p>
+    </header>
+    <div class="body">
+      <div id="userContentStatus" class="usageHint">Loading…</div>
+      <div id="userContentWrap"></div>
     </div>
   </div>
   <script type="module" src="admin-settings.js"></script>
