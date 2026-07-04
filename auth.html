@@ -398,6 +398,20 @@ loginBtn.addEventListener('click', async () => {
     return
   }
 
+ // Sign-in failed. Work out WHY before trying to create a new account,
+  // otherwise an existing user just gets a confusing "already registered".
+  const loginMsg = (loginError.message || "").toLowerCase()
+
+  if (loginMsg.includes("email not confirmed")) {
+    loginBtn.disabled = false
+    loginBtn.textContent = "LOGIN / SIGNUP"
+    showTCPopup(
+      "Confirm Your Email",
+      "This account exists but the email hasn't been confirmed yet. Check your inbox (and spam) for the confirmation link, then log in again — or use \"Continue with Google\"."
+    )
+    return
+  }
+
   const { error: signupError } =
     await supabase.auth.signUp({
       email,
@@ -408,10 +422,17 @@ loginBtn.addEventListener('click', async () => {
   loginBtn.textContent = "LOGIN / SIGNUP"
 
   if (signupError) {
-    if (signupError.message.toLowerCase().includes("rate limit")) {
+    const signupMsg = signupError.message.toLowerCase()
+
+    if (signupMsg.includes("rate limit")) {
       showTCPopup(
         "Please Wait",
         "Too many login attempts. Please wait a few minutes and try again, or use Continue with Google."
+      )
+    } else if (signupMsg.includes("already registered") || signupMsg.includes("already exists")) {
+      showTCPopup(
+        "You Already Have an Account",
+        "This email is already registered with TEAM-CLARITY. Please enter the password you first signed up with. If you joined with \"Continue with Google\", use that button instead — or ask your coach to reset your password."
       )
     } else {
       showTCPopup(
