@@ -18,15 +18,24 @@
       <div class="teamLoginIcon">🔐</div>
 
       <h1>Team Login</h1>
-      <p>Enter your email, password and team code to activate club access.</p>
 
-      <input id="email" type="email" placeholder="Email" />
-      <input id="password" type="password" placeholder="Password" />
-      <input id="teamCode" type="text" placeholder="Team Code" />
+      <!-- Shown while we check if they're logged in -->
+      <p id="teamLoginStatus">Checking your login…</p>
 
-      <button id="teamLoginBtn">Login / Sign up with Team Code</button>
+      <!-- The activation form (hidden until we know they're logged in) -->
+      <div id="teamCodeArea" style="display:none;">
+        <p id="loggedInAs" style="font-weight:600;"></p>
+        <p>Enter your team code to activate club access.</p>
 
-      <p id="teamLoginMessage"></p>
+        <input id="teamCode" type="text" placeholder="Team Code" />
+        <button id="teamLoginBtn">Activate team access</button>
+
+        <p id="teamLoginMessage"></p>
+
+        <button class="teamLoginBackBtn" id="signOutBtn" style="margin-top:10px;">
+          Not you? Log out
+        </button>
+      </div>
 
       <button class="teamLoginBackBtn" onclick="window.location.href='index.html'">
         ← Back
