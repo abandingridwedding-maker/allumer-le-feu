@@ -1,94 +1,92 @@
 import { supabase } from "./supabase.js";
 
-const emailInput = document.getElementById("email");
-const passwordInput = document.getElementById("password");
+const statusEl = document.getElementById("teamLoginStatus");
+const teamCodeArea = document.getElementById("teamCodeArea");
+const loggedInAsEl = document.getElementById("loggedInAs");
 const teamCodeInput = document.getElementById("teamCode");
 const teamLoginBtn = document.getElementById("teamLoginBtn");
-const teamLoginMessage = document.getElementById("teamLoginMessage");
+const messageEl = document.getElementById("teamLoginMessage");
+const signOutBtn = document.getElementById("signOutBtn");
 
-// 👇 CHANGE THIS if admins should land somewhere else (e.g. "admin-team.html")
 const ADMIN_LANDING_PAGE = "admin.html";
+const LOGIN_PAGE = "auth.html";
 
-teamLoginBtn.addEventListener("click", handleTeamLogin);
+function showMessage(msg, type) {
+  messageEl.textContent = msg;
+  messageEl.style.color = type === "error" ? "red" : "green";
+}
 
-async function handleTeamLogin() {
-  const email = emailInput.value.trim();
-  const password = passwordInput.value.trim();
+function goToLogin() {
+  const back = encodeURIComponent(window.location.pathname);
+  window.location.href = LOGIN_PAGE + "?next=" + back;
+}
+
+function showTeamCodeForm(email) {
+  statusEl.style.display = "none";
+  teamCodeArea.style.display = "block";
+  loggedInAsEl.textContent = "Logged in as " + (email || "your account");
+
+  const pending = localStorage.getItem("pending_access_code");
+  if (pending) teamCodeInput.value = pending;
+}
+
+(async () => {
+  try {
+    const { data: { session } } = await supabase.auth.getSession();
+
+    if (!session) {
+      statusEl.textContent = "Please log in first…";
+      goToLogin();
+      return;
+    }
+
+    const { data: { user } } = await supabase.auth.getUser();
+
+    // Admin check — but NEVER let it freeze the page.
+    let isAdmin = false;
+    try {
+      const { data, error } = await supabase.rpc("is_admin");
+      if (error) console.error("is_admin failed:", error);
+      isAdmin = data === true;
+    } catch (e) {
+      console.error("is_admin threw:", e);
+    }
+
+    if (isAdmin) {
+      window.location.href = ADMIN_LANDING_PAGE;
+      return;
+    }
+
+    showTeamCodeForm(user?.email);
+  } catch (e) {
+    console.error("team-login load error:", e);
+    statusEl.textContent = "Something went wrong loading this page. Please refresh.";
+  }
+})();
+
+teamLoginBtn.addEventListener("click", async () => {
   const code = teamCodeInput.value.trim().toUpperCase();
-
-  // team code is NO LONGER required here — only email + password
-  if (!email || !password) {
-    showMessage("Please enter your email and password.", "error");
+  if (!code) {
+    showMessage("Please enter your team code.", "error");
     return;
   }
 
   teamLoginBtn.disabled = true;
-  teamLoginBtn.textContent = "Checking...";
+  teamLoginBtn.textContent = "Activating…";
 
-  let loginOk = false;
+  const { data: result, error } =
+    await supabase.rpc("join_team_with_code", { p_code: code });
 
-  const { error: loginError } = await supabase.auth.signInWithPassword({
-    email,
-    password
-  });
+  teamLoginBtn.disabled = false;
+  teamLoginBtn.textContent = "Activate team access";
 
-  if (!loginError) {
-    loginOk = true;
-  } else {
-    const { error: signupError } = await supabase.auth.signUp({
-      email,
-      password
-    });
+  if (error) { showMessage(error.message, "error"); return; }
 
-    if (signupError) {
-      showMessage(signupError.message, "error");
-      resetButton();
-      return;
-    }
-
-    showMessage("Account created. Please click again to log in.", "success");
-    resetButton();
+  if (result === "OK") {
+    localStorage.removeItem("pending_access_code");
+    window.location.href = "index.html";
     return;
   }
-
-  if (!loginOk) {
-    showMessage("Login failed.", "error");
-    resetButton();
-    return;
-  }
-
-  const { data: { user } } = await supabase.auth.getUser();
-
-  if (!user) {
-    showMessage("User not found after login.", "error");
-    resetButton();
-    return;
-  }
-
-  // 👇 NEW: ask the database whether this user is an admin
-  const { data: isAdmin, error: adminError } = await supabase.rpc("is_admin");
-
-  if (adminError) {
-    console.error("is_admin check failed:", adminError);
-  }
-
-  if (isAdmin === true) {
-    // Admin: no team code needed
-    window.location.href = ADMIN_LANDING_PAGE;
-    return;
-  }
-
-  // Non-admin: team code is required from here on
-  if (!code) {
-    showMessage("Please enter your team code.", "error");
-    resetButton();
-    return;
-  }
-
-  const { data: result, error } = await supabase.rpc("join_team_with_code", { p_code: code });
-  if (error) { showMessage(error.message, "error"); resetButton(); return; }
-
-  if (result === "OK") { window.location.href = "index.html"; return; }
 
   const msgs = {
     INVALID_CODE: "Invalid team code.",
@@ -98,17 +96,9 @@ async function handleTeamLogin() {
     NOT_LOGGED_IN: "Please log in again."
   };
   showMessage(msgs[result] || "Could not join team.", "error");
-  resetButton();
-}
+});
 
-
-
-function showMessage(message, type) {
-  teamLoginMessage.textContent = message;
-  teamLoginMessage.style.color = type === "error" ? "red" : "green";
-}
-
-function resetButton() {
-  teamLoginBtn.disabled = false;
-  teamLoginBtn.textContent = "LOGIN / SIGNUP WITH TEAM CODE";
-}
+signOutBtn.addEventListener("click", async () => {
+  await supabase.auth.signOut();
+  goToLogin();
+});
