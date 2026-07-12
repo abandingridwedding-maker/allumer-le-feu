@@ -225,7 +225,9 @@ if (codeFromUrl) {
 
 // A logged-in player always gets a Log out option on the home screen,
 // whether they arrived via a team, a folder code, or nothing yet.
-showMobileLogout();
+// (Team members use the team badge's Log out; teamless players get one in the
+// access card below — see showMobileAccessButtons.)
+hideTeamBadgeInsideSimulator();
 
 mobilePlayCode.addEventListener("keydown", e => {
   if (e.key === "Enter") joinTeamFolder();
@@ -454,7 +456,7 @@ async function showTeamPlaysOnHome() {
   card.id = "mobileTeamPlaysCard";
   card.innerHTML = `
     <label>Your Team Plays</label>
-    <div id="mobileTeamPlaysList" style="display:flex;flex-direction:column;gap:12px;max-height:38vh;overflow-y:auto;padding-right:4px;"></div>
+    <div id="mobileTeamPlaysList" style="display:flex;flex-direction:column;gap:18px;max-height:40vh;overflow-y:auto;padding:8px 6px 18px;"></div>
   `;
 
   // Sits above the "Enter folder code" card — team plays first, code second.
@@ -477,28 +479,16 @@ async function showTeamPlaysOnHome() {
   });
 }
 
-async function showMobileLogout() {
-  const { data: { session } } = await supabase.auth.getSession();
-  if (!session) return; // nobody logged in → nothing to log out of
-  if (document.getElementById("mobileLogoutBtn")) return;
-  if (!mobileHome) return;
-
-  const btn = document.createElement("button");
-  btn.id = "mobileLogoutBtn";
-  btn.type = "button";
-  btn.textContent = "Log out";
-  btn.style.cssText =
-    "display:block;margin:18px auto 6px;background:none;border:none;" +
-    "color:#888;font-size:14px;font-weight:600;text-decoration:underline;cursor:pointer;";
-  btn.onclick = async () => {
-    btn.disabled = true;
-    btn.textContent = "Logging out…";
-    try { await supabase.auth.signOut(); } catch (e) {}
-    window.location.reload();
-  };
-
-  // Sits at the very bottom of the home screen, under the code card.
-  mobileHome.appendChild(btn);
+// The "✓ TEAM  Log out" badge (from team-badge.js) is position:fixed, so it
+// otherwise sits on top of the simulator UI. Keep it to the play-selection /
+// home screen only by hiding it whenever the simulator is active.
+function hideTeamBadgeInsideSimulator() {
+  if (document.getElementById("tcHideBadgeInSim")) return;
+  const style = document.createElement("style");
+  style.id = "tcHideBadgeInSim";
+  style.textContent =
+    "body.simulatorActive #tcUserBar{display:none !important;}";
+  document.head.appendChild(style);
 }
 
 // ---- Log in / Join team access (so players can onboard from the phone) ----
@@ -575,7 +565,20 @@ async function showMobileAccessButtons() {
     joinBtn.style.cssText = primaryStyle;
     joinBtn.onclick = goTeamLogin;
 
+    // No team → no team badge → give them a way to log out here.
+    const logoutBtn = document.createElement("button");
+    logoutBtn.type = "button";
+    logoutBtn.textContent = "Log out";
+    logoutBtn.style.cssText = secondaryStyle;
+    logoutBtn.onclick = async () => {
+      logoutBtn.disabled = true;
+      logoutBtn.textContent = "Logging out…";
+      try { await supabase.auth.signOut(); } catch (e) {}
+      window.location.reload();
+    };
+
     card.appendChild(joinBtn);
+    card.appendChild(logoutBtn);
   }
 
   // Sits above the "Enter folder code" card.
