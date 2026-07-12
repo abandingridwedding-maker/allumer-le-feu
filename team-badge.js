@@ -31,6 +31,10 @@ import { supabase } from "./supabase.js";
 
     const badge = document.createElement("div");
     badge.id = "tcTeamBadge";
+    // A stray duplicate CSS rule pins #tcTeamBadge with position:fixed, which
+    // pops it out of the row. Force it back into normal flow so the flex bar
+    // lays the badge and the logout button out side by side.
+    badge.style.position = "static";
     // Green tick + team name (tick coloured green even on the orange pill).
     badge.innerHTML =
       '<span style="color:#2ecc71;margin-right:6px;">✓</span>' + teamName;
