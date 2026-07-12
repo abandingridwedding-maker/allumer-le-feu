@@ -1428,6 +1428,36 @@ async function loadCoachFolders() {
   return data || [];
 }
 
+// --- Team coach role (for the folder visibility toggle) ---
+// Cached once per page load. The database RPC re-checks the role on every
+// toggle anyway, so this is only used to decide whether to SHOW the button.
+let cachedCoachTeamRole;
+
+async function getCoachTeamRole() {
+  if (cachedCoachTeamRole) return cachedCoachTeamRole;
+
+  const user = await getCurrentUser();
+  if (!user) {
+    cachedCoachTeamRole = { isCoach: false, teamCodeId: null };
+    return cachedCoachTeamRole;
+  }
+
+  const { data } = await supabase
+    .from("team_members")
+    .select("role, team_code_id")
+    .eq("user_id", user.id)
+    .eq("active", true)
+    .limit(1)
+    .maybeSingle();
+
+  cachedCoachTeamRole = {
+    isCoach: !!data && (data.role === "coach" || data.role === "head_coach"),
+    teamCodeId: data?.team_code_id || null
+  };
+
+  return cachedCoachTeamRole;
+}
+
 async function getOrCreateFolder(coachId, name) {
   const clean = name.trim();
 
@@ -1638,6 +1668,7 @@ async function openFoldersModal() {
   if (!modal || !list) return;
 
   const folders = await loadCoachFolders();
+  const teamRole = await getCoachTeamRole();
 
   list.innerHTML = folders.length
     ? ""
@@ -1647,6 +1678,23 @@ async function openFoldersModal() {
 
     const item = document.createElement("div");
     item.className = "folderCard";
+
+    // Team visibility toggle — only shown to coaches / head coaches of a team.
+    // The set_folder_visibility RPC re-checks role + ownership in the database.
+    const isVisible = !!folder.team_visible;
+
+    const teamVisibilityBlock = teamRole.isCoach
+      ? `
+      <div style="margin-top:12px;">
+        <button
+          data-toggle-visibility="${folder.id}"
+          data-visible="${isVisible ? "1" : "0"}"
+          style="width:100%;padding:10px 12px;border-radius:14px;border:2px solid ${isVisible ? "#16a34a" : "#bbb"};background:${isVisible ? "#e9f9ef" : "#f5f5f5"};color:${isVisible ? "#15803d" : "#555"};font-weight:800;cursor:pointer;"
+        >
+          ${isVisible ? "👁 Visible to team" : "🙈 Hidden from team"}
+        </button>
+      </div>`
+      : "";
 
     item.innerHTML = `
       <div class="folderTitle">
@@ -1660,6 +1708,8 @@ async function openFoldersModal() {
       <div class="shareCodeBadge">
         ${folder.share_code}
       </div>
+
+      ${teamVisibilityBlock}
 
       <div class="folderActions" style="margin-top:14px;">
 
@@ -1685,6 +1735,37 @@ async function openFoldersModal() {
     `;
 
     list.appendChild(item);
+
+    // TEAM VISIBILITY TOGGLE
+    const visBtn = item.querySelector("[data-toggle-visibility]");
+
+    if (visBtn) {
+      visBtn.onclick = async () => {
+        const makeVisible = visBtn.dataset.visible !== "1";
+
+        visBtn.disabled = true;
+        visBtn.textContent = "Updating...";
+
+        const { data, error } = await supabase.rpc("set_folder_visibility", {
+          p_folder_id: folder.id,
+          p_visible: makeVisible
+        });
+
+        if (error) {
+          alert(error.message);
+          openFoldersModal();
+          return;
+        }
+
+        if (data !== "OK") {
+          alert("Could not update visibility: " + data);
+          openFoldersModal();
+          return;
+        }
+
+        openFoldersModal();
+      };
+    }
 
     // COPY CODE BUTTON
     const copyBtn = item.querySelector("[data-copy]");

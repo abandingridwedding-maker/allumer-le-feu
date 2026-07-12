@@ -32,6 +32,33 @@ import { supabase } from "./supabase.js";
     bar.appendChild(badge);
   }
 
+  // My Team — home screen only, and only for head coaches.
+  // (The my-team.html page re-checks the role and bounces anyone else.)
+  if (isHome && teamName) {
+    const { data: membership } = await supabase
+      .from("team_members")
+      .select("role")
+      .eq("user_id", user.id)
+      .eq("active", true)
+      .limit(1)
+      .maybeSingle();
+
+    if (membership?.role === "head_coach") {
+      const myTeam = document.createElement("button");
+      myTeam.id = "tcMyTeamBtn";
+      myTeam.type = "button";
+      myTeam.textContent = "My Team";
+      myTeam.style.cssText =
+        "position:static;background:#fff;color:#F4571C;border:2px solid #F4571C;cursor:pointer;" +
+        "font-weight:800;font-size:13px;padding:5px 12px;border-radius:999px;white-space:nowrap;" +
+        "box-shadow:0 4px 14px rgba(0,0,0,.15);";
+      myTeam.onclick = () => {
+        window.location.href = "my-team.html";
+      };
+      bar.appendChild(myTeam);
+    }
+  }
+
   // Log out — home screen only.
   if (isHome) {
     const logout = document.createElement("button");

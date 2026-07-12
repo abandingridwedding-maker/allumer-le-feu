@@ -691,12 +691,64 @@ async function loadPlayablePlays(user) {
     sharedPlays = data || [];
   }
 
-  const combined = [...(ownedPlays || []), ...sharedPlays];
+  // Third source: plays in folders the team's coaches have made visible.
+  // No code needed — membership of the team is enough.
+  let teamPlays = [];
+
+  const { data: myMembership } = await supabase
+    .from("team_members")
+    .select("team_code_id")
+    .eq("user_id", user.id)
+    .eq("active", true)
+    .limit(1)
+    .maybeSingle();
+
+  if (myMembership?.team_code_id) {
+    const { data: teamFolders } = await supabase
+      .from("folders")
+      .select("id")
+      .eq("team_code_id", myMembership.team_code_id)
+      .eq("team_visible", true);
+
+    const teamFolderIds = (teamFolders || []).map(f => f.id);
+
+    if (teamFolderIds.length > 0) {
+      const { data: teamData } = await supabase
+        .from("plays")
+        .select(`
+          id,
+          name,
+          created_at,
+          play_data,
+          folder_id,
+          folders (
+            id,
+            name,
+            share_code
+          )
+        `)
+        .in("folder_id", teamFolderIds)
+        .order("created_at", { ascending: false });
+
+      teamPlays = teamData || [];
+    }
+  }
+
+  const teamPlayIds = new Set(teamPlays.map(p => p.id));
+
+  const combined = [...(ownedPlays || []), ...sharedPlays, ...teamPlays];
   const unique = new Map();
 
   combined.forEach(play => unique.set(play.id, play));
 
-  return Array.from(unique.values());
+  const result = Array.from(unique.values());
+
+  // Flag so the play list can show these in a separate "Team plays" section.
+  result.forEach(play => {
+    play._isTeamPlay = teamPlayIds.has(play.id);
+  });
+
+  return result;
 }
 
 async function openPlayFolder() {
@@ -721,7 +773,7 @@ async function openPlayFolder() {
     list.innerHTML = `<div class="emptyFolder">📂 No saved plays found.</div>`;
   }
 
-  plays.forEach(play => {
+  const renderPlayItem = (play) => {
     const item = document.createElement("div");
     item.className = "savedPlayItem";
 
@@ -741,7 +793,29 @@ async function openPlayFolder() {
     `;
 
     list.appendChild(item);
-  });
+  };
+
+  const sectionHeader = (text) => {
+    const header = document.createElement("div");
+    header.style.cssText =
+      "font-weight:900;font-size:15px;margin:10px 0 6px;color:#ff5a00;" +
+      "text-transform:uppercase;letter-spacing:1px;";
+    header.textContent = text;
+    list.appendChild(header);
+  };
+
+  const teamPlaysArr = plays.filter(p => p._isTeamPlay);
+  const otherPlaysArr = plays.filter(p => !p._isTeamPlay);
+
+  if (teamPlaysArr.length > 0) {
+    sectionHeader("🏉 Team plays");
+    teamPlaysArr.forEach(renderPlayItem);
+  }
+
+  if (otherPlaysArr.length > 0) {
+    if (teamPlaysArr.length > 0) sectionHeader("📂 My plays");
+    otherPlaysArr.forEach(renderPlayItem);
+  }
 
   list.querySelectorAll("[data-load]").forEach(btn => {
     btn.onclick = () => {
