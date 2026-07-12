@@ -219,7 +219,13 @@ if (codeFromUrl) {
   // No direct folder link — show whatever the head coach has made visible
   // to this player's team, automatically, right on the home screen.
   showTeamPlaysOnHome();
+  // …and give logged-out / teamless players a way to log in or join a team.
+  showMobileAccessButtons();
 }
+
+// A logged-in player always gets a Log out option on the home screen,
+// whether they arrived via a team, a folder code, or nothing yet.
+showMobileLogout();
 
 mobilePlayCode.addEventListener("keydown", e => {
   if (e.key === "Enter") joinTeamFolder();
@@ -448,7 +454,7 @@ async function showTeamPlaysOnHome() {
   card.id = "mobileTeamPlaysCard";
   card.innerHTML = `
     <label>Your Team Plays</label>
-    <div id="mobileTeamPlaysList" style="display:flex;flex-direction:column;gap:12px;"></div>
+    <div id="mobileTeamPlaysList" style="display:flex;flex-direction:column;gap:12px;max-height:38vh;overflow-y:auto;padding-right:4px;"></div>
   `;
 
   // Sits above the "Enter folder code" card — team plays first, code second.
@@ -469,6 +475,111 @@ async function showTeamPlaysOnHome() {
     };
     list.appendChild(btn);
   });
+}
+
+async function showMobileLogout() {
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session) return; // nobody logged in → nothing to log out of
+  if (document.getElementById("mobileLogoutBtn")) return;
+  if (!mobileHome) return;
+
+  const btn = document.createElement("button");
+  btn.id = "mobileLogoutBtn";
+  btn.type = "button";
+  btn.textContent = "Log out";
+  btn.style.cssText =
+    "display:block;margin:18px auto 6px;background:none;border:none;" +
+    "color:#888;font-size:14px;font-weight:600;text-decoration:underline;cursor:pointer;";
+  btn.onclick = async () => {
+    btn.disabled = true;
+    btn.textContent = "Logging out…";
+    try { await supabase.auth.signOut(); } catch (e) {}
+    window.location.reload();
+  };
+
+  // Sits at the very bottom of the home screen, under the code card.
+  mobileHome.appendChild(btn);
+}
+
+// ---- Log in / Join team access (so players can onboard from the phone) ----
+// team-login.html handles login + team-code entry and, on success, lands on
+// index.html which bounces a phone straight back here — so the player returns
+// already a team member with their team plays loaded.
+async function showMobileAccessButtons() {
+  if (document.getElementById("mobileAccessCard")) return;
+  if (!mobileHome) return;
+
+  const codeCard = document.querySelector(".mobileCodeCard");
+  if (!codeCard) return;
+
+  const { data: { session } } = await supabase.auth.getSession();
+
+  let onTeam = false;
+  if (session) {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (user) {
+      const { data: membership } = await supabase
+        .from("team_members")
+        .select("team_code_id")
+        .eq("user_id", user.id)
+        .eq("active", true)
+        .limit(1)
+        .maybeSingle();
+      onTeam = !!membership?.team_code_id;
+    }
+  }
+
+  // Logged in AND already on a team → team plays cover it, nothing to add.
+  if (session && onTeam) return;
+
+  const primaryStyle =
+    "display:block;width:100%;box-sizing:border-box;margin-top:8px;padding:16px;" +
+    "border:none;border-radius:16px;background:#F4571C;color:#fff;font-size:16px;" +
+    "font-weight:800;cursor:pointer;";
+  const secondaryStyle =
+    "display:block;width:100%;box-sizing:border-box;margin-top:10px;padding:14px;" +
+    "border:2px solid #F4571C;border-radius:16px;background:#fff;color:#F4571C;" +
+    "font-size:15px;font-weight:800;cursor:pointer;";
+
+  const card = document.createElement("section");
+  card.className = "mobileCodeCard";
+  card.id = "mobileAccessCard";
+  card.innerHTML = `<label>Your Team</label>`;
+
+  const goTeamLogin = () => { window.location.href = "team-login.html"; };
+
+  if (!session) {
+    // Logged out: log in (returns here), or join a team (logs in on the way).
+    const loginBtn = document.createElement("button");
+    loginBtn.type = "button";
+    loginBtn.textContent = "Log in";
+    loginBtn.style.cssText = primaryStyle;
+    loginBtn.onclick = () => {
+      window.location.href =
+        "auth.html?next=" + encodeURIComponent("mobile-simulator.html");
+    };
+
+    const joinBtn = document.createElement("button");
+    joinBtn.type = "button";
+    joinBtn.textContent = "Join your team";
+    joinBtn.style.cssText = secondaryStyle;
+    joinBtn.onclick = goTeamLogin;
+
+    card.appendChild(loginBtn);
+    card.appendChild(joinBtn);
+  } else {
+    // Logged in but not on a team: enter the coach's team code.
+    const joinBtn = document.createElement("button");
+    joinBtn.type = "button";
+    joinBtn.textContent = "Join your team";
+    joinBtn.style.cssText = primaryStyle;
+    joinBtn.onclick = goTeamLogin;
+
+    card.appendChild(joinBtn);
+  }
+
+  // Sits above the "Enter folder code" card.
+  mobileHome.insertBefore(card, codeCard);
 }
 
 function showPlaySelection() {
