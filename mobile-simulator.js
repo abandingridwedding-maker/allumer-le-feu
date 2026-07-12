@@ -215,6 +215,10 @@ if (codeFromUrl) {
   setTimeout(() => {
     joinTeamFolder();
   }, 500);
+} else {
+  // No direct folder link — show whatever the head coach has made visible
+  // to this player's team, automatically, right on the home screen.
+  showTeamPlaysOnHome();
 }
 
 mobilePlayCode.addEventListener("keydown", e => {
@@ -387,6 +391,84 @@ async function joinTeamFolder() {
 
   localStorage.removeItem("pending_mobile_folder_code");
   showPlaySelection();
+}
+
+// ---- Team-visible plays (the second way to see plays on the phone) -------
+// A logged-in player automatically sees every play in folders the head coach
+// has toggled "Visible to team". No code required — being on the team is
+// enough. This is the same source the big-screen simulator already uses.
+async function loadTeamVisiblePlays() {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return [];
+
+  const { data: myMembership } = await supabase
+    .from("team_members")
+    .select("team_code_id")
+    .eq("user_id", user.id)
+    .eq("active", true)
+    .limit(1)
+    .maybeSingle();
+
+  if (!myMembership?.team_code_id) return [];
+
+  const { data: teamFolders } = await supabase
+    .from("folders")
+    .select("id, name")
+    .eq("team_code_id", myMembership.team_code_id)
+    .eq("team_visible", true);
+
+  const teamFolderIds = (teamFolders || []).map(f => f.id);
+  if (!teamFolderIds.length) return [];
+
+  const { data: teamData } = await supabase
+    .from("plays")
+    .select("id, name, play_data, created_at, folder_id, folders ( id, name, share_code )")
+    .in("folder_id", teamFolderIds)
+    .order("created_at", { ascending: false });
+
+  return teamData || [];
+}
+
+async function showTeamPlaysOnHome() {
+  let teamPlays = [];
+  try {
+    teamPlays = await loadTeamVisiblePlays();
+  } catch (e) {
+    return; // never let this break the home screen
+  }
+
+  if (!teamPlays.length) return;
+  if (document.getElementById("mobileTeamPlaysCard")) return;
+
+  const codeCard = document.querySelector(".mobileCodeCard");
+  if (!mobileHome || !codeCard) return;
+
+  const card = document.createElement("section");
+  card.className = "mobileCodeCard";
+  card.id = "mobileTeamPlaysCard";
+  card.innerHTML = `
+    <label>Your Team Plays</label>
+    <div id="mobileTeamPlaysList" style="display:flex;flex-direction:column;gap:12px;"></div>
+  `;
+
+  // Sits above the "Enter folder code" card — team plays first, code second.
+  mobileHome.insertBefore(card, codeCard);
+
+  const list = card.querySelector("#mobileTeamPlaysList");
+
+  teamPlays.forEach(play => {
+    const btn = document.createElement("button");
+    btn.className = "mobilePlayChoiceBtn";
+    btn.textContent = play.name;
+    btn.onclick = () => {
+      // Set the folder so completed reps still log back to the coach, and let
+      // "Choose Play" inside the sim list the other plays from the same folder.
+      folder = { id: play.folder_id, name: play.folders?.name || "Team" };
+      plays = teamPlays.filter(p => p.folder_id === play.folder_id);
+      openPlay(play);
+    };
+    list.appendChild(btn);
+  });
 }
 
 function showPlaySelection() {
