@@ -310,8 +310,36 @@
           'auth.html?next=' + encodeURIComponent(destination)
       }
     })
+
+    // Show a Log out button on the homepage only — and only when already
+    // signed in. Not gated on team membership, so any logged-in account gets it.
+    ;(async () => {
+      const {
+        data: { session }
+      } = await supabase.auth.getSession()
+      if (!session) return
+      if (document.getElementById('homeLogoutBtn')) return
+
+      const btn = document.createElement('button')
+      btn.id = 'homeLogoutBtn'
+      btn.type = 'button'
+      btn.textContent = 'Log out'
+      btn.style.cssText =
+        'position:fixed;top:16px;right:16px;z-index:10000;background:#fff;' +
+        'border:2px solid #e2e2e2;border-radius:999px;padding:9px 20px;' +
+        'font-size:14px;font-weight:800;color:#333;cursor:pointer;' +
+        'box-shadow:0 4px 14px rgba(0,0,0,.12);'
+      btn.onmouseenter = () => { btn.style.borderColor = '#F4571C'; btn.style.color = '#F4571C' }
+      btn.onmouseleave = () => { btn.style.borderColor = '#e2e2e2'; btn.style.color = '#333' }
+      btn.onclick = async () => {
+        btn.disabled = true
+        btn.textContent = 'Logging out…'
+        try { await supabase.auth.signOut() } catch (e) {}
+        window.location.reload()
+      }
+      document.body.appendChild(btn)
+    })()
   </script>
 <script type="module" src="paywall.js"></script>
-<script type="module" src="team-badge.js"></script>
 </body>
 </html>
